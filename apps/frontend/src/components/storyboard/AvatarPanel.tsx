@@ -194,8 +194,10 @@ export function AvatarPanel({ storyboard }: AvatarPanelProps) {
           {panelState === "active" && credentials && (
             <div className="overflow-hidden rounded-lg border border-[var(--border)]">
               <AvatarCall
+                avatarId={AVATAR_ID}
                 credentials={credentials}
-                onDisconnected={disconnect}
+                onEnd={disconnect}
+                onError={() => { disconnect(); setPanelState("error"); setErrorMsg("Session ended unexpectedly."); }}
                 className="w-full"
               />
             </div>
