@@ -112,14 +112,14 @@ function DirectorCanvas() {
           "Direct a 30-second sci-fi opening: a lone astronaut steps onto a glass-domed alien city at golden hour. 4 shots.",
       },
       {
-        title: "Product launch",
+        title: "Product reveal",
         message:
           "Direct a 20-second cinematic product reveal for a wireless ceramic coffee mug, premium minimalist style. 4 shots.",
       },
       {
         title: "Travel reel",
         message:
-          "Direct a 25-second travel reel for Lisbon, blue hour, tram-and-tile aesthetic. 5 shots.",
+          "Direct a 25-second travel reel for Lisbon at blue hour — trams, azulejo tiles, the river. 5 shots.",
       },
       {
         title: "Vertical TikTok",
@@ -329,18 +329,30 @@ function DirectorCanvas() {
 
         {state.shots.length === 0 ? (
           <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border bg-card/40 p-12 text-center">
-            <div className="max-w-md space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Give the director a brief in the chat — e.g.{" "}
-                <span className="font-mono text-foreground">
-                  &ldquo;Direct a 30s sci-fi opener: lone astronaut on a glass-
-                  domed alien city at golden hour.&rdquo;
-                </span>
+            <div className="max-w-lg space-y-4">
+              <p className="text-base font-medium text-foreground">
+                Give the director a brief
               </p>
-              <p className="text-xs text-muted-foreground/80">
+              <p className="text-sm text-muted-foreground">
                 The agent decomposes your brief into shots, generates a Runway
-                still for each, then animates each into a clip — all here on
-                the canvas.
+                reference still for each, animates every still into a clip, and
+                stitches a final MP4 — all here on the canvas, in real time.
+              </p>
+              <p className="text-xs text-muted-foreground/70">
+                Try a suggestion chip below, or type your own brief.{" "}
+                {!runwayKey && (
+                  <>
+                    No Runway key?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setShowKeyPanel(true)}
+                      className="underline hover:text-foreground"
+                    >
+                      Add yours
+                    </button>{" "}
+                    or run in MOCK mode — same UI, placeholder media, no credits.
+                  </>
+                )}
               </p>
             </div>
           </div>

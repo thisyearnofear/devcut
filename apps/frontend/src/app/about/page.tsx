@@ -1,183 +1,23 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  BookOpen,
-  Boxes,
-  Code2,
-  Cpu,
-  Github,
-  KeyRound,
-  Layers,
-  Plug,
-  Rocket,
-  Server,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, Clapperboard, Code2, Film, KeyRound, Layers, Sparkles, Zap } from "lucide-react";
 import { AboutToc, type TocItem } from "./toc";
 
 export const metadata = {
-  title:
-    "About — Generative UI · Global Agents · Agentic Interfaces Hackathon Starter",
+  title: "About — Director's Canvas",
   description:
-    "What ships with the kit, how to run it, and where to start hacking.",
+    "How Director's Canvas turns a one-line brief into a stitched MP4 — architecture, Runway API usage, and how to run it.",
 };
 
 const tocItems: TocItem[] = [
   { id: "overview", label: "Overview" },
-  { id: "about", label: "About this Kit" },
+  { id: "how-it-works", label: "How it works" },
+  { id: "runway", label: "Runway API" },
+  { id: "consistency", label: "Character consistency" },
+  { id: "byok", label: "BYOK + budget" },
+  { id: "stack", label: "Stack" },
   { id: "quickstart", label: "Quickstart" },
-  { id: "demos", label: "Demo prompts" },
-  { id: "customize", label: "Customization" },
-  { id: "vibe-coding", label: "Vibe coding" },
-  { id: "env", label: "Required keys" },
-  { id: "docs", label: "Documentation" },
-];
-
-const pillars = [
-  {
-    name: "CopilotKit",
-    icon: Sparkles,
-    href: "https://docs.copilotkit.ai",
-    blurb:
-      "Connects your app's logic, state, and user context to AI agents — across embedded UIs and headless interfaces. Ships with CopilotKit Intelligence wired in: durable Postgres-backed threads, a runtime that bridges any LangGraph agent, and built-in support for generative UI and MCP App composition.",
-  },
-  {
-    name: "LangChain Deep Agents",
-    icon: Cpu,
-    href: "https://github.com/langchain-ai/deepagents",
-    blurb:
-      "A Python framework that gives an LLM built-in planning, sub-agent dispatch, a virtual filesystem, and a TODO loop — the patterns popularized by Claude Code and Manus, packaged as a single create_deep_agent(...) call on top of LangGraph. The kit uses Deep Agents as the brain behind the canvas.",
-  },
-  {
-    name: "Gemini",
-    icon: Rocket,
-    href: "https://ai.google.dev/gemini-api/docs",
-    blurb:
-      "Gemini 3.1 Flash-Lite is Google's high-volume workhorse — fast, cheap, and tool-calling-capable. Default for chat. Drop in an API key from Google AI Studio, restart, and you're done. Switch to Pro, OpenAI, Anthropic, or Ollama with a one-line edit.",
-  },
-  {
-    name: "A2UI",
-    icon: Layers,
-    href: "https://a2ui.org",
-    blurb:
-      "A protocol for agent-driven interfaces — lets agents generate rich, interactive UI that renders natively across web, mobile, and desktop without executing arbitrary code. Sandboxed-by-default; pairs naturally with Gemini-emitted generative UI. Browse the custom catalog at a2ui-composer.ag-ui.com for component examples.",
-  },
-  {
-    name: "Notion MCP",
-    icon: Plug,
-    href: "https://github.com/makenotion/notion-mcp-server",
-    blurb:
-      "Notion's official MCP server gives the agent first-class read/write access to a Notion workspace via the open Model Context Protocol. The kit calls it through mcp-use — no broker, no OAuth dance, just a Notion integration token and a per-database share. Swap in Linear, Slack, GitHub, or Drive MCP servers by changing one config dict.",
-  },
-  {
-    name: "Manufact (mcp-use)",
-    icon: Server,
-    href: "https://mcp-use.com",
-    blurb:
-      "A deployment platform for MCP servers built on the open-source mcp-use framework. The kit's apps/mcp/ package is a single-file MCP server that gives the agent a third surface — runnable inside Claude or ChatGPT directly. One command tunnels publicly; one command deploys to Manufact Cloud.",
-  },
-  {
-    name: "Daytona",
-    icon: Boxes,
-    href: "https://www.daytona.io",
-    blurb:
-      "Secure, elastic infrastructure runtime for AI-generated code execution and agent workflows. Sandboxes spin up in under 90ms with full isolation — dedicated kernel, filesystem, network, and allocated vCPU/RAM/disk — and run any Python, TypeScript, or JavaScript. A natural fit when an agent needs to execute generated code or persist a workspace across sessions.",
-  },
-];
-
-const quickstart = [
-  {
-    title: "Run the CLI",
-    body: "npx @copilotkit/cli@latest init",
-    note: "Select Intelligence when prompted.",
-  },
-  {
-    title: "Add your Gemini key",
-    body: "GEMINI_API_KEY=AIza...",
-    note: "Get a key at aistudio.google.com → Get API key. Drop it in BOTH .env and apps/agent/.env (the agent reads its own dotenv).",
-  },
-  {
-    title: "Install + run",
-    body: "npm install && npm run dev",
-    note: "Boots the Docker infra (Postgres + Redis + Intelligence), then UI + BFF + agent. Use npm run dev:full to also start the MCP server.",
-  },
-];
-
-const demos = [
-  {
-    label: "Notion MCP (external integration)",
-    items: [
-      "Import the workshop leads from Notion.",
-    ],
-  },
-  {
-    label: "Canvas (agent-driven UI)",
-    items: [
-      "What's the most requested workshop?",
-      "Open Ethan Moore.",
-      "Show me demand stats.",
-    ],
-  },
-  {
-    label: "Multi-step planning (Deep Agents)",
-    items: [
-      "Draft an email to Ethan.",
-    ],
-  },
-  {
-    label: "Intelligence (durable threads)",
-    items: [
-      "Open my last thread from earlier.",
-      "Reload the browser. The conversation is still in the sidebar.",
-    ],
-  },
-  {
-    label: "Manufact MCP — needs npm run dev:full",
-    items: ["Use the Manufact tool to show a sample widget."],
-  },
-];
-
-const docs = [
-  { label: "CopilotKit docs", href: "https://docs.copilotkit.ai" },
-  {
-    label: "Intelligence Platform",
-    href: "https://docs.copilotkit.ai/learn/intelligence-platform",
-  },
-  {
-    label: "Coding Agents (vibe coding)",
-    href: "https://docs.copilotkit.ai/coding-agents",
-  },
-  {
-    label: "CopilotKit Skills",
-    href: "https://github.com/CopilotKit/skills",
-  },
-  {
-    label: "LangChain Deep Agents",
-    href: "https://github.com/langchain-ai/deepagents",
-  },
-  { label: "Gemini API", href: "https://ai.google.dev/gemini-api/docs" },
-  { label: "Notion MCP server", href: "https://github.com/makenotion/notion-mcp-server" },
-  { label: "Model Context Protocol", href: "https://modelcontextprotocol.io" },
-  {
-    label: "Manufact / mcp-use",
-    href: "https://mcp-use.com/docs/typescript/getting-started/quickstart",
-  },
-  { label: "A2UI", href: "https://a2ui.org" },
-  { label: "Daytona", href: "https://github.com/daytonaio/daytona" },
-];
-
-const repoDocs = [
-  { label: "Setup", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/setup.md" },
-  { label: "Architecture", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/architecture.md" },
-  { label: "Customization", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/customization.md" },
-  { label: "Model switching", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/model-switching.md" },
-  { label: "MCP server", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/mcp-server.md" },
-  { label: "Threads / Intelligence", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/threads.md" },
-  { label: "Vibe coding", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/vibe-coding.md" },
-  { label: "Demo prompts", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/demo-prompts.md" },
-  { label: "Troubleshooting", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/troubleshooting.md" },
-  { label: "Scripts", href: "https://github.com/jerelvelarde/Generative-UI-Global-Hackathon-Starter-Kit/blob/main/dev-docs/scripts.md" },
+  { id: "docs", label: "Docs" },
 ];
 
 function Section({
@@ -195,17 +35,15 @@ function Section({
 }) {
   return (
     <section id={id} className="mt-16 scroll-mt-12 first:mt-0">
-      {eyebrow ? (
+      {eyebrow && (
         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-accent">
           {eyebrow}
         </p>
-      ) : null}
+      )}
       <h2 className="text-2xl font-semibold text-foreground">{title}</h2>
-      {subtitle ? (
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          {subtitle}
-        </p>
-      ) : null}
+      {subtitle && (
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{subtitle}</p>
+      )}
       <div className="mt-6">{children}</div>
     </section>
   );
@@ -219,6 +57,56 @@ function Code({ children }: { children: React.ReactNode }) {
   );
 }
 
+const pipeline = [
+  {
+    icon: Clapperboard,
+    step: "1. Brief",
+    body: "You type a one-line brief. The agent decomposes it into 3–6 shots with cinematic prompts — subject, action, lighting, mood.",
+  },
+  {
+    icon: Sparkles,
+    step: "2. Reference stills",
+    body: "Shot 0 calls Runway gen4_image. Shots 1+ call gen4_image_turbo with shot 0's image as a character anchor — 2–4× cheaper, <10 s each.",
+  },
+  {
+    icon: Film,
+    step: "3. Animation",
+    body: "Each reference still is animated via Runway gen4.5 (image→video). The shot's own reference is the first frame, so visual style carries directly into motion.",
+  },
+  {
+    icon: Zap,
+    step: "4. Export",
+    body: "FFmpeg concatenates all clips into a single MP4, served directly from the frontend. One button. No NLE required.",
+  },
+];
+
+const stack = [
+  { layer: "Agent", tech: "LangGraph Deep Agents + Gemini 3.1 Flash-Lite" },
+  { layer: "Video", tech: "Runway Gen-4 Image / Gen-4 Image Turbo / Gen-4.5" },
+  { layer: "Transport", tech: "AG-UI + CopilotKit Intelligence (durable threads)" },
+  { layer: "UI", tech: "Next.js + React + useFrontendTool (A2UI pattern)" },
+  { layer: "BFF", tech: "Hono — CopilotKit runtime + BYOK injection + budget guard" },
+  { layer: "Export", tech: "FFmpeg concat (LIVE) / placeholder URL (MOCK)" },
+  { layer: "MCP", tech: "mcp-use server — exposes the director to Claude / ChatGPT" },
+];
+
+const docs = [
+  { label: "Concept", href: "/docs/concept.md" },
+  { label: "Architecture", href: "/docs/architecture.md" },
+  { label: "Setup", href: "/docs/setup.md" },
+  { label: "Customization", href: "/docs/customization.md" },
+  { label: "Roadmap", href: "/docs/roadmap.md" },
+  { label: "Hackathon submission", href: "/docs/hackathons.md" },
+];
+
+const externalDocs = [
+  { label: "Runway API docs", href: "https://docs.dev.runwayml.com" },
+  { label: "CopilotKit docs", href: "https://docs.copilotkit.ai" },
+  { label: "LangChain Deep Agents", href: "https://github.com/langchain-ai/deepagents" },
+  { label: "Gemini API", href: "https://ai.google.dev/gemini-api/docs" },
+  { label: "Model Context Protocol", href: "https://modelcontextprotocol.io" },
+];
+
 export default function AboutPage() {
   return (
     <div className="mx-auto flex max-w-6xl gap-12 px-6 py-12 md:px-12 md:py-16">
@@ -228,365 +116,290 @@ export default function AboutPage() {
           className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-accent"
         >
           <ArrowLeft size={14} aria-hidden />
-          Back to home
+          Back to canvas
         </Link>
 
         <header id="overview" className="scroll-mt-12">
-        <p className="mb-3 text-xs font-medium uppercase tracking-widest text-accent">
-          Hackathon Starter
-        </p>
-        <h1 className="text-4xl font-semibold leading-tight text-foreground md:text-5xl">
-          Generative UI{" "}
-          <span className="text-muted-foreground/60">·</span> Global Agents{" "}
-          <span className="text-muted-foreground/60">·</span> Agentic
-          Interfaces
-        </h1>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          A complete AI agent starter for hackathon teams: durable
-          conversation threads, an agent-driven canvas, real external
-          integrations, and a deployable MCP App — all in one repo.
-        </p>
-        <div className="mt-6 overflow-hidden rounded-xl border bg-muted">
-          <Image
-            src="/banner.jpg"
-            alt="Hackathon banner"
-            width={1280}
-            height={420}
-            priority
-            className="h-auto w-full object-cover"
-          />
-        </div>
-      </header>
+          <p className="mb-3 text-xs font-medium uppercase tracking-widest text-accent">
+            Runway API Hackathon
+          </p>
+          <h1 className="text-4xl font-semibold leading-tight text-foreground md:text-5xl">
+            Director&apos;s Canvas
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            Agent-directed video production as a generative interface. Type a
+            one-line brief — watch a LangGraph agent decompose it into shots,
+            generate Runway reference stills, animate each into a clip, and
+            stitch a final MP4. The agent&apos;s output <em>is</em> the
+            interface.
+          </p>
+          <div className="mt-6 overflow-hidden rounded-xl border bg-muted">
+            <Image
+              src="/banner.jpg"
+              alt="Director's Canvas — storyboard timeline with shot cards"
+              width={1280}
+              height={420}
+              priority
+              className="h-auto w-full object-cover"
+            />
+          </div>
+        </header>
 
-      <Section
-        id="about"
-        eyebrow="What you get"
-        title="About this Starter Kit"
-        subtitle="Seven well-known pieces, wired together so a team of two can ship something credible in 24–48 hours."
-      >
-        <ul className="grid gap-4 md:grid-cols-2">
-          {pillars.map(({ name, icon: Icon, blurb, href }) => (
-            <li
-              key={name}
-              className="rounded-xl border bg-card p-5 shadow-sm"
-            >
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accent/10 text-accent">
-                  <Icon size={16} aria-hidden />
+        <Section
+          id="how-it-works"
+          eyebrow="Pipeline"
+          title="How it works"
+          subtitle="A single brief flows through four stages. Every Runway call returns a state mutation — that's why the canvas paints live."
+        >
+          <ol className="space-y-4">
+            {pipeline.map(({ icon: Icon, step, body }) => (
+              <li key={step} className="flex gap-4 rounded-xl border bg-card p-5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+                  <Icon size={18} aria-hidden />
                 </span>
-                <h3 className="text-base font-semibold text-foreground">
-                  {name}
-                </h3>
-              </div>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                {blurb}
-              </p>
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
-              >
-                More about {name}
-                <span aria-hidden>→</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </Section>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{step}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Section>
 
-      <Section
-        id="quickstart"
-        eyebrow="Get running"
-        title="Quickstart"
-        subtitle="Three steps from clone to first agent reply."
-      >
-        <ol className="space-y-3">
-          {quickstart.map((step, idx) => (
-            <li key={step.title} className="rounded-xl border bg-card p-5">
-              <div className="flex items-center gap-3">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border bg-background text-xs font-semibold text-foreground">
-                  {idx + 1}
-                </span>
-                <h3 className="text-base font-semibold text-foreground">
-                  {step.title}
-                </h3>
-              </div>
-              <pre className="mt-3 overflow-x-auto rounded-md border bg-muted px-4 py-3 font-mono text-sm text-foreground">
-                {step.body}
-              </pre>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                {step.note}
+        <Section
+          id="runway"
+          eyebrow="Runway API"
+          title="What makes the Runway usage non-trivial"
+          subtitle="Standard integrations call image_to_video once and return a URL. Director's Canvas does something structurally different."
+        >
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-card p-5">
+              <p className="text-sm font-semibold text-foreground">Context-aware model selection</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                The agent picks the right model automatically.{" "}
+                <Code>gen4_image</Code> for shot 0 (no prior refs available).{" "}
+                <Code>gen4_image_turbo</Code> for shots 1+ (refs available,
+                2–4× cheaper, &lt;10 s). <Code>gen4.5</Code> for all
+                image→video animation. No user decision required.
               </p>
-            </li>
-          ))}
-        </ol>
-        <p className="mt-4 text-sm text-muted-foreground">
-          On a fresh clone, <Code>.env.example</Code> ships a placeholder
-          Gemini key; chat fails until you replace it. The agent will print a
-          warning at startup so you don&apos;t miss it.
-        </p>
-      </Section>
+            </div>
+            <div className="rounded-xl border bg-card p-5">
+              <p className="text-sm font-semibold text-foreground">Chained state across N calls</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Shot 0 runs synchronously first. Its reference URL is promoted
+                to <Code>storyboard.style_ref_url</Code> and passed as{" "}
+                <Code>character1</Code> to every subsequent{" "}
+                <Code>gen4_image_turbo</Code> call. Shots 1+ run in parallel
+                (bounded to 4 concurrent) with that anchor in place.
+              </p>
+            </div>
+            <div className="rounded-xl border bg-card p-5">
+              <p className="text-sm font-semibold text-foreground">Agent-directed iteration</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                &ldquo;Regenerate shot 3 — make it more dramatic.&rdquo; The
+                agent rewrites the prompt, re-calls Runway, and patches only
+                that shot&apos;s state. The rest of the storyboard is
+                untouched.
+              </p>
+            </div>
+            <div className="rounded-xl border bg-card p-5">
+              <p className="text-sm font-semibold text-foreground">Full pipeline to a deliverable</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                The agent doesn&apos;t stop at a URL. It calls FFmpeg to
+                concat all clips into a single MP4 and serves it directly from
+                the frontend. The output is something you can actually share.
+              </p>
+            </div>
+          </div>
+        </Section>
 
-      <Section
-        id="demos"
-        eyebrow="Try it out"
-        title="Demo prompts"
-        subtitle="Drop these into the chat to exercise each layer of the stack."
-      >
-        <div className="space-y-6">
-          {demos.map((group) => (
-            <div key={group.label}>
-              <h3 className="mb-2 text-sm font-semibold text-foreground">
-                {group.label}
-              </h3>
+        <Section
+          id="consistency"
+          eyebrow="Cross-shot consistency"
+          title="How character consistency works"
+          subtitle="The astronaut in shot 4 looks like the astronaut in shot 1 — not because the user re-uploaded anything."
+        >
+          <div className="rounded-xl border bg-card p-5 text-sm leading-relaxed text-muted-foreground space-y-3">
+            <p>
+              <Code>gen4_image_turbo</Code> accepts up to 3{" "}
+              <Code>referenceImages</Code>. Director&apos;s Canvas exploits
+              this to keep characters and visual style coherent across shots:
+            </p>
+            <ul className="ml-4 list-disc space-y-1">
+              <li>
+                <strong className="text-foreground">character1</strong> — shot
+                0&apos;s reference still (the primary anchor, always first)
+              </li>
+              <li>
+                <strong className="text-foreground">style1</strong> — the
+                immediately preceding shot&apos;s reference (local continuity)
+              </li>
+              <li>
+                <strong className="text-foreground">style2</strong> — the shot
+                two positions back (extra reinforcement for longer storyboards)
+              </li>
+            </ul>
+            <p>
+              The prompt can address the anchor explicitly:{" "}
+              <Code>@character1 walks through the airlock</Code>. The{" "}
+              <span className="font-medium text-violet-600">Consistent</span>{" "}
+              pill in the canvas header lights up once the anchor is set.
+            </p>
+          </div>
+        </Section>
+
+        <Section
+          id="byok"
+          eyebrow="Access"
+          title="BYOK + budget guard"
+        >
+          <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
+            <div className="rounded-xl border bg-card p-5">
+              <p className="font-semibold text-foreground">Bring Your Own Key</p>
+              <p className="mt-2">
+                Click <strong>Add Key</strong> in the canvas header to enter
+                your Runway API key. It&apos;s stored in localStorage, sent as{" "}
+                <Code>X-Runway-Api-Key</Code> on every request, and injected
+                into the agent via LangGraph configurable. It is never logged.
+                When your key is active, charges go to your Runway account and
+                the per-thread budget check is skipped.
+              </p>
+            </div>
+            <div className="rounded-xl border bg-card p-5">
+              <p className="font-semibold text-foreground">Per-thread budget guard</p>
+              <p className="mt-2">
+                When using the shared server key, the BFF injects{" "}
+                <Code>runway_calls_remaining</Code> into every request. The
+                agent checks this before each Runway call and raises{" "}
+                <Code>BudgetExceededError</Code> when it hits 0 (default: 20
+                calls ≈ 10 shots). The error surfaces in chat with a clear
+                message and a prompt to add your own key.
+              </p>
+            </div>
+            <div className="rounded-xl border bg-card p-5">
+              <p className="font-semibold text-foreground">MOCK mode</p>
+              <p className="mt-2">
+                No <Code>RUNWAY_API_KEY</Code> set? The full pipeline runs with
+                deterministic placeholder media — same canvas, same status
+                pills, same export flow. Anyone can try it without burning
+                credits.
+              </p>
+            </div>
+          </div>
+        </Section>
+
+        <Section
+          id="stack"
+          eyebrow="Technology"
+          title="Stack"
+        >
+          <div className="overflow-hidden rounded-xl border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Layer</th>
+                  <th className="px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Technology</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stack.map(({ layer, tech }, i) => (
+                  <tr key={layer} className={i % 2 === 0 ? "bg-card" : "bg-background"}>
+                    <td className="px-4 py-3 font-mono text-[12px] text-foreground">{layer}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{tech}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+
+        <Section
+          id="quickstart"
+          eyebrow="Get running"
+          title="Quickstart"
+        >
+          <ol className="space-y-3">
+            {[
+              {
+                title: "Init CopilotKit Intelligence",
+                body: "npx @copilotkit/cli@latest init",
+                note: "Select Intelligence when prompted. This sets up the Postgres-backed thread store.",
+              },
+              {
+                title: "Add your keys",
+                body: "cp .env.example .env && cp .env apps/agent/.env",
+                note: "Set GEMINI_API_KEY in both files. Optionally set RUNWAY_API_KEY — without it the director runs in MOCK mode (same UI, deterministic placeholder media, no credits burned).",
+              },
+              {
+                title: "Install + run",
+                body: "npm install && npm run dev",
+                note: "Boots the Docker infra (Postgres + Redis + Intelligence), then UI + BFF + agent. Open localhost:3000 → /director.",
+              },
+            ].map((step, idx) => (
+              <li key={step.title} className="rounded-xl border bg-card p-5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full border bg-background text-xs font-semibold text-foreground">
+                    {idx + 1}
+                  </span>
+                  <h3 className="text-base font-semibold text-foreground">{step.title}</h3>
+                </div>
+                <pre className="mt-3 overflow-x-auto rounded-md border bg-muted px-4 py-3 font-mono text-sm text-foreground">
+                  {step.body}
+                </pre>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{step.note}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-4 flex items-start gap-3 rounded-xl border bg-card p-4">
+            <KeyRound size={16} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+            <p className="text-sm text-muted-foreground">
+              No Runway key? That&apos;s fine — MOCK mode runs the full pipeline
+              with placeholder media. Add your key via the{" "}
+              <strong className="text-foreground">Add Key</strong> button in the
+              canvas header at any time.
+            </p>
+          </div>
+        </Section>
+
+        <Section id="docs" eyebrow="Reference" title="Documentation">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-foreground">In this repo</h3>
               <ul className="space-y-2">
-                {group.items.map((item) => (
-                  <li
-                    key={item}
-                    className="rounded-lg border bg-card px-4 py-3 text-sm text-foreground"
-                  >
-                    &ldquo;{item}&rdquo;
+                {docs.map((d) => (
+                  <li key={d.href}>
+                    <a
+                      href={d.href}
+                      className="block rounded-md border bg-card px-3 py-2 text-sm text-foreground hover:border-accent/40 hover:text-accent"
+                    >
+                      {d.label}
+                    </a>
                   </li>
                 ))}
               </ul>
             </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section
-        id="customize"
-        eyebrow="Make it yours"
-        title="Customization"
-      >
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2">
-              <Code2 size={16} className="text-accent" aria-hidden />
-              <h3 className="text-sm font-semibold text-foreground">
-                Add a frontend tool
-              </h3>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Register a new <Code>useFrontendTool</Code> in{" "}
-              <Code>apps/frontend/src/app/leads/page.tsx</Code> with the
-              parameters it accepts and a handler that mutates state. Tell
-              the agent about it in <Code>apps/agent/src/prompts.py</Code>.
-              Anything you don&apos;t give a dedicated render slot will
-              fall through to the generic CopilotKit-branded card.
-            </p>
-          </div>
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2">
-              <Plug size={16} className="text-accent" aria-hidden />
-              <h3 className="text-sm font-semibold text-foreground">
-                Swap the integration MCP server
-              </h3>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Pick a different MCP server from the{" "}
-              <a
-                className="text-accent hover:underline"
-                href="https://github.com/modelcontextprotocol/servers"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                MCP server registry
-              </a>
-              , swap the <Code>mcpServers</Code> config dict in{" "}
-              <Code>apps/agent/src/notion_mcp.py</Code>, then edit{" "}
-              <Code>INTEGRATION_PROMPT</Code> in{" "}
-              <Code>apps/agent/src/prompts.py</Code> with the new vocabulary.
-              Restart the agent. Done.
-            </p>
-          </div>
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2">
-              <Server size={16} className="text-accent" aria-hidden />
-              <h3 className="text-sm font-semibold text-foreground">
-                Add an MCP App tool
-              </h3>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Edit <Code>apps/mcp/index.ts</Code> and add another{" "}
-              <Code>server.tool(...)</Code>. The runtime auto-discovers it on
-              the next reload. Want a fresh server alongside?{" "}
-              <Code>npx create-mcp-use-app@latest</Code>. Or point at a
-              remote one with <Code>MCP_SERVER_URL</Code>.
-            </p>
-          </div>
-        </div>
-      </Section>
-
-      <Section
-        id="vibe-coding"
-        eyebrow="Vibe coding"
-        title="Plug your coding agent in"
-        subtitle="Cursor, Claude Code, and Codex all benefit from these — they give the agent the canonical patterns for useFrontendTool, useAgent, and the runtime configuration shapes."
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          <a
-            href="https://docs.copilotkit.ai/coding-agents"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-center gap-3 rounded-xl border bg-card p-4 hover:border-accent/40"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent/10 text-accent">
-              <BookOpen size={16} aria-hidden />
-            </span>
-            <span className="flex-1">
-              <span className="block text-sm font-semibold text-foreground">
-                CopilotKit Coding Agents
-              </span>
-              <span className="block text-xs text-muted-foreground">
-                docs.copilotkit.ai/coding-agents
-              </span>
-            </span>
-            <span
-              className="text-muted-foreground group-hover:text-accent"
-              aria-hidden
-            >
-              →
-            </span>
-          </a>
-          <a
-            href="https://github.com/CopilotKit/skills"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-center gap-3 rounded-xl border bg-card p-4 hover:border-accent/40"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent/10 text-accent">
-              <Github size={16} aria-hidden />
-            </span>
-            <span className="flex-1">
-              <span className="block text-sm font-semibold text-foreground">
-                CopilotKit Skills repo
-              </span>
-              <span className="block text-xs text-muted-foreground">
-                github.com/CopilotKit/skills
-              </span>
-            </span>
-            <span
-              className="text-muted-foreground group-hover:text-accent"
-              aria-hidden
-            >
-              →
-            </span>
-          </a>
-        </div>
-      </Section>
-
-      <Section
-        id="env"
-        eyebrow="Plumbing"
-        title="Required keys"
-      >
-        <ul className="space-y-3">
-          <li className="flex items-start gap-3 rounded-xl border bg-card p-4">
-            <KeyRound
-              size={16}
-              className="mt-0.5 shrink-0 text-accent"
-              aria-hidden
-            />
             <div>
-              <p className="text-sm font-semibold text-foreground">
-                <Code>GEMINI_API_KEY</Code> &mdash; required
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Set in both <Code>.env</Code> and{" "}
-                <Code>apps/agent/.env</Code>. Without it the agent boots but
-                every chat turn fails.
-              </p>
+              <h3 className="mb-3 text-sm font-semibold text-foreground">External</h3>
+              <ul className="space-y-2">
+                {externalDocs.map((d) => (
+                  <li key={d.href}>
+                    <a
+                      href={d.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-md border bg-card px-3 py-2 text-sm text-foreground hover:border-accent/40 hover:text-accent"
+                    >
+                      {d.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </li>
-          <li className="flex items-start gap-3 rounded-xl border bg-card p-4">
-            <KeyRound
-              size={16}
-              className="mt-0.5 shrink-0 text-accent"
-              aria-hidden
-            />
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                <Code>COPILOTKIT_LICENSE_TOKEN</Code> &mdash; issued by the
-                CLI
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Or run <Code>npm run license</Code>. Threads silently fail to
-                persist without it.
-              </p>
-            </div>
-          </li>
-          <li className="flex items-start gap-3 rounded-xl border bg-card p-4">
-            <KeyRound
-              size={16}
-              className="mt-0.5 shrink-0 text-accent"
-              aria-hidden
-            />
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                <Code>NOTION_TOKEN</Code> &mdash; required for lead-form demo
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Get a token at{" "}
-                <a
-                  className="text-accent hover:underline"
-                  href="https://notion.so/my-integrations"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  notion.so/my-integrations
-                </a>{" "}
-                and SHARE the leads database with that integration. Agent
-                boots without it but the import will refuse-with-reason.
-              </p>
-            </div>
-          </li>
-        </ul>
-      </Section>
-
-      <Section id="docs" eyebrow="Reference" title="Documentation">
-        <h3 className="mb-3 text-sm font-semibold text-foreground">
-          Deeper guides in the repo
-        </h3>
-        <ul className="mb-8 grid gap-2 md:grid-cols-2">
-          {repoDocs.map((d) => (
-            <li key={d.href}>
-              <a
-                href={d.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block rounded-md border bg-card px-3 py-2 text-sm text-foreground hover:border-accent/40 hover:text-accent"
-              >
-                {d.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-        <h3 className="mb-3 text-sm font-semibold text-foreground">
-          External docs
-        </h3>
-        <ul className="grid gap-2 md:grid-cols-2">
-          {docs.map((d) => (
-            <li key={d.href}>
-              <a
-                href={d.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block rounded-md border bg-card px-3 py-2 text-sm text-foreground hover:border-accent/40 hover:text-accent"
-              >
-                {d.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </Section>
+          </div>
+        </Section>
 
         <footer className="mt-16 border-t pt-8 text-sm text-muted-foreground">
-          <p>
-            Built for the Generative UI · Global Agents · Agentic Interfaces
-            hackathon.
-          </p>
+          <p>Built for the Runway API Hackathon.</p>
         </footer>
       </main>
       <AboutToc items={tocItems} />

@@ -5,6 +5,7 @@ import {
   createCopilotEndpoint,
 } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import Redis from "ioredis";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey:
@@ -41,13 +42,53 @@ const director = new LangGraphAgent({
 // Per-thread Runway call budget (image + video each count as 1).
 // Default: 20 calls ≈ 10 shots × (1 image + 1 video).
 // Override with RUNWAY_BUDGET_PER_THREAD env var.
-// Stored in-memory — resets on BFF restart. Fine for demo/hackathon;
-// move to Redis/Postgres for production.
+//
+// Counters are stored in Redis (the same instance used by Intelligence)
+// with a 7-day TTL so they survive BFF restarts and scale across multiple
+// BFF instances. Falls back to an in-memory Map if Redis is unavailable
+// (e.g. Docker not running) so local dev without infra still works.
 const RUNWAY_BUDGET = Number(process.env.RUNWAY_BUDGET_PER_THREAD ?? 20);
-const _threadCounts = new Map<string, number>();
+const BUDGET_KEY_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const BUDGET_KEY_PREFIX = "runway:budget:";
 
-function threadCallCount(threadId: string): number {
-  return _threadCounts.get(threadId) ?? 0;
+// Redis client — lazy, non-blocking. Errors are caught so a Redis outage
+// never takes down the BFF.
+const _redisUrl = process.env.REDIS_URL ??
+  `redis://localhost:${process.env.REDIS_HOST_PORT ?? 6379}`;
+const _redis = new Redis(_redisUrl, {
+  lazyConnect: true,
+  enableOfflineQueue: false,
+  maxRetriesPerRequest: 1,
+  connectTimeout: 2000,
+});
+_redis.connect().catch(() => {
+  console.warn("[bff] Redis unavailable — budget counters will use in-memory fallback");
+});
+
+// In-memory fallback for when Redis is down.
+const _memCounts = new Map<string, number>();
+
+async function threadCallCount(threadId: string): Promise<number> {
+  try {
+    const val = await _redis.get(`${BUDGET_KEY_PREFIX}${threadId}`);
+    return val ? parseInt(val, 10) : 0;
+  } catch {
+    return _memCounts.get(threadId) ?? 0;
+  }
+}
+
+async function incrementThreadCallCount(threadId: string): Promise<number> {
+  try {
+    const key = `${BUDGET_KEY_PREFIX}${threadId}`;
+    const next = await _redis.incr(key);
+    // Refresh TTL on every increment so active threads don't expire mid-use.
+    await _redis.expire(key, BUDGET_KEY_TTL_SECONDS);
+    return next;
+  } catch {
+    const next = (_memCounts.get(threadId) ?? 0) + 1;
+    _memCounts.set(threadId, next);
+    return next;
+  }
 }
 
 // ----------------------------------------------------------------- copilot endpoint
@@ -80,12 +121,14 @@ const copilotApp = createCopilotEndpoint({
 //    the Python agent can use the user's own Runway account instead of the
 //    shared server key. The key is never logged.
 //
-// 2. Budget guard: reads X-LG-Thread-Id header, injects
-//    runway_calls_remaining + runway_budget into configurable so the Python
-//    agent can refuse Runway calls when the budget is exhausted.
+// 2. Budget guard: reads thread ID from the request body, looks up the
+//    per-thread call count in Redis (falls back to in-memory if Redis is
+//    down), and injects runway_calls_remaining + runway_budget into
+//    configurable so the Python agent can refuse Runway calls when the
+//    budget is exhausted.
 //
 // 3. Budget increment: POST /api/runway-call-used lets the Python agent
-//    increment the per-thread counter after each successful Runway call.
+//    increment the per-thread counter in Redis after each successful call.
 //
 // 4. Error rewriting: maps known 5xx bodies to structured { error, hint }
 //    payloads the UI renders as actionable toasts.
@@ -99,8 +142,7 @@ async function handleRequest(req: Request): Promise<Response> {
     try { body = await req.json() as Record<string, unknown>; } catch { /* ignore */ }
     const threadId = body.thread_id as string | undefined;
     if (threadId) {
-      const next = (_threadCounts.get(threadId) ?? 0) + 1;
-      _threadCounts.set(threadId, next);
+      const next = await incrementThreadCallCount(threadId);
       const remaining = Math.max(0, RUNWAY_BUDGET - next);
       return new Response(
         JSON.stringify({ calls_used: next, calls_remaining: remaining }),
@@ -136,9 +178,8 @@ async function handleRequest(req: Request): Promise<Response> {
       (body.threadId as string | undefined) ??
       (body.thread_id as string | undefined) ??
       "";
-    const callsRemaining = threadId
-      ? Math.max(0, RUNWAY_BUDGET - threadCallCount(threadId))
-      : RUNWAY_BUDGET;
+    const currentCount = threadId ? await threadCallCount(threadId) : 0;
+    const callsRemaining = Math.max(0, RUNWAY_BUDGET - currentCount);
 
     // Inject into forwardedProps.config.configurable — LangGraph passes
     // these to the Python agent via get_config()["configurable"].

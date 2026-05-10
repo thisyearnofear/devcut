@@ -29,7 +29,7 @@ class _Shot(TypedDict, total=False):
     prompt: str        # the shot description used for image+video gen
     ref_image_url: Optional[str]
     video_url: Optional[str]
-    status: str        # "pending" | "image" | "video" | "ready" | "error"
+    status: str        # "pending" | "image" | "ready" | "error"
     error: Optional[str]
     duration: int      # seconds
     aspect_ratio: str  # "1280:720" | "720:1280" | etc.

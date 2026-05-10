@@ -53,9 +53,7 @@ export function ShotCard({
         >
           <span
             className={`size-1.5 rounded-full ${
-              shot.status === "image" || shot.status === "video"
-                ? "animate-pulse"
-                : ""
+              shot.status === "image" ? "animate-pulse" : ""
             }`}
             style={{ backgroundColor: STATUS_COLOR[shot.status] }}
           />
@@ -91,10 +89,10 @@ export function ShotCard({
             {shot.status === "error" ? "Error" : "Awaiting reference"}
           </div>
         )}
-        {(shot.status === "image" || shot.status === "video") && (
+        {shot.status === "image" && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
             <span className="rounded-full bg-black/70 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-              {shot.status === "image" ? "Generating still…" : "Animating…"}
+              Generating still…
             </span>
           </div>
         )}

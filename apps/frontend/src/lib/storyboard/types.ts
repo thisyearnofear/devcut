@@ -2,7 +2,7 @@
 // Keep field names identical — the agent writes these via Command(update=)
 // or via frontend tools, and the frontend reads them off agent.state.
 
-export type ShotStatus = "pending" | "image" | "video" | "ready" | "error";
+export type ShotStatus = "pending" | "image" | "ready" | "error";
 
 export type AspectRatio = "1280:720" | "720:1280";
 
@@ -64,8 +64,7 @@ export const initialStoryboardState: StoryboardState = {
 
 export const STATUS_LABEL: Record<ShotStatus, string> = {
   pending: "Pending",
-  image: "Still generating…",
-  video: "Video generating…",
+  image: "Generating still…",
   ready: "Ready",
   error: "Error",
 };
@@ -73,7 +72,6 @@ export const STATUS_LABEL: Record<ShotStatus, string> = {
 export const STATUS_COLOR: Record<ShotStatus, string> = {
   pending: "#94a3b8",
   image: "#fbbf24",
-  video: "#fbbf24",
   ready: "#34d399",
   error: "#f87171",
 };

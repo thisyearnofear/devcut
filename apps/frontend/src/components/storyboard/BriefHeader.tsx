@@ -119,6 +119,13 @@ export function BriefHeader({
               {hasPersonalKey ? "Your Key" : "Add Key"}
             </button>
           )}
+          <a
+            href="/about"
+            className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted uppercase tracking-wider"
+            title="About Director's Canvas"
+          >
+            About
+          </a>
         </div>
       </div>
     </header>

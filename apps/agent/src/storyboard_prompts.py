@@ -12,7 +12,7 @@ CANVAS_SHAPE = (
     "      prompt: string,              // shot description (for image+video)\n"
     "      ref_image_url: string|null,  // set by generate_shot_reference\n"
     "      video_url: string|null,      // set by generate_shot_video\n"
-    "      status: 'pending'|'image'|'video'|'ready'|'error',\n"
+    "      status: 'pending'|'image'|'ready'|'error',\n"
     "      error: string|null,\n"
     "      duration: number,            // 3..10 seconds\n"
     "      aspect_ratio: '1280:720'|'720:1280',\n"
