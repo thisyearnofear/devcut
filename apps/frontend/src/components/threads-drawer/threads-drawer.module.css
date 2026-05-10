@@ -72,13 +72,19 @@
 }
 
 .brandLogo {
-  height: 1.25rem;
-  width: auto;
-  object-fit: contain;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sidebar-foreground);
 }
 
-:global(.dark) .brandLogo {
-  filter: invert(1);
+.brandIcon {
+  color: var(--sidebar-muted);
+  flex-shrink: 0;
 }
 
 .iconButton {
@@ -219,10 +225,6 @@
   width: 16px;
   height: 16px;
   object-fit: contain;
-}
-
-:global(.dark) .navItemMark {
-  filter: invert(1);
 }
 
 .navItemExternal {

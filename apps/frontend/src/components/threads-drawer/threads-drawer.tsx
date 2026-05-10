@@ -6,14 +6,14 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
-  Code2,
+  Clapperboard,
   ExternalLink,
   Filter,
+  Github,
   Info,
   Moon,
   Plus,
   Search,
-  Sparkles,
   SquarePen,
   Sun,
   Trash2,
@@ -55,33 +55,21 @@ const DOC_LINKS: Array<{
   external?: boolean;
 }> = [
   {
-    label: "About this Kit",
+    label: "About",
     href: "/about",
     icon: Info,
     external: false,
   },
   {
-    label: "Tool surface",
-    href: "/showcase",
-    icon: Sparkles,
-    external: false,
-  },
-  {
-    label: "Documentation",
-    href: "https://docs.copilotkit.ai/",
+    label: "Runway API docs",
+    href: "https://docs.dev.runwayml.com",
     icon: BookOpen,
     external: true,
   },
   {
-    label: "Intelligence Platform",
-    href: "https://docs.copilotkit.ai/learn/intelligence-platform",
-    icon: Sparkles,
-    external: true,
-  },
-  {
-    label: "Coding Agents",
-    href: "https://docs.copilotkit.ai/coding-agents",
-    icon: Code2,
+    label: "GitHub",
+    href: "https://github.com/thisyearnofear/gen-ui",
+    icon: Github,
     external: true,
   },
 ];
@@ -364,11 +352,10 @@ export default function ThreadsDrawer({
 
         <div className={styles.drawerSurface}>
           <div className={styles.brandRow}>
-            <img
-              alt="CopilotKit"
-              className={styles.brandLogo}
-              src="/copilotkit-logo.svg"
-            />
+            <div className={styles.brandLogo}>
+              <Clapperboard size={14} className={styles.brandIcon} aria-hidden />
+              <span>Director&apos;s Canvas</span>
+            </div>
             <button
               aria-label="Collapse threads drawer"
               className={styles.iconButton}
@@ -627,17 +614,16 @@ export default function ThreadsDrawer({
           <div className={styles.drawerFooter}>
             <a
               className={cx(styles.navItem, styles.navItemFlex)}
-              href="https://www.copilotkit.ai/"
+              href="https://github.com/thisyearnofear/gen-ui"
               rel="noopener noreferrer"
               target="_blank"
             >
-              <img
-                alt=""
+              <Github
                 aria-hidden
+                size={14}
                 className={styles.navItemMark}
-                src="/copilotkit-logo-mark.svg"
               />
-              <span>copilotkit.ai</span>
+              <span>thisyearnofear/gen-ui</span>
               <ExternalLink
                 aria-hidden
                 className={styles.navItemExternal}

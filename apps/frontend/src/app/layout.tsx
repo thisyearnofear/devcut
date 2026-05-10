@@ -25,6 +25,20 @@ export const metadata: Metadata = {
   title: "Director's Canvas",
   description:
     "Agent-directed video production. Type a brief — watch a LangGraph agent decompose it into shots, generate Runway stills, animate each into a clip, and stitch a final MP4.",
+  openGraph: {
+    title: "Director's Canvas",
+    description: "Agent-directed video production powered by Runway.",
+    images: [{ url: "/banner.jpg", width: 1280, height: 420 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Director's Canvas",
+    description: "Agent-directed video production powered by Runway.",
+    images: ["/banner.jpg"],
+  },
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
