@@ -215,24 +215,34 @@ def _live_image(
     ratio: str = "1280:720",
     prior_ref_urls: Optional[list[str]] = None,
 ) -> RunwayImageResult:
-    """Text→image via Gen-4 Image Turbo.
+    """Text→image via Runway.
 
-    When `prior_ref_urls` are supplied (URLs of reference stills from
-    earlier shots), they are passed as referenceImages so the model
-    maintains visual consistency across the storyboard.
+    - Shot 0 (no prior refs): uses gen4_image (standard) — reference_images
+      is Required for gen4_image_turbo so we can't use it without refs.
+    - Shots 1+ (with prior refs): uses gen4_image_turbo — 2-4x cheaper,
+      <10s, 93% quality parity, and accepts referenceImages for cross-shot
+      character/style consistency.
     """
     from runwayml import TaskFailedError
 
     client = _client()
-    kwargs: dict = {
-        "model": "gen4_image_turbo",
-        "prompt_text": prompt,
-        "ratio": ratio,
-    }
-
     refs = _build_ref_images(prior_ref_urls or [])
+
     if refs:
-        kwargs["reference_images"] = refs
+        # gen4_image_turbo: faster + cheaper, requires at least one ref image
+        kwargs: dict = {
+            "model": "gen4_image_turbo",
+            "prompt_text": prompt,
+            "ratio": ratio,
+            "reference_images": refs,
+        }
+    else:
+        # gen4_image: standard model, no reference_images required
+        kwargs = {
+            "model": "gen4_image",
+            "prompt_text": prompt,
+            "ratio": ratio,
+        }
 
     try:
         task = client.text_to_image.create(**kwargs).wait_for_task_output()
