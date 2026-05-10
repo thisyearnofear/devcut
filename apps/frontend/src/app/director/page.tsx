@@ -214,7 +214,7 @@ function DirectorCanvas() {
       beat: z.string().optional(),
     }),
     render: ({ args }) => (
-      <LiveShotPreview shotId={args.shotId} beat={args.beat} />
+      <LiveShotPreview shotId={args.shotId!} beat={args.beat} />
     ),
   });
 

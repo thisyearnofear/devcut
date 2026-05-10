@@ -96,7 +96,7 @@ async function handleRequest(req: Request): Promise<Response> {
   // ---- Budget increment endpoint (called by Python agent) ----
   if (url.pathname === "/api/runway-call-used" && req.method === "POST") {
     let body: Record<string, unknown> = {};
-    try { body = await req.json(); } catch { /* ignore */ }
+    try { body = await req.json() as Record<string, unknown>; } catch { /* ignore */ }
     const threadId = body.thread_id as string | undefined;
     if (threadId) {
       const next = (_threadCounts.get(threadId) ?? 0) + 1;
@@ -125,7 +125,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "POST") {
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await req.json() as Record<string, unknown>;
     } catch {
       // Not JSON — pass through as-is
       return rewriteErrors(await copilotApp.fetch(req));
