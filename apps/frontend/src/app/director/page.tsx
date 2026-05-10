@@ -17,6 +17,7 @@ import drawerStyles from "@/components/threads-drawer/threads-drawer.module.css"
 
 import {
   type Shot,
+  type Storyboard,
   type StoryboardState,
   initialStoryboardState,
 } from "@/lib/storyboard/types";
@@ -97,7 +98,7 @@ function LiveStoryboardSummary() {
   );
 }
 
-function DirectorCanvas() {
+function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Storyboard) => void }) {
   const { agent } = useAgent();
   const { copilotkit } = useCopilotKit();
   const [showKeyPanel, setShowKeyPanel] = useState(false);
@@ -150,6 +151,12 @@ function DirectorCanvas() {
   );
 
   const state = mergeStoryboardState(agent?.state);
+
+  // Keep the parent (DirectorPage) in sync so the ThreadsDrawer can pass
+  // the current storyboard context to the Director avatar.
+  useEffect(() => {
+    onStoryboardChange?.(state.storyboard);
+  }, [state.storyboard, onStoryboardChange]);
 
   const updateState = useCallback(
     (updater: (prev: StoryboardState) => StoryboardState) => {
@@ -528,19 +535,21 @@ function DirectorCanvas() {
 
 function DirectorPage() {
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
+  const [storyboard, setStoryboard] = useState(initialStoryboardState.storyboard);
   return (
     <div className={drawerStyles.layout}>
       <ThreadsDrawer
         agentId="director"
         threadId={threadId}
         onThreadChange={setThreadId}
+        storyboard={storyboard}
       />
       <div className={drawerStyles.mainPanel}>
         <CopilotChatConfigurationProvider
           agentId="director"
           threadId={threadId}
         >
-          <DirectorCanvas />
+          <DirectorCanvas onStoryboardChange={setStoryboard} />
         </CopilotChatConfigurationProvider>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Clapperboard, Code2, Film, KeyRound, Layers, Sparkles, Zap } from "lucide-react";
+import { ArrowLeft, Clapperboard, Film, KeyRound, Sparkles, Zap } from "lucide-react";
 import { AboutToc, type TocItem } from "./toc";
 
 export const metadata = {
@@ -91,12 +91,13 @@ const stack = [
 ];
 
 const docs = [
-  { label: "Concept", href: "/docs/concept.md" },
-  { label: "Architecture", href: "/docs/architecture.md" },
-  { label: "Setup", href: "/docs/setup.md" },
-  { label: "Customization", href: "/docs/customization.md" },
-  { label: "Roadmap", href: "/docs/roadmap.md" },
-  { label: "Hackathon submission", href: "/docs/hackathons.md" },
+  { label: "Concept", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/concept.md" },
+  { label: "Architecture", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/architecture.md" },
+  { label: "Setup", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/setup.md" },
+  { label: "Deployment", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/deployment.md" },
+  { label: "Customization", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/customization.md" },
+  { label: "Roadmap", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/roadmap.md" },
+  { label: "Hackathon submission", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/hackathons.md" },
 ];
 
 const externalDocs = [
@@ -370,6 +371,8 @@ export default function AboutPage() {
                   <li key={d.href}>
                     <a
                       href={d.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="block rounded-md border bg-card px-3 py-2 text-sm text-foreground hover:border-accent/40 hover:text-accent"
                     >
                       {d.label}

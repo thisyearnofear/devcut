@@ -22,9 +22,9 @@ const splineMono = Spline_Sans_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AG-UI Canvas | CopilotKit Hackathon Starter",
+  title: "Director's Canvas",
   description:
-    "Hackathon starter kit: CopilotKit canvas + threads drawer + Deep Agents + Gemini + Notion MCP",
+    "Agent-directed video production. Type a brief — watch a LangGraph agent decompose it into shots, generate Runway stills, animate each into a clip, and stitch a final MP4.",
 };
 
 export default function RootLayout({

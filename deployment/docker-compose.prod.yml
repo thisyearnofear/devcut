@@ -1,0 +1,224 @@
+# Production docker-compose for Hetzner (or any Linux VPS).
+#
+# Runs all services in containers:
+#   - postgres, redis, intelligence  (same as docker-compose.yml)
+#   - agent    (Python / LangGraph)
+#   - bff      (Hono / CopilotKit runtime)
+#   - frontend (Next.js)
+#   - caddy    (reverse proxy + automatic TLS via Let's Encrypt)
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in all values (see comments below).
+#   2. Set DOMAIN= in .env to your server's domain (e.g. director.example.com).
+#   3. docker compose -f deployment/docker-compose.prod.yml up -d --wait
+#
+# The exports volume is shared between the agent (writes MP4s) and the
+# frontend (serves them at /exports/*). Both containers mount it at the
+# same path so the URL the agent returns is immediately servable.
+#
+# Secrets: all sensitive values come from the .env file at the repo root.
+# Never commit a .env with real keys.
+
+name: directors-canvas-prod
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Infrastructure (identical to docker-compose.yml)
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: intelligence
+      POSTGRES_PASSWORD: intelligence
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelligence -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+
+  intelligence:
+    image: ghcr.io/copilotkit/intelligence/composite:0.1.0
+    environment:
+      DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
+      REDIS_URL: redis://redis:6379
+      # Change these three secrets before deploying.
+      AUTH_SECRET: "${INTELLIGENCE_AUTH_SECRET}"
+      RUNNER_AUTH_SECRET: "${INTELLIGENCE_RUNNER_AUTH_SECRET}"
+      SECRET_KEY_BASE: "${INTELLIGENCE_SECRET_KEY_BASE}"
+      DEFAULT_ORGANIZATION_ID: hackathon
+      COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN}"
+      THREAD_STALE_HOURS: "${THREAD_STALE_HOURS:-72}"
+      THREAD_CULL_BATCH_SIZE: "${THREAD_CULL_BATCH_SIZE:-1000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Seed the Intelligence Postgres with the default user on first boot.
+  # Runs once and exits. Safe to re-run (ON CONFLICT DO NOTHING).
+  # ---------------------------------------------------------------------------
+
+  seed:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: intelligence
+    entrypoint: >
+      sh -c "
+        until pg_isready -h postgres -U intelligence -d intelligence_app; do sleep 2; done;
+        psql -h postgres -U intelligence -d intelligence_app -v ON_ERROR_STOP=1 -c \"
+          INSERT INTO cpki.users (id, organization_id, created_at)
+          VALUES ('default', 'hackathon', NOW()), ('1_default', 'hackathon', NOW())
+          ON CONFLICT (id) DO NOTHING;
+        \"
+      "
+    depends_on:
+      intelligence:
+        condition: service_started
+    restart: "no"
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Agent (Python / LangGraph)
+  # ---------------------------------------------------------------------------
+
+  agent:
+    build:
+      context: ..
+      dockerfile: apps/agent/Dockerfile
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      AGENT_RUNTIME: "${AGENT_RUNTIME:-gemini-flash-deep}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      RUNWAY_API_KEY: "${RUNWAY_API_KEY:-}"
+      NOTION_TOKEN: "${NOTION_TOKEN:-}"
+      NOTION_LEADS_DATABASE_ID: "${NOTION_LEADS_DATABASE_ID:-}"
+      BFF_URL: "http://bff:4010"
+      # Stitched MP4s are written here and served by the frontend container.
+      EXPORT_DIR: /exports
+      EXPORT_BASE_URL: "https://${DOMAIN}/exports"
+      # LangGraph needs a Postgres URL for thread persistence.
+      LANGGRAPH_POSTGRES_URL: "postgresql://intelligence:intelligence@postgres:5432/intelligence_app"
+    volumes:
+      - exports:/exports
+    depends_on:
+      intelligence:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # BFF (Hono / CopilotKit runtime)
+  # ---------------------------------------------------------------------------
+
+  bff:
+    build:
+      context: ..
+      dockerfile: apps/bff/Dockerfile
+    environment:
+      PORT: "4010"
+      LANGGRAPH_DEPLOYMENT_URL: "http://agent:8123"
+      INTELLIGENCE_API_URL: "http://intelligence:4201"
+      INTELLIGENCE_GATEWAY_WS_URL: "ws://intelligence:4401"
+      INTELLIGENCE_API_KEY: "${INTELLIGENCE_API_KEY:-cpk_sPRVSEED_seed0privat0longtoken00}"
+      COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN}"
+      MCP_SERVER_URL: "http://mcp:3001/mcp"
+      RUNWAY_BUDGET_PER_THREAD: "${RUNWAY_BUDGET_PER_THREAD:-20}"
+      REDIS_URL: "redis://redis:6379"
+    depends_on:
+      agent:
+        condition: service_started
+      intelligence:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Frontend (Next.js)
+  # ---------------------------------------------------------------------------
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        BFF_URL: "http://bff:4010"
+    environment:
+      PORT: "3000"
+      BFF_URL: "http://bff:4010"
+      NODE_ENV: production
+      NEXT_PUBLIC_RUNWAY_AVATAR_ID: "${NEXT_PUBLIC_RUNWAY_AVATAR_ID:-}"
+    volumes:
+      # Serve stitched MP4s written by the agent at /exports/*.
+      - exports:/app/apps/frontend/public/exports
+    depends_on:
+      bff:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Caddy — reverse proxy + automatic TLS (Let's Encrypt)
+  # ---------------------------------------------------------------------------
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      DOMAIN: "${DOMAIN}"
+    depends_on:
+      frontend:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - internal
+
+volumes:
+  postgres-data:
+  redis-data:
+  exports:
+  caddy-data:
+  caddy-config:
+
+networks:
+  internal:
+    driver: bridge

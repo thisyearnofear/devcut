@@ -1,0 +1,27 @@
+{$DOMAIN} {
+    # Reverse proxy everything to the Next.js frontend.
+    # Next.js proxies /api/copilotkit/* to the BFF internally (next.config.ts rewrites).
+    reverse_proxy frontend:3000
+
+    # Serve stitched MP4 exports directly — the frontend container mounts
+    # the exports volume at /app/apps/frontend/public/exports, so Next.js
+    # serves them at /exports/* automatically. No special Caddy rule needed.
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Compress responses
+    encode gzip
+
+    # Access log
+    log {
+        output stdout
+        format console
+    }
+}

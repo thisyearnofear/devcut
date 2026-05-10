@@ -18,6 +18,7 @@ Start with the root [README](../README.md) for the project overview and quicksta
 | [Setup](setup.md) | Prerequisites, API keys, Notion MCP, model switching, Docker-free mode, threads |
 | [Customization](customization.md) | Add frontend tools, HITL components, swap MCP servers, demo prompts |
 | [MCP server](mcp-server.md) | Run, tunnel, deploy the Manufact / mcp-use server |
+| [Deployment](deployment.md) | Deploy to Hetzner (or any Linux VPS) with Docker + Caddy |
 | [Scripts](scripts.md) | `npm run` cheat sheet |
 | [Troubleshooting](troubleshooting.md) | Known failure modes + fixes |
 

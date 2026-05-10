@@ -82,6 +82,7 @@ Swap any layer with a one-line edit — see [`docs/setup.md`](./docs/setup.md) (
 | [Setup](./docs/setup.md) | Prerequisites, keys, Docker-free mode, model switching, threads |
 | [Customization](./docs/customization.md) | Add tools, swap MCP servers, suggestion chips, demo prompts |
 | [MCP server](./docs/mcp-server.md) | Run, tunnel, deploy |
+| [Deployment](./docs/deployment.md) | Deploy to Hetzner with Docker + Caddy |
 | [Scripts](./docs/scripts.md) | `npm run` cheat sheet |
 | [Troubleshooting](./docs/troubleshooting.md) | Known failure modes + fixes |
 

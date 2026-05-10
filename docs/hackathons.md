@@ -99,9 +99,9 @@ shared server key.
 | `gen4_image_turbo`       | Shots 1+ reference stills — `referenceImages` for character anchor; 2–4× cheaper, <10 s |
 | `gen4.5`                 | All image→video animation                                                      |
 | `wait_for_task_output()` | Async polling; the agent awaits each task before updating canvas state         |
+| `gwm1_avatars`           | Director avatar — real-time WebRTC character in the sidebar, contextualised with the current storyboard |
 
 ## What's next
 
 - ElevenLabs audio (TTS + sound effects) layered onto the stitched export
 - `gen4_aleph` video-to-video restyle per shot (style transfer pass)
-- Runway Characters (`gwm1_avatars`) as the Director avatar in the sidebar

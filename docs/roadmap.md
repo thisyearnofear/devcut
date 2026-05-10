@@ -18,7 +18,9 @@
   via the canvas header; stored in localStorage, forwarded as a header,
   injected into LangGraph configurable; budget check skipped for BYOK users
 - ✅ Per-thread call budget — default 20 calls (≈ 10 shots) when using the
-  shared server key; enforced in the Python agent via `BudgetExceededError`
+  shared server key; enforced in the Python agent via `BudgetExceededError`;
+  counters stored in Redis (survives BFF restarts, scales horizontally)
+  with in-memory fallback when Redis is unavailable
 - ✅ Shared CopilotKit Intelligence threads (each storyboard is a
   durable conversation)
 - ✅ Inline shot mini-cards + storyboard summary in chat (generative UI)
@@ -43,18 +45,14 @@
 
 ## Mid-term (1–2 months)
 
-- **Runway Characters as the Director avatar.** `gwm1_avatars` — a
-  real-time video character that *is* the Director, visible in the sidebar,
-  talking the user through the storyboard. The most novel use of the API
-  that nobody else is doing.
+- **Runway Characters as the Director avatar.** ~~`gwm1_avatars`~~ Done — a real-time WebRTC avatar lives in the threads drawer sidebar, contextualised with the current storyboard title and logline. Set `NEXT_PUBLIC_RUNWAY_AVATAR_ID` to activate.
 - **Brief intake via Notion / Linear MCP.** Agent reads a brief from
   a Notion page and posts the finished cuts back as comments.
 - **Agent critique loop.** A sub-agent watches generated clips and
   flags shots that drift from the logline; auto-suggests rewrites.
 - **Multi-aspect deliverables.** One brief, three aspects (16:9, 9:16,
   1:1) — agent re-frames each shot and re-renders.
-- **Budget persistence.** Move the in-memory call counter to Redis or
-  Postgres so it survives BFF restarts.
+- **Budget persistence.** ~~Move the in-memory call counter to Redis~~ Done — counters now live in Redis with a 7-day TTL and an in-memory fallback.
 
 ## Long-term
 

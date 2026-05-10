@@ -28,8 +28,14 @@ apps/mcp/.mcp-use/*
 # first read when Notion isn't configured). Per-checkout, never committed.
 apps/agent/data/leads.local.json
 
-# Claude Code harness scaffolding (per-checkout, not for downstream teams)
+# AI coding assistant config — local to each developer's machine
 .claude/
+.cursor/
+.agent/
+.qwen/
+
+# VS Code workspace settings — personal, not project config
+.vscode/
 
 # Internal: starter-kit authoring docs, not for downstream hackathon teams
 COMPLIANCE.md

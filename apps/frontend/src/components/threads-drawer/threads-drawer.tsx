@@ -22,12 +22,17 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useThreads } from "@copilotkit/react-core/v2";
 import { useTheme } from "@/hooks/use-theme";
+import { AvatarPanel } from "@/components/storyboard/AvatarPanel";
 import styles from "./threads-drawer.module.css";
+
+import type { Storyboard } from "@/lib/storyboard/types";
 
 export interface ThreadsDrawerProps {
   agentId: string;
   threadId: string | undefined;
   onThreadChange: (threadId: string | undefined) => void;
+  /** Current storyboard — passed to the Director avatar for context. */
+  storyboard?: Storyboard;
 }
 
 interface DrawerThread {
@@ -120,6 +125,7 @@ export default function ThreadsDrawer({
   agentId,
   threadId,
   onThreadChange,
+  storyboard,
 }: ThreadsDrawerProps) {
   const [showArchived, setShowArchived] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
@@ -615,6 +621,8 @@ export default function ThreadsDrawer({
               </div>
             )}
           </div>
+
+          {storyboard && <AvatarPanel storyboard={storyboard} />}
 
           <div className={styles.drawerFooter}>
             <a
