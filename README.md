@@ -4,51 +4,90 @@
 
 Type a one-line brief — *"direct a 30s sci-fi opener: lone astronaut on
 a glass-domed alien city at golden hour"* — and watch a LangGraph Deep
-Agent decompose it into shots, generate a Runway reference still for
-each, then animate every still into a clip on a live storyboard canvas.
+Agent decompose it into shots, generate Runway reference stills, then
+animate every still into a clip on a live storyboard canvas.
 No chat-wrapper: the agent's output **is** the interface.
 
 Built for the **Generative UI Global Hackathon** (CopilotKit + AG-UI +
-LangGraph + A2UI) and the **Runway API Hackathon** (Gen-4 image + Gen-4
-image-to-video, chained across shots).
+LangGraph + A2UI) and the **Runway API Hackathon**.
 
 ![Hackathon Banner](apps/frontend/public/banner.jpg)
 
 ## What's here
 
-- **`/director`** — the storyboard canvas. The headline experience.
-- **`/leads`** — the upstream CopilotKit lead-triage starter, retained
-  as a working second example of the same primitives.
-- **MCP server** — exposes the agent to Claude / ChatGPT.
+| Route | What it is |
+| --- | --- |
+| `/director` | The storyboard canvas — the headline experience |
+| `/leads` | The upstream CopilotKit lead-triage starter, kept as a second working example |
+| MCP server | Exposes the director agent to Claude / ChatGPT |
 
-## Docs
+## Quickstart
 
-- [`docs/`](./docs/README.md) — concept, architecture, roadmap, hackathon notes
-- [`dev-docs/`](./dev-docs/README.md) — setup, model switching, troubleshooting
+```bash
+# 1. Init CopilotKit Intelligence (durable threads)
+npx @copilotkit/cli@latest init   # pick Intelligence
 
-## Run it
+# 2. Add keys
+cp .env.example .env
+cp .env apps/agent/.env
+# Set GEMINI_API_KEY in both files.
+# Optionally set RUNWAY_API_KEY — without it the director runs in
+# MOCK mode (same UI, deterministic placeholder media, no credits burned).
 
-1. `npx @copilotkit/cli@latest init` and pick **Intelligence**.
-2. Drop a Gemini key into `.env` and `apps/agent/.env`. Optionally add
-   `RUNWAY_API_KEY` (without it, the director runs in deterministic
-   MOCK mode — same UI, placeholder media).
-3. `npm install && npm run dev`.
+# 3. Install + run
+npm install && npm run dev
+```
 
-Open <http://localhost:3000> → land on `/director`. Try a suggestion
-chip, or paste a brief.
+Open <http://localhost:3000> → `/director`. Try a suggestion chip or paste a brief.
 
-> Need Notion / detailed setup? See [`dev-docs/setup.md`](./dev-docs/setup.md).
+> Full setup (Notion, Docker-free, manual CLI): [`dev-docs/setup.md`](./dev-docs/setup.md)
+
+## Key features
+
+- **Brief → storyboard → video** in one agent loop, no prompt engineering required
+- **Cross-shot character consistency** — shot 0's reference image anchors all subsequent shots via Runway `gen4_image_turbo` `referenceImages`
+- **Model-aware generation** — `gen4_image` for shot 0, `gen4_image_turbo` for shots 1+, `gen4.5` for video
+- **Stitched export** — FFmpeg concat of all clips into one MP4, served directly from the frontend
+- **BYOK** — users supply their own Runway API key via the canvas header; stored in localStorage, never logged
+- **Per-thread budget guard** — default 20 Runway calls per conversation when using the shared server key
+- **MOCK mode** — full pipeline runs without any API keys; deterministic placeholder media
 
 ## Stack
 
-CopilotKit Intelligence (durable threads) · AG-UI (transport) ·
-LangGraph Deep Agents (planner) · Gemini 3.1 Flash-Lite (default) ·
-Runway Gen-4 (image + video) · A2UI (declarative components) ·
-mcp-use (MCP server) · Daytona-ready sandboxes for code execution.
+| Layer | Technology |
+| --- | --- |
+| Agent | LangGraph Deep Agents + Gemini 3.1 Flash-Lite (default) |
+| Video | Runway Gen-4 Image / Gen-4 Image Turbo / Gen-4.5 |
+| Transport | AG-UI + CopilotKit Intelligence (durable threads) |
+| UI | Next.js + React + A2UI declarative components |
+| BFF | Hono (CopilotKit runtime + BYOK injection + budget guard) |
+| Export | FFmpeg concat (LIVE) / placeholder URL (MOCK) |
+| MCP | mcp-use server for Claude / ChatGPT |
 
-Swap any one with a one-line edit — see
-[`dev-docs/model-switching.md`](./dev-docs/model-switching.md) and
-[`dev-docs/customization.md`](./dev-docs/customization.md).
+Swap any layer with a one-line edit — see [`dev-docs/model-switching.md`](./dev-docs/model-switching.md).
+
+## Docs
+
+### Product
+| | |
+| --- | --- |
+| [Concept](./docs/concept.md) | What it is, who it's for, why it's not just a Runway wrapper |
+| [Architecture](./docs/architecture.md) | How brief → storyboard → video flows through the stack |
+| [Roadmap](./docs/roadmap.md) | What's shipped, what's next |
+| [Hackathons](./docs/hackathons.md) | Runway API + Generative UI submission notes |
+
+### Developer
+| | |
+| --- | --- |
+| [Setup](./dev-docs/setup.md) | Prerequisites, keys, Docker-free mode |
+| [Model switching](./dev-docs/model-switching.md) | Swap Gemini tier, OpenAI, Anthropic |
+| [Architecture (dev)](./dev-docs/architecture.md) | Service diagram, BFF rationale, port map |
+| [Customization](./dev-docs/customization.md) | Add tools, swap MCP servers, suggestion chips |
+| [Threads](./dev-docs/threads.md) | Durable thread walkthrough |
+| [Scripts](./dev-docs/scripts.md) | `npm run` cheat sheet |
+| [Demo prompts](./dev-docs/demo-prompts.md) | Try each layer |
+| [Troubleshooting](./dev-docs/troubleshooting.md) | Known failure modes + fixes |
+| [MCP server](./dev-docs/mcp-server.md) | Run, tunnel, deploy |
 
 ## License
 
