@@ -11,6 +11,6 @@ Seed data for the kit's "AI Workshop Provider Community" lead-form demo. Use eit
 
 1. In Notion, open **Settings → Workspace → Import**.
 2. Choose **Notion (CSV/ZIP)** and upload `ai-workshop-provider-community.zip`.
-3. Once imported, [share the database with your integration](../../dev-docs/setup.md#notion-mcp-setup-lead-form-demo) and paste its id into `agent/.env` as `NOTION_LEADS_DATABASE_ID`.
+3. Once imported, [share the database with your integration](../../docs/setup.md#notion-mcp-setup-lead-form-demo) and paste its id into `agent/.env` as `NOTION_LEADS_DATABASE_ID`.
 
 A read-only public version of the same database is also available [in Notion](https://www.notion.so/a274791c4e1e826d882d01562af74de9?v=0e04791c4e1e83ca834988083174d19e&source=copy_link) — duplicate it into your workspace as an alternative to the import flow above.

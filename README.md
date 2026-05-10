@@ -40,7 +40,7 @@ npm install && npm run dev
 
 Open <http://localhost:3000> → `/director`. Try a suggestion chip or paste a brief.
 
-> Full setup (Notion, Docker-free, manual CLI): [`dev-docs/setup.md`](./dev-docs/setup.md)
+> Full setup (Notion, Docker-free, manual CLI): [`docs/setup.md`](./docs/setup.md)
 
 ## Key features
 
@@ -64,7 +64,7 @@ Open <http://localhost:3000> → `/director`. Try a suggestion chip or paste a b
 | Export | FFmpeg concat (LIVE) / placeholder URL (MOCK) |
 | MCP | mcp-use server for Claude / ChatGPT |
 
-Swap any layer with a one-line edit — see [`dev-docs/model-switching.md`](./dev-docs/model-switching.md).
+Swap any layer with a one-line edit — see [`docs/setup.md`](./docs/setup.md) (model switching section).
 
 ## Docs
 
@@ -79,15 +79,11 @@ Swap any layer with a one-line edit — see [`dev-docs/model-switching.md`](./de
 ### Developer
 | | |
 | --- | --- |
-| [Setup](./dev-docs/setup.md) | Prerequisites, keys, Docker-free mode |
-| [Model switching](./dev-docs/model-switching.md) | Swap Gemini tier, OpenAI, Anthropic |
-| [Architecture (dev)](./dev-docs/architecture.md) | Service diagram, BFF rationale, port map |
-| [Customization](./dev-docs/customization.md) | Add tools, swap MCP servers, suggestion chips |
-| [Threads](./dev-docs/threads.md) | Durable thread walkthrough |
-| [Scripts](./dev-docs/scripts.md) | `npm run` cheat sheet |
-| [Demo prompts](./dev-docs/demo-prompts.md) | Try each layer |
-| [Troubleshooting](./dev-docs/troubleshooting.md) | Known failure modes + fixes |
-| [MCP server](./dev-docs/mcp-server.md) | Run, tunnel, deploy |
+| [Setup](./docs/setup.md) | Prerequisites, keys, Docker-free mode, model switching, threads |
+| [Customization](./docs/customization.md) | Add tools, swap MCP servers, suggestion chips, demo prompts |
+| [MCP server](./docs/mcp-server.md) | Run, tunnel, deploy |
+| [Scripts](./docs/scripts.md) | `npm run` cheat sheet |
+| [Troubleshooting](./docs/troubleshooting.md) | Known failure modes + fixes |
 
 ## License
 

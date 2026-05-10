@@ -25,6 +25,9 @@ There is no chat-wrapper. The agent's output **is** the interface — shot
 cards with status pills, inline video players, regeneration controls,
 and an export panel composed natively from agent state.
 
+See [architecture](architecture.md) for the full pipeline, model selection logic,
+cross-shot consistency details, and BYOK/budget guard mechanics.
+
 ## Who it's for
 
 - **Solo creators** who want a director's intuition without a director.
@@ -54,20 +57,6 @@ decisions into the agent loop:
 The agent makes a defensible first pass; the canvas lets you intervene
 exactly where you have taste.
 
-## What makes the Runway integration non-trivial
-
-- **Model selection is context-aware.** Shot 0 uses `gen4_image` (standard)
-  because `gen4_image_turbo` requires reference images. Shots 1+ use
-  `gen4_image_turbo` (2–4x cheaper, <10s) with prior shots' refs passed
-  as `referenceImages`. Video uses `gen4.5` (Runway's current best model).
-- **Character consistency is automatic.** Shot 0's reference image becomes
-  the storyboard-level `style_ref_url` anchor. Every subsequent shot
-  receives it tagged as `character1` so the model maintains the same
-  character appearance without any user intervention.
-- **The pipeline is chained, not parallel.** Shot 0 must complete before
-  shots 1+ can use it as an anchor. The batch tool handles this: shot 0
-  runs synchronously first, then the rest run in parallel.
-
 ## What it isn't (yet)
 
 - Not a final-pixel finisher — the stitched export has no transitions,
@@ -77,4 +66,4 @@ exactly where you have taste.
 - Not "agent does everything" — humans still pick the brief and decide
   when a shot is good enough.
 
-See the [roadmap](./roadmap.md) for what's next.
+See the [roadmap](roadmap.md) for what's next.

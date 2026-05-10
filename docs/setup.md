@@ -1,13 +1,13 @@
 # Setup
 
-Detailed setup for the kit — prerequisites, API keys, Notion configuration, and a manual setup path if you can't use the CopilotKit CLI.
+Detailed setup for the kit — prerequisites, API keys, Notion configuration, model switching, threads, and a manual setup path if you can't use the CopilotKit CLI.
 
 ## Prerequisites
 
 - Node.js 20+
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) for Python deps
-- Docker (required for Intelligence — see [Removing Intelligence](#removing-intelligence-docker-free-mode) for the no-Docker path)
+- Docker (required for Intelligence — see [Docker-free mode](#removing-intelligence-docker-free-mode) for the no-Docker path)
 - A package manager: `pnpm` (recommended), `npm`, `yarn`, or `bun`
 - API keys: Gemini (required), Notion integration token (required for the lead-form demo), CopilotKit license (issued by the CLI or `npm run license`)
 
@@ -36,7 +36,7 @@ GEMINI_API_KEY=AIza...
 GEMINI_API_KEY=AIza...
 ```
 
-Prefer a different model (OpenAI, Anthropic, Ollama)? See [model-switching.md](model-switching.md).
+Prefer a different model? See [model switching](#switching-to-a-different-model) below.
 
 ---
 
@@ -84,7 +84,7 @@ npm run dev
 
 Then try: **"Import the workshop leads."**
 
-To use a different MCP server (Linear, Slack, GitHub, …), edit `apps/agent/src/notion_mcp.py` — replace the `mcpServers` config dict and update `mcp_query_data_source` / friends to call the new server's tool names. Then edit `apps/agent/src/prompts.py` (`INTEGRATION_PROMPT`) so the agent knows the new vocabulary.
+To use a different MCP server (Linear, Slack, GitHub, …), see [customization](customization.md#swap-the-integration-mcp-server).
 
 ---
 
@@ -106,6 +106,48 @@ If you can't or don't want to use `npx @copilotkit/cli@latest init`:
    ```
 
 The intelligence env vars (`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, `INTELLIGENCE_API_KEY`) match `deployment/docker-compose.yml`'s defaults — no manual editing needed for local dev.
+
+---
+
+## Switching to a different model
+
+This kit ships **Gemini 3.1 Flash-Lite + deepagents** as the default. Two pre-wired Gemini runtimes are selectable via the `AGENT_RUNTIME` env var — no code edit needed:
+
+| `AGENT_RUNTIME`        | Model                   | Planner                          |
+|------------------------|-------------------------|----------------------------------|
+| `gemini-flash-deep`    | `gemini-3.1-flash-lite` | `deepagents`                     |
+| `gemini-flash-react`   | `gemini-3.1-flash-lite` | `langchain.create_agent` (react) |
+
+Set in **both** `.env` and `apps/agent/.env` (the agent reads its own copy):
+
+```bash
+AGENT_RUNTIME=gemini-flash-deep
+```
+
+A third runtime (`claude-sonnet-4-6-react`) is also wired in [`apps/agent/src/runtime.py`](../apps/agent/src/runtime.py) (`_build_claude_react`) if you'd rather run Claude — set `ANTHROPIC_API_KEY` in `apps/agent/.env` and flip `AGENT_RUNTIME` to it. Use it as a template for any other LangChain provider.
+
+Restart the agent (`npm run dev:agent`) and you should see `[runtime] AGENT_RUNTIME=...` in the agent log.
+
+Want a different Gemini tier (`gemini-3-pro-preview`, `gemini-3-flash`) or a different provider entirely (OpenAI, etc.)? Edit `apps/agent/src/runtime.py` — `_gemini_llm()` is the single place the model id lives, and `_build_*` factories show the LangChain provider import pattern to copy for a new provider. Re-run `cd apps/agent && uv sync` if you add a new LangChain integration package.
+
+---
+
+## Threads / Intelligence
+
+The threads drawer surfaces every conversation the user has had with the agent on this machine. Threads live in the **Intelligence composite container** (Postgres-backed). When you reload, the active thread is restored.
+
+- **Search** the loaded set client-side; click "Load more" or "Search older threads" to paginate further.
+- **Archive** to hide threads you're done with; toggle the filter to view archived.
+- **Restore** brings them back; **Delete** is permanent.
+- **Theme toggle** in the drawer footer.
+
+To wipe all threads and start fresh:
+
+```bash
+npm run dev:infra:down
+docker volume rm $(docker volume ls -q | grep intelligence)
+npm run dev:infra
+```
 
 ---
 
