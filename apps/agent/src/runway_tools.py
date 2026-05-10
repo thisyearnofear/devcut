@@ -17,6 +17,24 @@ Tools:
 The single-shot tools exist for fine-grained iteration; the batch tools
 exist for the "run the whole pipeline" demo path. Both write through
 the same `_patch_shot` helper so the resulting canvas state is identical.
+
+Cross-shot visual consistency
+------------------------------
+Gen-4 Image Turbo accepts up to 3 `referenceImages`. We exploit this to
+keep characters and visual style coherent across shots:
+
+- The storyboard carries a `style_ref_url` — the reference still from
+  shot 0 (the first shot to get a reference image). This acts as the
+  "character anchor" for the whole piece.
+- Every subsequent `generate_shot_reference` call passes `style_ref_url`
+  (tagged "character1") plus up to 2 immediately-preceding shots' refs
+  as additional style anchors.
+- The prompt can address the anchor with "@character1" for explicit
+  character carry-through.
+
+This is the key differentiator vs. a naive "generate each shot in
+isolation" approach — the astronaut in shot 4 looks like the astronaut
+in shot 1.
 """
 
 from __future__ import annotations
@@ -103,6 +121,7 @@ def generate_storyboard_plan(
         "logline": logline,
         "aspect_ratio": aspect_ratio,
         "runway_mode": runway_mode_label(),
+        "style_ref_url": None,  # set to shot-0's ref_image_url once generated
     }
 
     msg = (
@@ -137,6 +156,47 @@ def _patch_shot(shots: list[dict], shot_id: str, patch: dict) -> list[dict]:
     ]
 
 
+def _prior_ref_urls(shots: list[dict], current_shot: dict, storyboard: dict) -> list[str]:
+    """Collect reference image URLs to pass as consistency anchors.
+
+    Strategy (up to 3 refs, which is the gen4_image_turbo limit):
+    1. style_ref_url from the storyboard (shot-0's ref) — always first so
+       it gets the "character1" tag and acts as the primary anchor.
+    2. The immediately preceding shot's ref_image_url (if different from
+       style_ref_url) — keeps local continuity.
+    3. The shot two positions back (if available and different) — extra
+       style reinforcement for longer storyboards.
+
+    Returns an empty list for shot 0 (no prior context yet).
+    """
+    style_ref = storyboard.get("style_ref_url")
+    current_index = current_shot.get("index", 0)
+
+    if current_index == 0:
+        return []  # first shot — no prior context
+
+    refs: list[str] = []
+
+    # Anchor: the storyboard-level style reference (shot 0's ref)
+    if style_ref:
+        refs.append(style_ref)
+
+    # Walk backwards through shots to find the nearest refs
+    sorted_prior = sorted(
+        [s for s in shots if s.get("index", 0) < current_index and s.get("ref_image_url")],
+        key=lambda s: s.get("index", 0),
+        reverse=True,
+    )
+    for s in sorted_prior:
+        url = s["ref_image_url"]
+        if url not in refs:
+            refs.append(url)
+        if len(refs) >= 3:
+            break
+
+    return refs[:3]
+
+
 @tool
 def generate_shot_reference(
     shot_id: Annotated[str, "ID of the shot (from `shots[].id`) to generate a still for."],
@@ -145,10 +205,17 @@ def generate_shot_reference(
 ) -> Command:
     """Generate the reference still image for one shot via Runway text→image.
 
+    Uses Gen-4 Image Turbo (faster, cheaper than standard Gen-4 Image).
+    For shots after the first, passes prior shots' reference images as
+    consistency anchors so characters and visual style stay coherent
+    across the storyboard. The first shot's reference becomes the
+    storyboard-level `style_ref_url` anchor for all subsequent shots.
+
     Updates that shot's `ref_image_url` and bumps status to 'image'.
     Status flow: pending → image → (call generate_shot_video) → ready.
     """
     shots: list[dict] = list((state or {}).get("shots") or [])
+    storyboard: dict = dict((state or {}).get("storyboard") or {})
     shot = _find_shot(shots, shot_id)
     if not shot:
         return Command(
@@ -164,8 +231,10 @@ def generate_shot_reference(
 
     prompt = shot.get("prompt") or ""
     ratio = shot.get("aspect_ratio") or "1280:720"
+    prior_refs = _prior_ref_urls(shots, shot, storyboard)
+
     try:
-        result = generate_reference_image(prompt, ratio=ratio)
+        result = generate_reference_image(prompt, ratio=ratio, prior_ref_urls=prior_refs)
     except Exception as e:  # noqa: BLE001 - surface to the agent
         new_shots = _patch_shot(
             shots, shot_id, {"status": "error", "error": str(e)}
@@ -187,16 +256,25 @@ def generate_shot_reference(
         shot_id,
         {"ref_image_url": result.url, "status": "image", "error": None},
     )
-    msg = (
-        f"Reference ready for shot {shot.get('beat') or shot_id} "
-        f"({result.mode}). URL: {result.url}"
-    )
-    return Command(
-        update={
-            "shots": new_shots,
-            "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
-        }
-    )
+
+    # Promote shot-0's reference to the storyboard-level style anchor so
+    # all subsequent shots can use it as their primary consistency ref.
+    update: dict = {
+        "shots": new_shots,
+        "messages": [ToolMessage(
+            content=(
+                f"Reference ready for shot {shot.get('beat') or shot_id} "
+                f"({result.mode}"
+                + (f", anchored to {len(prior_refs)} prior ref(s)" if prior_refs else "")
+                + f"). URL: {result.url}"
+            ),
+            tool_call_id=tool_call_id,
+        )],
+    }
+    if shot.get("index", 0) == 0 and not storyboard.get("style_ref_url"):
+        update["storyboard"] = {**storyboard, "style_ref_url": result.url}
+
+    return Command(update=update)
 
 
 @tool
@@ -205,7 +283,12 @@ def generate_shot_video(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
 ) -> Command:
-    """Animate one shot's reference image via Runway image→video.
+    """Animate one shot's reference image via Runway Gen-4.5 (image→video).
+
+    Gen-4.5 delivers better quality and control than gen4_turbo at the
+    same price point. The shot's reference image is used as the first
+    frame, so visual style established by generate_shot_reference carries
+    directly into the motion.
 
     Sets `video_url` and bumps status to 'ready'. If the shot has no
     reference image yet, returns an error ToolMessage so the agent
@@ -340,12 +423,22 @@ def generate_all_references(
 ) -> Command:
     """PARALLEL Runway text→image for every shot missing a reference.
 
+    Uses Gen-4 Image Turbo (faster, cheaper). Passes prior shots'
+    reference images as consistency anchors so characters stay coherent
+    across the storyboard.
+
+    Processing order: shot 0 is generated first (synchronously) so its
+    URL can be promoted to `style_ref_url` and used as the primary
+    character anchor for all subsequent shots. Shots 1+ are then
+    generated in parallel with that anchor in place.
+
     Bounded by `_RUNWAY_MAX_CONCURRENCY` so we don't blow per-account
     concurrency limits. Per-shot failures don't abort the batch — they
     surface in each shot's `error` field, and the summary ToolMessage
     reports counts.
     """
     shots: list[dict] = list((state or {}).get("shots") or [])
+    storyboard: dict = dict((state or {}).get("storyboard") or {})
     targets = [s for s in shots if not s.get("ref_image_url")]
     if not targets:
         return Command(
@@ -359,11 +452,47 @@ def generate_all_references(
             }
         )
 
+    # Sort targets so shot 0 is always processed first.
+    targets_sorted = sorted(targets, key=lambda s: s.get("index", 0))
+
+    patches: dict[str, dict] = {}
+
+    # --- Step 1: generate shot 0 synchronously so we have a style anchor ---
+    first = targets_sorted[0]
+    prior_refs_first = _prior_ref_urls(shots, first, storyboard)
+    try:
+        res0 = generate_reference_image(
+            first.get("prompt") or "",
+            ratio=first.get("aspect_ratio") or "1280:720",
+            prior_ref_urls=prior_refs_first,
+        )
+        patches[first["id"]] = {
+            "ref_image_url": res0.url,
+            "status": "image",
+            "error": None,
+        }
+        # Promote to style anchor if not already set
+        if first.get("index", 0) == 0 and not storyboard.get("style_ref_url"):
+            storyboard = {**storyboard, "style_ref_url": res0.url}
+    except Exception as e:  # noqa: BLE001
+        patches[first["id"]] = {"status": "error", "error": str(e)}
+
+    # --- Step 2: generate remaining shots in parallel with anchor in place ---
+    rest = targets_sorted[1:]
+
     def _one(shot: dict) -> tuple[str, dict]:
+        # Build prior refs using the now-updated patches so shots that
+        # completed in step 1 are included as anchors.
+        merged_shots = [
+            ({**s, **patches[s["id"]]} if s["id"] in patches else s)
+            for s in shots
+        ]
+        prior_refs = _prior_ref_urls(merged_shots, shot, storyboard)
         try:
             res = generate_reference_image(
                 shot.get("prompt") or "",
                 ratio=shot.get("aspect_ratio") or "1280:720",
+                prior_ref_urls=prior_refs,
             )
             return shot["id"], {
                 "ref_image_url": res.url,
@@ -373,29 +502,33 @@ def generate_all_references(
         except Exception as e:  # noqa: BLE001
             return shot["id"], {"status": "error", "error": str(e)}
 
-    patches: dict[str, dict] = {}
-    with _cf.ThreadPoolExecutor(
-        max_workers=min(len(targets), _RUNWAY_MAX_CONCURRENCY)
-    ) as ex:
-        for shot_id, patch in ex.map(_one, targets):
-            patches[shot_id] = patch
+    if rest:
+        with _cf.ThreadPoolExecutor(
+            max_workers=min(len(rest), _RUNWAY_MAX_CONCURRENCY)
+        ) as ex:
+            for shot_id, patch in ex.map(_one, rest):
+                patches[shot_id] = patch
 
     new_shots = [
         ({**s, **patches[s["id"]]} if s["id"] in patches else s) for s in shots
     ]
     ok = sum(1 for p in patches.values() if "ref_image_url" in p)
     failed = len(patches) - ok
+    anchor_note = f", style anchor: {storyboard.get('style_ref_url', 'none')[:40]}…" if storyboard.get("style_ref_url") else ""
     msg = (
         f"References: {ok} ready"
         + (f", {failed} failed" if failed else "")
-        + f" ({runway_mode_label()}). Call generate_all_videos next."
+        + f" ({runway_mode_label()}{anchor_note}). Call generate_all_videos next."
     )
-    return Command(
-        update={
-            "shots": new_shots,
-            "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
-        }
-    )
+
+    update: dict = {
+        "shots": new_shots,
+        "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
+    }
+    if storyboard.get("style_ref_url"):
+        update["storyboard"] = storyboard
+
+    return Command(update=update)
 
 
 @tool

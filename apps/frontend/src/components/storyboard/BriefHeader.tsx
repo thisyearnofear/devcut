@@ -76,6 +76,17 @@ export function BriefHeader({
             </span>
           )}
 
+          {/* Cross-shot consistency anchor — shown once shot 0's ref is set */}
+          {storyboard.style_ref_url && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-violet-700"
+              title="Shot 0's reference image is being used as a character/style anchor for all subsequent shots via Gen-4 Image Turbo referenceImages."
+            >
+              <span className="size-1.5 rounded-full bg-violet-500" />
+              Consistent
+            </span>
+          )}
+
           {shotCount > 0 ? (
             <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
               {readyCount}/{shotCount} shots ready

@@ -25,6 +25,8 @@ export interface Storyboard {
   aspect_ratio: AspectRatio;
   runway_mode: "LIVE" | "MOCK" | string;
   stitch_mode?: "LIVE" | "MOCK" | string;
+  /** ref_image_url of shot 0 — used as the character/style anchor for all subsequent shots. */
+  style_ref_url?: string | null;
 }
 
 export type ExportStatus = "idle" | "stitching" | "ready" | "error";
@@ -47,6 +49,7 @@ export const initialStoryboardState: StoryboardState = {
     aspect_ratio: "1280:720",
     runway_mode: "MOCK",
     stitch_mode: "MOCK",
+    style_ref_url: null,
   },
   shots: [],
   selectedShotId: null,

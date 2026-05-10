@@ -41,6 +41,7 @@ class _Storyboard(TypedDict, total=False):
     aspect_ratio: str
     runway_mode: str   # "LIVE" | "MOCK"
     stitch_mode: str   # "LIVE" | "MOCK" — set after first stitch
+    style_ref_url: Optional[str]  # ref_image_url of shot 0; consistency anchor
 
 
 def _replace(_left: Any, right: Any) -> Any:
