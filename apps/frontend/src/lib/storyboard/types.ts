@@ -61,8 +61,8 @@ export const initialStoryboardState: StoryboardState = {
 
 export const STATUS_LABEL: Record<ShotStatus, string> = {
   pending: "Pending",
-  image: "Generating video…",
-  video: "Generating video…",
+  image: "Still generating…",
+  video: "Video generating…",
   ready: "Ready",
   error: "Error",
 };
