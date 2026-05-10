@@ -1,7 +1,8 @@
 """Thin wrapper around the official `runwayml` Python SDK.
 
 Two modes:
-- LIVE: when `RUNWAY_API_KEY` is set, real calls to the Runway API.
+- LIVE: when `RUNWAY_API_KEY` is set (or a per-request key is injected via
+  LangGraph configurable), real calls to the Runway API.
   Uses Gen-4 Image Turbo (text→image for shot references) and Gen-4.5
   (image→video). Both models accept reference images for cross-shot
   visual consistency — characters and style anchors are threaded through
@@ -10,6 +11,18 @@ Two modes:
   pipeline (storyboard state, frontend rendering, agent prompts) works
   end-to-end without burning credits or blocking dev.
 
+Per-request key (BYOK):
+  The BFF injects `runway_api_key` into LangGraph's configurable dict when
+  the user supplies their own key via the frontend settings panel. This
+  function reads it via `_get_configurable()` and uses it in preference to
+  the server-level env var. The user's key is never logged.
+
+Budget guard:
+  The BFF also injects `runway_calls_remaining` and `runway_budget` into
+  configurable. `_check_budget()` raises `BudgetExceededError` before any
+  Runway call when the remaining count hits 0. The BFF increments the
+  counter via POST /api/runway-call-used after each successful call.
+
 Model choices vs. the original:
 - gen4_image → gen4_image_turbo  : 2-4x cheaper, <10s, 93% quality parity.
   Accepts up to 3 reference images with optional tags for prompt-addressable
@@ -17,17 +30,8 @@ Model choices vs. the original:
 - gen4_turbo → gen4.5            : newer model, better quality + control,
   same pricing tier, 2-10s flexible duration, text-to-video also supported.
 
-The agent's tools always go through this wrapper, so swapping LIVE↔MOCK
-is a single env-var flip.
-
-Long-running jobs are handled with the SDK's `wait_for_task_output()` —
-polling, backoff, and timeouts live inside the SDK, so we don't reinvent
-them.
-
 This module is sync-only; LangChain `@tool` functions are sync and the
-LangGraph runtime can dispatch them in worker threads if needed. Keeping
-it sync simplifies error handling and makes the mock path trivially
-deterministic.
+LangGraph runtime can dispatch them in worker threads if needed.
 """
 
 from __future__ import annotations
@@ -35,15 +39,100 @@ from __future__ import annotations
 import hashlib
 import os
 import time
-from dataclasses import dataclass, field
+import urllib.request
+from dataclasses import dataclass
 from typing import Optional
+
+
+# --------------------------------------------------------------------- budget
+
+
+class BudgetExceededError(RuntimeError):
+    """Raised when the per-thread Runway call budget is exhausted."""
+
+
+def _get_configurable() -> dict:
+    """Return the current LangGraph configurable dict, or {} if not in a run."""
+    try:
+        from langgraph.config import get_config
+        cfg = get_config()
+        return cfg.get("configurable", {}) if cfg else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _check_budget() -> None:
+    """Raise BudgetExceededError if the per-thread call budget is exhausted.
+
+    Only enforced when the BFF injects runway_calls_remaining into
+    configurable (i.e. when a shared server key is in use). When the user
+    supplies their own key (runway_api_key in configurable), the budget
+    check is skipped — they're paying from their own account.
+    """
+    cfg = _get_configurable()
+    # If the user supplied their own key, skip the budget check entirely.
+    if cfg.get("runway_api_key"):
+        return
+    remaining = cfg.get("runway_calls_remaining")
+    if remaining is None:
+        return  # BFF not injecting budget — no limit
+    if int(remaining) <= 0:
+        budget = cfg.get("runway_budget", 20)
+        raise BudgetExceededError(
+            f"Runway call budget exhausted ({budget} calls per conversation). "
+            "Add your own Runway API key in the canvas settings to continue, "
+            "or start a new conversation."
+        )
+
+
+def _notify_bff_call_used(thread_id: str) -> None:
+    """Tell the BFF to increment the per-thread call counter.
+
+    Fire-and-forget — failures are silently swallowed so a counter glitch
+    never blocks generation.
+    """
+    bff_url = os.getenv("BFF_URL", "http://localhost:4000")
+    try:
+        data = f'{{"thread_id": "{thread_id}"}}'.encode()
+        req = urllib.request.Request(
+            f"{bff_url}/api/runway-call-used",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=3)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _current_thread_id() -> str:
+    """Return the current LangGraph thread ID, or empty string."""
+    try:
+        cfg = _get_configurable()
+        return str(cfg.get("thread_id", ""))
+    except Exception:  # noqa: BLE001
+        return ""
 
 # --------------------------------------------------------------------- modes
 
 
+def _effective_api_key() -> str:
+    """Return the Runway API key to use for this request.
+
+    Priority:
+    1. Per-request key from LangGraph configurable (user's own BYOK key)
+    2. Server-level RUNWAY_API_KEY / RUNWAYML_API_SECRET env var
+    """
+    cfg = _get_configurable()
+    byok = cfg.get("runway_api_key", "")
+    if byok and not str(byok).startswith("stub"):
+        return str(byok)
+    return os.getenv("RUNWAY_API_KEY") or os.getenv("RUNWAYML_API_SECRET") or ""
+
+
 def runway_is_live() -> bool:
-    """True when a real Runway API key is configured."""
-    key = os.getenv("RUNWAY_API_KEY") or os.getenv("RUNWAYML_API_SECRET") or ""
+    """True when a real Runway API key is available (BYOK or server env)."""
+    key = _effective_api_key()
     return bool(key) and not key.startswith("stub")
 
 
@@ -95,9 +184,10 @@ def _mock_video(prompt: str, duration: int, image_url: Optional[str]) -> RunwayV
 
 
 def _client():
-    """Lazy-import the SDK so a missing install only breaks LIVE callers."""
+    """Lazy-import the SDK and initialise with the effective API key."""
     from runwayml import RunwayML
-    return RunwayML()
+    key = _effective_api_key()
+    return RunwayML(api_key=key if key else None)
 
 
 def _build_ref_images(
@@ -200,14 +290,19 @@ def generate_reference_image(
 ) -> RunwayImageResult:
     """Make a still reference frame for a shot (text→image).
 
+    Checks the per-thread budget before calling Runway, then notifies the
+    BFF to increment the counter on success.
+
     `prior_ref_urls` — URLs of reference stills from earlier shots in the
     storyboard. When provided, they are passed to gen4_image_turbo as
     referenceImages so characters and visual style stay consistent across
-    shots. Pass the first shot's ref as "character1" anchor; subsequent
-    shots can address it in the prompt with "@character1".
+    shots.
     """
     if runway_is_live():
-        return _live_image(prompt, ratio=ratio, prior_ref_urls=prior_ref_urls)
+        _check_budget()
+        result = _live_image(prompt, ratio=ratio, prior_ref_urls=prior_ref_urls)
+        _notify_bff_call_used(_current_thread_id())
+        return result
     return _mock_image(prompt)
 
 
@@ -219,11 +314,14 @@ def generate_shot_video(
 ) -> RunwayVideoResult:
     """Animate a reference image into a clip via Gen-4.5 (image→video).
 
-    The shot's own reference image is the first frame, so visual style
-    established during generate_reference_image carries through to motion.
+    Checks the per-thread budget before calling Runway, then notifies the
+    BFF to increment the counter on success.
     """
     if runway_is_live():
-        return _live_video(image_url, prompt, duration=duration, ratio=ratio)
+        _check_budget()
+        result = _live_video(image_url, prompt, duration=duration, ratio=ratio)
+        _notify_bff_call_used(_current_thread_id())
+        return result
     time.sleep(0.6)
     return _mock_video(prompt, duration=duration, image_url=image_url)
 

@@ -8,6 +8,8 @@ interface BriefHeaderProps {
   storyboard: Storyboard;
   shotCount: number;
   readyCount: number;
+  onKeyClick?: () => void;
+  hasPersonalKey?: boolean;
 }
 
 /**
@@ -20,6 +22,8 @@ export function BriefHeader({
   storyboard,
   shotCount,
   readyCount,
+  onKeyClick,
+  hasPersonalKey,
 }: BriefHeaderProps) {
   const isRunwayLive = storyboard.runway_mode === "LIVE";
   const isStitchLive = storyboard.stitch_mode === "LIVE";
@@ -92,6 +96,29 @@ export function BriefHeader({
               {readyCount}/{shotCount} shots ready
             </span>
           ) : null}
+
+          {/* BYOK button — always visible so users can set their key before generating */}
+          {onKeyClick && (
+            <button
+              type="button"
+              onClick={onKeyClick}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider transition-colors ${
+                hasPersonalKey
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted"
+              }`}
+              title={
+                hasPersonalKey
+                  ? "Using your Runway API key. Click to change."
+                  : "Add your own Runway API key to use your own credits."
+              }
+            >
+              <span
+                className={`size-1.5 rounded-full ${hasPersonalKey ? "bg-emerald-500" : "bg-muted-foreground"}`}
+              />
+              {hasPersonalKey ? "Your Key" : "Add Key"}
+            </button>
+          )}
         </div>
       </div>
     </header>

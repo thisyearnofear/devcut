@@ -22,6 +22,7 @@ import {
 } from "@/lib/storyboard/types";
 import { BriefHeader } from "@/components/storyboard/BriefHeader";
 import { ExportPanel } from "@/components/storyboard/ExportPanel";
+import { ApiKeyPanel, useRunwayApiKey } from "@/components/storyboard/ApiKeyPanel";
 import { StoryboardTimeline } from "@/components/storyboard/StoryboardTimeline";
 import { ShotPreview } from "@/components/storyboard/ShotPreview";
 import { ToolFallbackCard } from "@/components/copilot/ToolFallbackCard";
@@ -99,6 +100,8 @@ function LiveStoryboardSummary() {
 function DirectorCanvas() {
   const { agent } = useAgent();
   const { copilotkit } = useCopilotKit();
+  const [showKeyPanel, setShowKeyPanel] = useState(false);
+  const { key: runwayKey } = useRunwayApiKey();
 
   useConfigureSuggestions({
     available: "before-first-message",
@@ -316,7 +319,13 @@ function DirectorCanvas() {
           storyboard={state.storyboard}
           shotCount={state.shots.length}
           readyCount={readyShots}
+          onKeyClick={() => setShowKeyPanel((v) => !v)}
+          hasPersonalKey={Boolean(runwayKey)}
         />
+
+        {showKeyPanel && (
+          <ApiKeyPanel onClose={() => setShowKeyPanel(false)} />
+        )}
 
         {state.shots.length === 0 ? (
           <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border bg-card/40 p-12 text-center">
