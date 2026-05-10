@@ -25,13 +25,25 @@ const agent = new LangGraphAgent({
   },
 });
 
+// Director / storyboard agent — same LangGraph deployment, different graphId.
+// The frontend mounts this at agentId="director" on the /director route.
+const director = new LangGraphAgent({
+  deploymentUrl:
+    process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
+  graphId: "director",
+  langsmithApiKey: process.env.LANGSMITH_API_KEY ?? "",
+  assistantConfig: {
+    recursion_limit: Number(process.env.LANGGRAPH_RECURSION_LIMIT ?? 60),
+  },
+});
+
 const app = createCopilotEndpoint({
   basePath: "/api/copilotkit",
   runtime: new CopilotRuntime({
     intelligence,
     identifyUser: () => ({ id: "default", name: "Hackathon User" }),
     licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
-    agents: { default: agent },
+    agents: { default: agent, director },
     openGenerativeUI: true,
     a2ui: { injectA2UITool: false },
     mcpApps: {

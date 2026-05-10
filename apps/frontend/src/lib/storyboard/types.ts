@@ -1,0 +1,76 @@
+// Mirrors `StoryboardCanvasState` in apps/agent/src/storyboard_state.py.
+// Keep field names identical — the agent writes these via Command(update=)
+// or via frontend tools, and the frontend reads them off agent.state.
+
+export type ShotStatus = "pending" | "image" | "video" | "ready" | "error";
+
+export type AspectRatio = "1280:720" | "720:1280";
+
+export interface Shot {
+  id: string;
+  index: number;
+  beat: string;
+  prompt: string;
+  ref_image_url: string | null;
+  video_url: string | null;
+  status: ShotStatus;
+  error: string | null;
+  duration: number;
+  aspect_ratio: AspectRatio;
+}
+
+export interface Storyboard {
+  title: string;
+  logline: string;
+  aspect_ratio: AspectRatio;
+  runway_mode: "LIVE" | "MOCK" | string;
+  stitch_mode?: "LIVE" | "MOCK" | string;
+}
+
+export type ExportStatus = "idle" | "stitching" | "ready" | "error";
+
+export interface StoryboardState {
+  storyboard: Storyboard;
+  shots: Shot[];
+  selectedShotId: string | null;
+  header: { title: string; subtitle: string };
+  /** Final concatenated MP4. Set by the backend `stitch_final_cut` tool. */
+  final_video_url: string | null;
+  export_status: ExportStatus;
+  export_error: string | null;
+}
+
+export const initialStoryboardState: StoryboardState = {
+  storyboard: {
+    title: "",
+    logline: "",
+    aspect_ratio: "1280:720",
+    runway_mode: "MOCK",
+    stitch_mode: "MOCK",
+  },
+  shots: [],
+  selectedShotId: null,
+  header: {
+    title: "Director's Canvas",
+    subtitle: "Agent-driven video production",
+  },
+  final_video_url: null,
+  export_status: "idle",
+  export_error: null,
+};
+
+export const STATUS_LABEL: Record<ShotStatus, string> = {
+  pending: "Pending",
+  image: "Generating video…",
+  video: "Generating video…",
+  ready: "Ready",
+  error: "Error",
+};
+
+export const STATUS_COLOR: Record<ShotStatus, string> = {
+  pending: "#94a3b8",
+  image: "#fbbf24",
+  video: "#fbbf24",
+  ready: "#34d399",
+  error: "#f87171",
+};
