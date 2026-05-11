@@ -410,6 +410,10 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
   const injectPrompt = useCallback(
     (prompt: string) => {
       if (!agent) return;
+      if (isRunning) {
+        toast.error("Please wait — the agent is still working.", { duration: 3000 });
+        return;
+      }
       const id =
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
@@ -427,7 +431,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
         toast.error(msg, { duration: 6000 });
       }).finally(() => setIsRunning(false));
     },
-    [agent, copilotkit],
+    [agent, copilotkit, isRunning],
   );
 
   const state = mergeStoryboardState(agent?.state);
@@ -660,16 +664,18 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                   <div className="flex gap-2">
                     <button
                       type="button"
+                      disabled={isRunning}
                       onClick={() => injectPrompt("Generate all references and all videos for every shot now. Call generate_all_references then generate_all_videos.")}
-                      className="rounded-full border border-white/22 bg-white/12 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/82 transition-colors hover:bg-white/20 hover:text-white"
+                      className="rounded-full border border-white/22 bg-white/12 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/82 transition-colors hover:bg-white/20 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       Generate remaining media
                     </button>
                     {readyShots > 0 && state.shots.some((s) => s.ref_image_url && !s.video_url) && (
                       <button
                         type="button"
+                        disabled={isRunning}
                         onClick={() => injectPrompt("Generate all remaining videos now. Call generate_all_videos.")}
-                        className="rounded-full border border-white/12 px-3 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/65 transition-colors hover:text-white/85"
+                        className="rounded-full border border-white/12 px-3 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/65 transition-colors hover:text-white/85 disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         Animate remaining
                       </button>
@@ -691,8 +697,9 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                   </div>
                   <button
                     type="button"
+                    disabled={isRunning}
                     onClick={handleExport}
-                    className="rounded-full border border-white/30 bg-white/15 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/84 transition-colors hover:bg-white/24 hover:text-white"
+                    className="rounded-full border border-white/30 bg-white/15 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/84 transition-colors hover:bg-white/24 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     Export final cut
                   </button>
@@ -749,13 +756,13 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                   className="max-h-[26vh] w-full rounded-lg object-contain" />
               ) : null}
               <div className="flex gap-2">
-                <button type="button" onClick={() => handleRegenerate(selectedShot.id)}
-                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-white/68 hover:text-white/85">
+                <button type="button" disabled={isRunning} onClick={() => handleRegenerate(selectedShot.id)}
+                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-white/68 hover:text-white/85 disabled:opacity-30 disabled:cursor-not-allowed">
                   Regenerate
                 </button>
-                <button type="button"
+                <button type="button" disabled={isRunning}
                   onClick={() => injectPrompt(`Rewrite the prompt for shot ${selectedShot.id} with more cinematic detail, then regenerate it.`)}
-                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-white/68 hover:text-white/85">
+                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-white/68 hover:text-white/85 disabled:opacity-30 disabled:cursor-not-allowed">
                   Rewrite
                 </button>
                 {(selectedShot.ref_image_url || selectedShot.video_url) && (
