@@ -60,7 +60,15 @@ info "Building BFF…"
 # ── 5. Ensure logs directory ──────────────────────────────────────────────
 mkdir -p "$ROOT/logs"
 
-# ── 5b. Ensure agent .env symlink (single source of truth) ───────────────
+# ── 5b. Apply agent patches ───────────────────────────────────────────────
+if [ -d "$ROOT/apps/agent/patches" ]; then
+  info "Applying agent patches…"
+  for patch in "$ROOT"/apps/agent/patches/*.py; do
+    [ -f "$patch" ] && (cd "$ROOT/apps/agent" && .venv/bin/python "$patch") 2>&1 | tail -1
+  done
+fi
+
+# ── 5c. Ensure agent .env symlink (single source of truth) ───────────────
 if [ ! -L "$ROOT/apps/agent/.env" ]; then
   info "Creating agent .env symlink → root .env"
   rm -f "$ROOT/apps/agent/.env"
