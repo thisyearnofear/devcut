@@ -59,16 +59,16 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
       {/* Mode status */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Server key mode */}
           <button
             type="button"
             onClick={handleClear}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] transition-all ${
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] transition-all ${
               !usingByok
                 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-white/10 text-white/30 hover:border-white/20 hover:text-white/50"
+                : "border-white/10 text-white/58 hover:border-white/20 hover:text-white/78"
             }`}
           >
             <span className={`size-1.5 rounded-full ${!usingByok ? "bg-emerald-500" : "bg-white/20"}`} />
@@ -79,10 +79,10 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
           <button
             type="button"
             onClick={() => inputRef.current?.focus()}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] transition-all ${
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] transition-all ${
               usingByok
                 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-white/10 text-white/30 hover:border-white/20 hover:text-white/50"
+                : "border-white/10 text-white/58 hover:border-white/20 hover:text-white/78"
             }`}
           >
             <span className={`size-1.5 rounded-full ${usingByok ? "bg-emerald-500" : "bg-white/20"}`} />
@@ -93,14 +93,14 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
         <button
           type="button"
           onClick={onClose}
-          className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/25 hover:text-white/60"
+          className="self-start font-mono text-xs uppercase tracking-[0.12em] text-white/58 hover:text-white/82 sm:self-auto"
         >
           ✕
         </button>
       </div>
 
       {/* Context */}
-      <p className="mb-3 font-mono text-[10px] leading-relaxed text-white/30">
+      <p className="mb-3 font-mono text-xs leading-relaxed text-white/62">
         {usingByok
           ? `Using your key ···${key.slice(-6)} — charges go to your Runway account. No budget limit.`
           : isLive
@@ -117,7 +117,7 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && draft.trim() && handleSave()}
           placeholder="key_xxxxxxxxxxxxxxxx"
-          className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-[11px] text-white/70 placeholder:text-white/20 focus:border-white/25 focus:outline-none"
+          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-white/82 placeholder:text-white/45 focus:border-white/35 focus:outline-none"
           autoComplete="off"
           spellCheck={false}
         />
@@ -125,7 +125,7 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/60 hover:bg-white/20 hover:text-white"
+            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white/75 hover:bg-white/20 hover:text-white"
           >
             {saved ? "Saved ✓" : "Use"}
           </button>
@@ -134,16 +134,16 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
           <button
             type="button"
             onClick={handleClear}
-            className="rounded-lg border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/30 hover:text-white/60"
+            className="rounded-lg border border-white/10 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white/62 hover:text-white/82"
           >
             Remove
           </button>
         )}
       </div>
 
-      <p className="mt-2 font-mono text-[9px] text-white/20">
+      <p className="mt-2 font-mono text-[11px] text-white/55">
         Get a key at{" "}
-        <a href="https://dev.runwayml.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">
+        <a href="https://dev.runwayml.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/80">
           dev.runwayml.com
         </a>
         {" "}· Stored in your browser only

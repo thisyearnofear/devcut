@@ -32,7 +32,12 @@ export function ShotCard({
   return (
     <div
       className={`group flex shrink-0 flex-col gap-2 rounded-xl bg-card/80 p-3 text-card-foreground shadow-sm transition hover:shadow-md ${ringClass}`}
-      style={{ width: shot.aspect_ratio === "720:1280" ? 200 : 320 }}
+      style={{
+        width:
+          shot.aspect_ratio === "720:1280"
+            ? "clamp(176px, 48vw, 200px)"
+            : "clamp(240px, 76vw, 320px)",
+      }}
     >
       {/* Header: beat label + status */}
       <div className="flex items-center justify-between gap-2">
@@ -45,7 +50,7 @@ export function ShotCard({
           #{shot.index + 1} · {shot.beat || "Shot"}
         </button>
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
           style={{
             backgroundColor: `${STATUS_COLOR[shot.status]}22`,
             color: STATUS_COLOR[shot.status],
@@ -85,13 +90,13 @@ export function ShotCard({
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-muted-foreground">
+          <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-wider text-muted-foreground">
             {shot.status === "error" ? "Error" : "Awaiting reference"}
           </div>
         )}
         {shot.status === "image" && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
-            <span className="rounded-full bg-black/70 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+            <span className="rounded-full bg-black/70 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-white">
               Generating still…
             </span>
           </div>
@@ -100,17 +105,17 @@ export function ShotCard({
 
       {/* Prompt + actions */}
       <p
-        className="line-clamp-2 text-[11px] leading-snug text-muted-foreground"
+        className="line-clamp-2 text-xs leading-snug text-muted-foreground"
         title={shot.prompt}
       >
         {shot.prompt || "(no prompt)"}
       </p>
       {shot.error ? (
-        <p className="line-clamp-2 text-[10px] text-rose-500" title={shot.error}>
+        <p className="line-clamp-2 text-xs text-rose-500" title={shot.error}>
           {shot.error}
         </p>
       ) : null}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <span>{shot.duration}s</span>
         <div className="flex items-center gap-1.5">
           {shot.ref_image_url && (
@@ -123,7 +128,7 @@ export function ShotCard({
                   `${shot.beat || `shot_${shot.index + 1}`}_ref.png`,
                 )
               }
-              className="rounded-full border border-border px-2 py-0.5 text-[10px] hover:bg-muted"
+              className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
               title="Download reference image"
             >
               ↓ Ref
@@ -139,7 +144,7 @@ export function ShotCard({
                   `${shot.beat || `shot_${shot.index + 1}`}.mp4`,
                 )
               }
-              className="rounded-full border border-border px-2 py-0.5 text-[10px] hover:bg-muted"
+              className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
               title="Download video"
             >
               ↓ Video
@@ -149,7 +154,7 @@ export function ShotCard({
             <button
               type="button"
               onClick={() => onRegenerate(shot.id)}
-              className="rounded-full border border-border px-2 py-0.5 text-[10px] hover:bg-muted"
+              className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
             >
               Regenerate
             </button>

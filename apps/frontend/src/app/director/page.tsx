@@ -35,7 +35,26 @@ import { AvatarShowcase } from "@/components/storyboard/AvatarShowcase";
 function ClientOnly({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
+  if (!mounted) {
+    return (
+      <div data-theme="cinema" className="flex min-h-svh items-center justify-center bg-background px-6 text-center">
+        <div className="space-y-3">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/60">
+            Loading director
+          </p>
+          <div className="mx-auto flex w-fit items-center gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="size-1.5 rounded-full bg-white/50 animate-pulse"
+                style={{ animationDelay: `${i * 150}ms` }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return <>{children}</>;
 }
 
@@ -117,12 +136,81 @@ interface ChatMessage {
   content: string;
 }
 
+interface AgentProgress {
+  total: number;
+  refs: number;
+  videos: number;
+  ready: number;
+  exportStatus: StoryboardState["export_status"];
+  stages: Array<{
+    label: string;
+    detail: string;
+    status: "done" | "active" | "waiting" | "error";
+  }>;
+}
+
+function getAgentProgress(state: StoryboardState, isRunning: boolean): AgentProgress {
+  const total = state.shots.length;
+  const refs = state.shots.filter((s) => Boolean(s.ref_image_url)).length;
+  const videos = state.shots.filter((s) => Boolean(s.video_url)).length;
+  const ready = state.shots.filter((s) => s.status === "ready").length;
+  const hasErrors = state.shots.some((s) => s.status === "error") || state.export_status === "error";
+
+  return {
+    total,
+    refs,
+    videos,
+    ready,
+    exportStatus: state.export_status,
+    stages: [
+      {
+        label: "Storyboard",
+        detail: total > 0 ? `${total} shots planned` : "Waiting for a brief",
+        status: total > 0 ? "done" : isRunning ? "active" : "waiting",
+      },
+      {
+        label: "Reference stills",
+        detail: total > 0 ? `${refs}/${total} stills ready` : "Starts after planning",
+        status: refs === total && total > 0 ? "done" : total > 0 && isRunning ? "active" : "waiting",
+      },
+      {
+        label: "Motion clips",
+        detail: total > 0 ? `${videos}/${total} clips ready` : "Starts after stills",
+        status: videos === total && total > 0 ? "done" : refs > 0 && isRunning ? "active" : "waiting",
+      },
+      {
+        label: "Final cut",
+        detail:
+          state.export_status === "ready"
+            ? "MP4 ready"
+            : state.export_status === "stitching"
+              ? "Stitching clips"
+              : ready === total && total > 0
+                ? "Ready to export"
+                : "Waiting for clips",
+        status:
+          state.export_status === "error" || hasErrors
+            ? "error"
+            : state.export_status === "ready"
+              ? "done"
+              : state.export_status === "stitching"
+                ? "active"
+                : "waiting",
+      },
+    ],
+  };
+}
+
 function DirectorChat({
   onSend,
   isRunning,
+  progress,
+  lastError,
 }: {
   onSend: (msg: string) => void;
   isRunning: boolean;
+  progress: AgentProgress;
+  lastError: string | null;
 }) {
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -151,7 +239,7 @@ function DirectorChat({
   const showSuggestions = messages.length === 0 && !isRunning;
 
   return (
-    <div className="flex h-full flex-col bg-sidebar border-l border-sidebar-border">
+    <div className="flex h-full min-h-0 flex-col bg-sidebar">
       {/* Messages */}
       <div
         ref={messagesRef}
@@ -159,7 +247,7 @@ function DirectorChat({
       >
         {showSuggestions ? (
           <div className="space-y-3 pt-2">
-            <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/25">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/55">
               Suggestions
             </p>
             {SUGGESTIONS.map((s) => (
@@ -167,7 +255,7 @@ function DirectorChat({
                 key={s}
                 type="button"
                 onClick={() => onSend(s)}
-                className="block w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-[11px] leading-relaxed text-white/50 transition-colors hover:border-white/25 hover:text-white/80"
+                className="block w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-xs leading-relaxed text-white/70 transition-colors hover:border-white/25 hover:text-white/90"
               >
                 {s}
               </button>
@@ -180,10 +268,10 @@ function DirectorChat({
               className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] rounded-xl px-3 py-2 text-[11px] leading-relaxed ${
+                className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
                   m.role === "user"
                     ? "bg-white/10 text-white/90"
-                    : "text-white/60"
+                    : "text-white/72"
                 }`}
               >
                 {m.content}
@@ -192,16 +280,61 @@ function DirectorChat({
           ))
         )}
         {isRunning && (
-          <div className="flex justify-start">
-            <div className="flex items-center gap-1.5 px-1 py-2">
-              {[0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  className="size-1 rounded-full bg-white/30 animate-pulse"
-                  style={{ animationDelay: `${i * 150}ms` }}
-                />
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/70">
+                Agent working
+              </p>
+              <div className="flex items-center gap-1.5">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="size-1.5 rounded-full bg-[#ffbe70] animate-pulse"
+                    style={{ animationDelay: `${i * 150}ms` }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              {progress.stages.map((stage) => (
+                <div key={stage.label} className="flex items-center gap-3">
+                  <span
+                    className={`size-2 rounded-full ${
+                      stage.status === "done"
+                        ? "bg-emerald-400"
+                        : stage.status === "active"
+                          ? "bg-[#ffbe70]"
+                          : stage.status === "error"
+                            ? "bg-rose-400"
+                            : "bg-white/18"
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-white/82">{stage.label}</p>
+                    <p className="truncate text-[11px] text-white/55">{stage.detail}</p>
+                  </div>
+                </div>
               ))}
             </div>
+          </div>
+        )}
+        {!isRunning && progress.total > 0 && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/65">
+              Canvas status
+            </p>
+            <p className="mt-1 text-xs leading-5 text-white/68">
+              {progress.ready}/{progress.total} shots ready · {progress.refs}/{progress.total} stills ·{" "}
+              {progress.videos}/{progress.total} clips
+            </p>
+          </div>
+        )}
+        {lastError && (
+          <div className="rounded-xl border border-rose-400/25 bg-rose-500/10 p-3">
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-rose-200">
+              Agent error
+            </p>
+            <p className="mt-1 text-xs leading-5 text-rose-100/80">{lastError}</p>
           </div>
         )}
       </div>
@@ -221,18 +354,18 @@ function DirectorChat({
             }}
             placeholder="Describe your scene…"
             rows={2}
-            className="flex-1 resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-[11px] text-white/80 placeholder:text-white/25 focus:border-white/25 focus:outline-none"
+            className="flex-1 resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-white/85 placeholder:text-white/45 focus:border-white/35 focus:outline-none"
           />
           <button
             type="button"
             onClick={() => handleSend(draft)}
             disabled={!draft.trim() || isRunning}
-            className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/60 transition-colors hover:bg-white/20 hover:text-white/90 disabled:opacity-30"
+            className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white/75 transition-colors hover:bg-white/20 hover:text-white/90 disabled:opacity-30"
           >
             Cut
           </button>
         </div>
-        <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-white/20">
+        <p className="mt-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-white/45">
           ↵ send · shift+↵ newline
         </p>
       </div>
@@ -250,6 +383,8 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
   const { copilotkit } = useCopilotKit();
   const [showKeyPanel, setShowKeyPanel] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [mobilePanel, setMobilePanel] = useState<"canvas" | "chat">("canvas");
   const { key: runwayKey } = useRunwayApiKey();
 
   // Auto-inject ?brief= from landing page
@@ -281,12 +416,14 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
           : `msg-${Date.now()}`;
       agent.addMessage({ id, role: "user", content: prompt });
       setIsRunning(true);
+      setLastError(null);
       void copilotkit.runAgent({ agent }).catch((error: unknown) => {
         console.error("injectPrompt: runAgent failed", error);
         const msg =
           error && typeof error === "object" && "message" in error
             ? String((error as { message: unknown }).message)
             : "Agent run failed";
+        setLastError(msg);
         toast.error(msg, { duration: 6000 });
       }).finally(() => setIsRunning(false));
     },
@@ -294,6 +431,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
   );
 
   const state = mergeStoryboardState(agent?.state);
+  const progress = useMemo(() => getAgentProgress(state, isRunning), [state, isRunning]);
 
   useEffect(() => {
     onStoryboardChange?.(state.storyboard);
@@ -412,10 +550,30 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
   return (
     <>
       {/* ── Layout: canvas left, chat right ── */}
-      <div className="flex h-screen overflow-hidden bg-background">
+      <div className="flex min-h-svh flex-col overflow-y-auto bg-background lg:h-dvh lg:flex-row lg:overflow-hidden">
+        <div className="sticky top-0 z-20 grid grid-cols-2 gap-1 border-b border-white/10 bg-background/95 p-2 backdrop-blur lg:hidden">
+          {(["canvas", "chat"] as const).map((panel) => (
+            <button
+              key={panel}
+              type="button"
+              onClick={() => setMobilePanel(panel)}
+              className={`rounded-lg px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] transition ${
+                mobilePanel === panel
+                  ? "bg-white/12 text-white"
+                  : "text-white/62 hover:bg-white/[0.06] hover:text-white/85"
+              }`}
+            >
+              {panel === "canvas" ? `Canvas ${progress.ready}/${progress.total || 0}` : "Chat"}
+            </button>
+          ))}
+        </div>
 
         {/* Canvas */}
-        <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden p-4">
+        <main
+          className={`min-w-0 flex-1 flex-col gap-3 overflow-visible p-3 sm:p-4 lg:flex lg:overflow-hidden ${
+            mobilePanel === "canvas" ? "flex" : "hidden"
+          }`}
+        >
           <BriefHeader
             title={state.header.title}
             subtitle={state.header.subtitle}
@@ -430,16 +588,16 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 
           {totalShots === 0 ? (
             /* Empty state — Runway widget as the hero onboarding */
-            <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 text-center">
+            <div className="flex flex-1 flex-col items-center justify-center gap-8 px-3 py-8 text-center sm:px-6 lg:py-0">
               <div className="max-w-2xl space-y-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/45">
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/60">
                   One brief → storyboard → clips → final cut
                 </p>
                 <div className="space-y-2">
                   <h2 className="text-2xl font-semibold tracking-tight text-white/92 md:text-3xl">
                     Start with one line.
                   </h2>
-                  <p className="mx-auto max-w-xl text-sm leading-6 text-white/62 md:text-[15px]">
+                  <p className="mx-auto max-w-xl text-sm leading-6 text-white/70 md:text-[15px]">
                     Describe the scene in chat. Director&apos;s Canvas will break it into shots,
                     generate reference stills, animate each shot, and assemble a shareable MP4.
                   </p>
@@ -456,18 +614,18 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                   ["3", "Export final cut", "When every shot is ready, stitch everything into one MP4."],
                 ].map(([step, title, body]) => (
                   <div key={step} className="rounded-xl border border-white/10 bg-white/[0.045] p-4">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/38">
+                    <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/58">
                       Step {step}
                     </p>
                     <p className="mt-2 text-sm font-medium text-white/88">{title}</p>
-                    <p className="mt-1 text-sm leading-6 text-white/52">{body}</p>
+                    <p className="mt-1 text-sm leading-6 text-white/68">{body}</p>
                   </div>
                 ))}
               </div>
 
               <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/36">
-                  Start in the chat panel on the right
+                <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/58">
+                  Start in the Chat tab
                 </p>
               </div>
             </div>
@@ -477,10 +635,10 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
               {readyShots < totalShots && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/12 bg-white/[0.06] px-4 py-3">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/52">
+                    <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/65">
                       Progress · {readyShots}/{totalShots} shots ready
                     </p>
-                    <p className="mt-1 text-sm text-white/62">
+                    <p className="mt-1 text-sm text-white/72">
                       Next: generate the remaining media, then export the final cut.
                     </p>
                   </div>
@@ -488,7 +646,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                     <button
                       type="button"
                       onClick={() => injectPrompt("Generate all references and all videos for every shot now. Call generate_all_references then generate_all_videos.")}
-                      className="rounded-full border border-white/22 bg-white/12 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-white/82 transition-colors hover:bg-white/20 hover:text-white"
+                      className="rounded-full border border-white/22 bg-white/12 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/82 transition-colors hover:bg-white/20 hover:text-white"
                     >
                       Generate remaining media
                     </button>
@@ -496,7 +654,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                       <button
                         type="button"
                         onClick={() => injectPrompt("Generate all remaining videos now. Call generate_all_videos.")}
-                        className="rounded-full border border-white/12 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-white/50 transition-colors hover:text-white/78"
+                        className="rounded-full border border-white/12 px-3 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/65 transition-colors hover:text-white/85"
                       >
                         Animate remaining
                       </button>
@@ -509,17 +667,17 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
               {readyShots > 0 && readyShots === totalShots && state.export_status === "idle" && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/12 bg-white/[0.06] px-4 py-3">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/52">
+                    <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/65">
                       Ready to export · all {totalShots} shots complete
                     </p>
-                    <p className="mt-1 text-sm text-white/62">
+                    <p className="mt-1 text-sm text-white/72">
                       Stitch the storyboard into one MP4 for download and sharing.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleExport}
-                    className="rounded-full border border-white/30 bg-white/15 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-white/84 transition-colors hover:bg-white/24 hover:text-white"
+                    className="rounded-full border border-white/30 bg-white/15 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/84 transition-colors hover:bg-white/24 hover:text-white"
                   >
                     Export final cut
                   </button>
@@ -549,20 +707,20 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 
           {/* Selected shot detail */}
           {selectedShot && (
-            <aside className="flex max-h-[38vh] shrink-0 flex-col gap-3 overflow-auto rounded-xl border border-white/10 bg-white/5 p-4 text-xs">
+            <aside className="flex max-h-[55svh] shrink-0 flex-col gap-3 overflow-auto rounded-xl border border-white/10 bg-white/5 p-4 text-xs lg:max-h-[38vh]">
               <div className="flex items-center justify-between gap-2">
-                <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/70">
+                <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/76">
                   #{selectedShot.index + 1} · {selectedShot.beat}
                 </p>
                 <button
                   type="button"
                   onClick={() => handleSelect(selectedShot.id)}
-                  className="font-mono text-[9px] uppercase tracking-[0.15em] text-white/30 hover:text-white/60"
+                  className="font-mono text-xs uppercase tracking-[0.12em] text-white/55 hover:text-white/80"
                 >
                   Close
                 </button>
               </div>
-              <p className="text-[11px] leading-relaxed text-white/50">{selectedShot.prompt}</p>
+              <p className="text-xs leading-relaxed text-white/68">{selectedShot.prompt}</p>
               {selectedShot.video_url ? (
                 <video
                   src={selectedShot.video_url}
@@ -577,12 +735,12 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
               ) : null}
               <div className="flex gap-2">
                 <button type="button" onClick={() => handleRegenerate(selectedShot.id)}
-                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-white/50 hover:text-white/80">
+                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-white/68 hover:text-white/85">
                   Regenerate
                 </button>
                 <button type="button"
                   onClick={() => injectPrompt(`Rewrite the prompt for shot ${selectedShot.id} with more cinematic detail, then regenerate it.`)}
-                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-white/50 hover:text-white/80">
+                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-white/68 hover:text-white/85">
                   Rewrite
                 </button>
                 {(selectedShot.ref_image_url || selectedShot.video_url) && (
@@ -592,7 +750,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                       const ext = selectedShot.video_url ? ".mp4" : "_ref.png";
                       handleDownload(selectedShot.id, url, `${selectedShot.beat || `shot_${selectedShot.index + 1}`}${ext}`);
                     }}
-                    className="rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-white/50 hover:text-white/80">
+                    className="rounded-full border border-white/15 px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-white/68 hover:text-white/85">
                     ↓ Save
                   </button>
                 )}
@@ -602,8 +760,17 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
         </main>
 
         {/* Chat panel */}
-        <aside className="flex w-[360px] shrink-0 flex-col border-l border-white/10">
-          <DirectorChat onSend={injectPrompt} isRunning={isRunning} />
+        <aside
+          className={`h-[calc(100svh-3.65rem)] min-h-[24rem] shrink-0 flex-col border-t border-white/10 lg:flex lg:h-auto lg:w-[360px] lg:border-l lg:border-t-0 ${
+            mobilePanel === "chat" ? "flex" : "hidden"
+          }`}
+        >
+          <DirectorChat
+            onSend={injectPrompt}
+            isRunning={isRunning}
+            progress={progress}
+            lastError={lastError}
+          />
         </aside>
       </div>
 

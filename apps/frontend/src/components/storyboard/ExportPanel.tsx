@@ -36,10 +36,10 @@ export function ExportPanel({
         {/* Spinner */}
         <span className="inline-block size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <div className="min-w-0">
-          <p className="text-xs font-medium text-foreground">
+          <p className="text-sm font-medium text-foreground">
             Stitching final cut…
           </p>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Downloading clips and running FFmpeg concat — this may take a
             minute.
           </p>
@@ -53,9 +53,9 @@ export function ExportPanel({
       <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-sm">
         <span className="mt-0.5 text-rose-500">✕</span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-rose-800">Export failed</p>
+          <p className="text-sm font-medium text-rose-800">Export failed</p>
           {exportError && (
-            <p className="mt-0.5 break-words text-[10px] text-rose-600">
+            <p className="mt-0.5 break-words text-xs text-rose-600">
               {exportError}
             </p>
           )}
@@ -63,7 +63,7 @@ export function ExportPanel({
         <button
           type="button"
           onClick={onExport}
-          className="shrink-0 rounded-full border border-rose-300 bg-white px-3 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+          className="shrink-0 rounded-full border border-rose-300 bg-white px-3 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"
         >
           Retry
         </button>
@@ -79,21 +79,21 @@ export function ExportPanel({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="size-2 rounded-full bg-emerald-500" />
-          <p className="text-xs font-semibold text-foreground">Final cut ready</p>
+          <p className="text-sm font-semibold text-foreground">Final cut ready</p>
         </div>
         <div className="flex gap-2">
           <ShareButton title={storyboardTitle} />
           <button
             type="button"
             onClick={() => onDownload(finalVideoUrl, filename)}
-            className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100"
+            className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
           >
             ↓ Download MP4
           </button>
           <button
             type="button"
             onClick={onExport}
-            className="rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground hover:bg-muted"
+            className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
           >
             Re-stitch
           </button>
@@ -108,7 +108,7 @@ export function ExportPanel({
         className="w-full rounded-lg bg-black"
         style={{ maxHeight: "40vh" }}
       />
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         {filename}
       </p>
     </div>
@@ -150,7 +150,7 @@ function ShareButton({ title }: { title: string }) {
       <button
         type="button"
         onClick={handleShare}
-        className="rounded-full border border-sky-300 bg-sky-50 px-3 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100"
+        className="rounded-full border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100"
         title="Share on X / Twitter"
       >
         𝕏 Share
@@ -158,7 +158,7 @@ function ShareButton({ title }: { title: string }) {
       <button
         type="button"
         onClick={handleCopy}
-        className="rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground hover:bg-muted"
+        className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
         title="Copy link"
       >
         {copied ? "Copied ✓" : "Copy link"}

@@ -109,7 +109,8 @@ const externalDocs = [
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto flex max-w-6xl gap-12 px-6 py-12 md:px-12 md:py-16">
+    <div data-theme="cinema" className="min-h-svh bg-background text-foreground">
+      <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-10 md:px-12 md:py-16 lg:flex-row lg:gap-12">
       <main className="min-w-0 flex-1">
         <Link
           href="/"
@@ -395,6 +396,7 @@ export default function AboutPage() {
         </footer>
       </main>
       <AboutToc items={tocItems} />
+      </div>
     </div>
   );
 }

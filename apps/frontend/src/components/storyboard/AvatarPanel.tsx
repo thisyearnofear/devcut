@@ -141,7 +141,7 @@ export function AvatarPanel({ storyboard }: AvatarPanelProps) {
               : "Talk to the Director"}
         </span>
         <span
-          className="text-[10px] text-[var(--sidebar-muted)] transition-transform duration-200"
+          className="text-xs text-[var(--sidebar-muted)] transition-transform duration-200"
           style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
           aria-hidden
         >

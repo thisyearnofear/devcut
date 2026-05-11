@@ -34,19 +34,19 @@ export function ShotPreview({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumb} alt={label} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[9px] uppercase text-muted-foreground">
+          <div className="flex h-full w-full items-center justify-center text-xs uppercase text-muted-foreground">
             …
           </div>
         )}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-medium text-foreground">{label}</p>
-        <p className="truncate text-[10px] text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground">
           {shot?.prompt || "Pending generation"}
         </p>
       </div>
       {shot?.status ? (
-        <span className="text-[10px] uppercase text-muted-foreground">
+        <span className="text-xs uppercase text-muted-foreground">
           {shot.status}
         </span>
       ) : null}

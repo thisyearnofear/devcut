@@ -82,6 +82,10 @@
     @apply bg-background text-foreground;
     font-family: var(--font-jakarta), system-ui, sans-serif;
   }
+  :where(a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
   code,
   kbd,
   pre,
@@ -259,4 +263,3 @@ html {
 [data-just-synced="true"] {
   animation: lead-card-just-synced 800ms ease-out 1;
 }
-
