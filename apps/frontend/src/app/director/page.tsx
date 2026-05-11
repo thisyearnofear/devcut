@@ -75,6 +75,7 @@ function mergeStoryboardState(raw: unknown): StoryboardState {
     },
     shots: partial.shots ?? initialStoryboardState.shots,
     selectedShotId: partial.selectedShotId ?? null,
+    grove_uri: partial.grove_uri ?? null,
   };
 }
 
@@ -246,11 +247,13 @@ function DirectorChat({
   isRunning,
   progress,
   lastError,
+  onRetry,
 }: {
   onSend: (msg: string) => void;
   isRunning: boolean;
   progress: AgentProgress;
   lastError: string | null;
+  onRetry: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -393,11 +396,22 @@ function DirectorChat({
           </div>
         )}
         {lastError && (
-          <div className="rounded-xl border border-rose-400/25 bg-rose-500/10 p-3">
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-rose-200">
-              Agent error
-            </p>
-            <p className="mt-1 text-xs leading-5 text-rose-100/80">{lastError}</p>
+          <div className="rounded-xl border border-rose-400/25 bg-rose-500/10 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-mono text-xs uppercase tracking-[0.14em] text-rose-200">
+                Agent error
+              </p>
+              <button
+                type="button"
+                disabled={isRunning}
+                onClick={onRetry}
+                className="rounded-full border border-rose-400/40 px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.1em] text-rose-200 hover:bg-rose-500/20 disabled:opacity-30"
+              >
+                Retry
+              </button>
+            </div>
+            <p className="text-xs leading-5 text-rose-100/80">{lastError}</p>
+            <p className="text-[11px] text-rose-200/50">Try a new brief or check your Runway API key.</p>
           </div>
         )}
       </div>
@@ -827,6 +841,19 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                 </div>
               )}
 
+              {/* Final cut hero — shown above timeline when ready */}
+              {state.export_status === "ready" && (
+                <ExportPanel
+                  exportStatus={state.export_status}
+                  exportError={state.export_error}
+                  finalVideoUrl={state.final_video_url}
+                  groveUri={state.grove_uri}
+                  storyboardTitle={state.storyboard.title}
+                  onExport={handleExport}
+                  onDownload={handleDownloadFinal}
+                />
+              )}
+
               <StoryboardTimeline
                 shots={state.shots}
                 selectedShotId={state.selectedShotId}
@@ -835,11 +862,13 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                 onDownload={handleDownload}
               />
 
-              {state.export_status !== "idle" && (
+              {/* Stitching / error states shown below timeline */}
+              {(state.export_status === "stitching" || state.export_status === "error") && (
                 <ExportPanel
                   exportStatus={state.export_status}
                   exportError={state.export_error}
                   finalVideoUrl={state.final_video_url}
+                  groveUri={state.grove_uri}
                   storyboardTitle={state.storyboard.title}
                   onExport={handleExport}
                   onDownload={handleDownloadFinal}
@@ -913,6 +942,13 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
             isRunning={isRunning}
             progress={progress}
             lastError={lastError}
+            onRetry={() => {
+              setLastError(null);
+              const lastUserMsg = state.shots.length > 0
+                ? "Continue generating any missing media and export the final cut."
+                : "Please try again.";
+              injectPrompt(lastUserMsg);
+            }}
           />
         </aside>
       </div>

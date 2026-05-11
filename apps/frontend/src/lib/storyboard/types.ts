@@ -38,6 +38,8 @@ export interface StoryboardState {
   header: { title: string; subtitle: string };
   /** Final concatenated MP4. Set by the backend `stitch_final_cut` tool. */
   final_video_url: string | null;
+  /** Permanent Grove URI for the final cut (lens:// or https://api.grove.storage/...). */
+  grove_uri: string | null;
   export_status: ExportStatus;
   export_error: string | null;
 }
@@ -61,6 +63,7 @@ export const initialStoryboardState: StoryboardState = {
     subtitle: "Agent-driven video production",
   },
   final_video_url: null,
+  grove_uri: null,
   export_status: "idle",
   export_error: null,
 };
