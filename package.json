@@ -20,7 +20,7 @@
     "dev:mcp": "npm run dev --workspace mcp",
     "install:agent": "cd apps/agent && uv sync",
     "install:mcp": "npm install --workspace mcp",
-    "postinstall": "npm run install:agent",
+    "postinstall": "npm run install:agent && bash scripts/patches/fix-ag-ui-langgraph-configurable-context.sh",
     "license": "npx copilotkit license -n hackathon-kit",
     "build": "npm run build --workspace frontend",
     "start": "npm run start --workspace frontend",
