@@ -430,7 +430,22 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 
           {totalShots === 0 ? (
             /* Empty state — Runway widget as the hero onboarding */
-            <div className="flex flex-1 flex-col items-center justify-center gap-8">
+            <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 text-center">
+              <div className="max-w-2xl space-y-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/45">
+                  One brief → storyboard → clips → final cut
+                </p>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-semibold tracking-tight text-white/92 md:text-3xl">
+                    Start with one line.
+                  </h2>
+                  <p className="mx-auto max-w-xl text-sm leading-6 text-white/62 md:text-[15px]">
+                    Describe the scene in chat. Director&apos;s Canvas will break it into shots,
+                    generate reference stills, animate each shot, and assemble a shareable MP4.
+                  </p>
+                </div>
+              </div>
+
               {/* Runway Characters widget */}
               <div className="w-full max-w-sm">
                 <runway-widget
@@ -438,9 +453,26 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                   style={{ width: "100%", borderRadius: "12px", overflow: "hidden" }}
                 />
               </div>
-              <div className="text-center">
-                <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-white/30">
-                  Describe your scene in the chat →
+
+              <div className="grid w-full max-w-3xl gap-3 text-left md:grid-cols-3">
+                {[
+                  ["1", "Enter a brief", "Use a suggestion or describe a scene in one sentence."],
+                  ["2", "Review shots", "Select a shot to inspect prompts, stills, and generated clips."],
+                  ["3", "Export final cut", "When every shot is ready, stitch everything into one MP4."],
+                ].map(([step, title, body]) => (
+                  <div key={step} className="rounded-xl border border-white/10 bg-white/[0.045] p-4">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/38">
+                      Step {step}
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-white/88">{title}</p>
+                    <p className="mt-1 text-sm leading-6 text-white/52">{body}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/36">
+                  Start in the chat panel on the right
                 </p>
               </div>
             </div>
@@ -448,23 +480,28 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
             <>
               {/* Pipeline action bar */}
               {readyShots < totalShots && (
-                <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-2.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/40">
-                    {readyShots}/{totalShots} shots ready
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/12 bg-white/[0.06] px-4 py-3">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/52">
+                      Progress · {readyShots}/{totalShots} shots ready
+                    </p>
+                    <p className="mt-1 text-sm text-white/62">
+                      Next: generate the remaining media, then export the final cut.
+                    </p>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => injectPrompt("Generate all references and all videos for every shot now. Call generate_all_references then generate_all_videos.")}
-                      className="rounded-full border border-white/20 bg-white/10 px-4 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-white/70 hover:bg-white/20 hover:text-white"
+                      className="rounded-full border border-white/22 bg-white/12 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-white/82 transition-colors hover:bg-white/20 hover:text-white"
                     >
-                      ⚡ Run pipeline
+                      Generate remaining media
                     </button>
                     {readyShots > 0 && state.shots.some((s) => s.ref_image_url && !s.video_url) && (
                       <button
                         type="button"
                         onClick={() => injectPrompt("Generate all remaining videos now. Call generate_all_videos.")}
-                        className="rounded-full border border-white/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-white/40 hover:text-white/70"
+                        className="rounded-full border border-white/12 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-white/50 transition-colors hover:text-white/78"
                       >
                         Animate remaining
                       </button>
@@ -475,16 +512,21 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 
               {/* Export trigger */}
               {readyShots > 0 && readyShots === totalShots && state.export_status === "idle" && (
-                <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-2.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/40">
-                    All {totalShots} shots ready
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/12 bg-white/[0.06] px-4 py-3">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/52">
+                      Ready to export · all {totalShots} shots complete
+                    </p>
+                    <p className="mt-1 text-sm text-white/62">
+                      Stitch the storyboard into one MP4 for download and sharing.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={handleExport}
-                    className="rounded-full border border-white/30 bg-white/15 px-4 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-white/80 hover:bg-white/25 hover:text-white"
+                    className="rounded-full border border-white/30 bg-white/15 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-white/84 transition-colors hover:bg-white/24 hover:text-white"
                   >
-                    🎬 Export final cut
+                    Export final cut
                   </button>
                 </div>
               )}

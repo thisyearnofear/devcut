@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
   // The standalone build includes only the files needed to run the server —
   // no node_modules copy required in the container image.
   output: "standalone",
+  transpilePackages: [
+    "@copilotkit/react-core",
+    "@copilotkit/react-ui",
+    "streamdown",
+    "mermaid",
+  ],
 
   // Proxy CopilotKit runtime requests to the Hono BFF (apps/bff). We can't run
   // the runtime in a Next.js API route directly because the runtime's v2 entry

@@ -15,10 +15,9 @@
  * server-component layout.
  */
 
-"use client";
-
 import { useEffect, useState } from "react";
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { ThemeProvider } from "@/hooks/use-theme";
 
 const STORAGE_KEY = "director_runway_api_key";
 
@@ -46,13 +45,15 @@ export function CopilotKitProviderShell({
   if (runwayKey) headers["x-runway-api-key"] = runwayKey;
 
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_PUBLIC_API_KEY}
-      openGenerativeUI={{}}
-      headers={headers}
-    >
-      {children}
-    </CopilotKitProvider>
+    <ThemeProvider>
+      <CopilotKitProvider
+        runtimeUrl="/api/copilotkit"
+        publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_PUBLIC_API_KEY}
+        openGenerativeUI={{}}
+        headers={headers}
+      >
+        {children}
+      </CopilotKitProvider>
+    </ThemeProvider>
   );
 }

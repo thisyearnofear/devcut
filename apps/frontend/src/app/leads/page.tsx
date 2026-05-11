@@ -205,9 +205,11 @@ function CanvasInner() {
   }, []);
 
   useEffect(() => {
+    const timers = justSyncedTimers.current;
+
     return () => {
-      for (const t of justSyncedTimers.current.values()) clearTimeout(t);
-      justSyncedTimers.current.clear();
+      for (const t of timers.values()) clearTimeout(t);
+      timers.clear();
     };
   }, []);
 
@@ -395,15 +397,19 @@ function CanvasInner() {
   // Watch the tail of agent.messages for tool replies that confirm or reject
   // pending optimistic writes. Notion writers reply "Updated " / "Added " on
   // success, "Update failed" / "Insert failed" on failure.
-  const messageTail =
-    (
-      agent?.messages as Array<{
-        id?: string;
-        role?: string;
-        content?: unknown;
-      }>
-    )?.slice(-10) ?? [];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const messageTail = useMemo(
+    () =>
+      (
+        agent?.messages as Array<{
+          id?: string;
+          role?: string;
+          content?: unknown;
+        }>
+      )?.slice(-10) ?? [],
+    [agent?.messages],
+  );
+  const messageTailSignature = messageTail.map((m) => m.id ?? "").join(",");
+
   useEffect(() => {
     if (!agent || !messageTail.length) return;
     for (const m of messageTail) {
@@ -466,7 +472,7 @@ function CanvasInner() {
         );
       }
     }
-  }, [messageTail.map((m) => m.id).join(","), agent, flashJustSynced]);
+  }, [agent, flashJustSynced, messageTail, messageTailSignature, updateState]);
 
   // ----- Controlled gen UI: named renderers ------------------------------
 

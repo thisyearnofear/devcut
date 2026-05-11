@@ -112,22 +112,7 @@ export default function ThreadsDrawer({
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { setTheme } = useTheme();
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-  useEffect(() => {
-    const update = () => {
-      setResolvedTheme(
-        document.documentElement.classList.contains("dark") ? "dark" : "light",
-      );
-    };
-    update();
-    const observer = new MutationObserver(update);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
+  const { resolvedTheme, setTheme } = useTheme();
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
@@ -188,11 +173,14 @@ export default function ThreadsDrawer({
   >({});
 
   useEffect(() => {
+    const entryTimeouts = entryTimeoutsRef.current;
+    const titleTimeouts = titleTimeoutsRef.current;
+
     return () => {
-      for (const timeoutId of entryTimeoutsRef.current.values()) {
+      for (const timeoutId of entryTimeouts.values()) {
         window.clearTimeout(timeoutId);
       }
-      for (const timeoutId of titleTimeoutsRef.current.values()) {
+      for (const timeoutId of titleTimeouts.values()) {
         window.clearTimeout(timeoutId);
       }
     };

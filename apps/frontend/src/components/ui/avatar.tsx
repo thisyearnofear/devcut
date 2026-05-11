@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -21,15 +22,24 @@ const Avatar = React.forwardRef<
 Avatar.displayName = "Avatar";
 
 const AvatarImage = React.forwardRef<
-  React.ElementRef<"img">,
-  React.ImgHTMLAttributes<HTMLImageElement>
->(({ className, alt = "", ...props }, ref) => (
-  <img
-    ref={ref}
-    alt={alt}
-    className={cn("aspect-square h-full w-full", className)}
-    {...props}
-  />
+  React.ElementRef<"span">,
+  React.ComponentPropsWithoutRef<"span"> & {
+    src: string;
+    alt?: string;
+    sizes?: string;
+    priority?: boolean;
+  }
+>(({ className, alt = "", sizes = "40px", priority, src, ...props }, ref) => (
+  <span ref={ref} className={cn("relative block h-full w-full", className)} {...props}>
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      sizes={sizes}
+      priority={priority}
+      className="object-cover"
+    />
+  </span>
 ));
 AvatarImage.displayName = "AvatarImage";
 

@@ -26,6 +26,12 @@
     "start": "npm run start --workspace frontend",
     "lint": "npm run lint --workspace frontend"
   },
+  "dependencies": {
+    "dompurify": "^3.3.0",
+    "katex": "^0.16.25",
+    "marked": "^16.4.1",
+    "uuid": "^11.1.0"
+  },
   "devDependencies": {
     "concurrently": "^9.2.1"
   }
