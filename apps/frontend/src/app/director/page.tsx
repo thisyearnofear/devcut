@@ -10,7 +10,6 @@ import {
   useCopilotKit,
   useDefaultRenderTool,
   useFrontendTool,
-  useCopilotChatMessages,
 } from "@copilotkit/react-core/v2";
 import { ThreadsDrawer } from "@/components/threads-drawer";
 import drawerStyles from "@/components/threads-drawer/threads-drawer.module.css";
@@ -129,32 +128,22 @@ function DirectorChat({
   const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Sync messages from CopilotKit
-  const { messages: ckMessages } = useCopilotChatMessages();
-  useEffect(() => {
-    const mapped: ChatMessage[] = (ckMessages ?? [])
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({
-        id: m.id,
-        role: m.role as "user" | "assistant",
-        content: typeof m.content === "string" ? m.content : "",
-      }))
-      .filter((m) => m.content.trim());
-    setMessages(mapped);
-  }, [ckMessages]);
-
   // Scroll to bottom on new messages
   useEffect(() => {
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isRunning]);
 
-  const handleSend = () => {
-    const text = draft.trim();
-    if (!text || isRunning) return;
+  const handleSend = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isRunning) return;
     setDraft("");
-    onSend(text);
+    setMessages((prev) => [
+      ...prev,
+      { id: `u-${Date.now()}`, role: "user", content: trimmed },
+    ]);
+    onSend(trimmed);
     inputRef.current?.focus();
   };
 
@@ -226,7 +215,7 @@ function DirectorChat({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSend();
+                handleSend(draft);
               }
             }}
             placeholder="Describe your scene…"
@@ -235,7 +224,7 @@ function DirectorChat({
           />
           <button
             type="button"
-            onClick={handleSend}
+            onClick={() => handleSend(draft)}
             disabled={!draft.trim() || isRunning}
             className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/60 transition-colors hover:bg-white/20 hover:text-white/90 disabled:opacity-30"
           >

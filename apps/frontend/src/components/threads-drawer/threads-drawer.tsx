@@ -601,21 +601,14 @@ export default function ThreadsDrawer({
           <div className={styles.drawerFooter}>
             <a
               className={cx(styles.navItem, styles.navItemFlex)}
-              href="https://github.com/thisyearnofear/gen-ui"
-              rel="noopener noreferrer"
-              target="_blank"
+              href="/about"
             >
-              <Github
+              <Clapperboard
                 aria-hidden
                 size={14}
                 className={styles.navItemMark}
               />
-              <span>thisyearnofear/gen-ui</span>
-              <ExternalLink
-                aria-hidden
-                className={styles.navItemExternal}
-                size={12}
-              />
+              <span>Director&apos;s Canvas</span>
             </a>
             <button
               aria-label={
