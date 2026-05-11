@@ -99,14 +99,14 @@ def _build_director_graph() -> CompiledStateGraph:
 
     if _AGENT_RUNTIME in ("aisa-react", "aisa-deep"):
         from langchain.agents import create_agent
-        from langchain_openai import ChatOpenAI
+        from src.schema_sanitizer import GeminiCompatibleChatOpenAI
 
         _aisa_primary = os.getenv("AISA_PRIMARY_MODEL", "gemini-2.5-pro")
         _aisa_fallback = os.getenv("AISA_FALLBACK_MODEL", "gemini-2.5-flash")
         _aisa_base = "https://api.aisa.one/v1"
 
         def _make_aisa_llm(model: str) -> object:
-            return ChatOpenAI(
+            return GeminiCompatibleChatOpenAI(
                 model=model,
                 temperature=0,
                 api_key=_aisa_key,
