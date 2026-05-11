@@ -647,60 +647,95 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="relative px-6 py-20 md:px-10 lg:px-16">
-          <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col lg:flex-row lg:items-start lg:gap-20">
-              {/* Sticky Visual Rail */}
-              <div className="order-2 hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[48%] lg:items-center lg:order-1">
-                <WorkflowVisual index={activeScene} />
-              </div>
+        <section className="relative py-20">
+          <div className="mx-auto max-w-7xl px-6 md:px-10 lg:px-16">
+            <div className="mb-16 max-w-xl">
+              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/62 md:tracking-[0.35em]">
+                The Workflow
+              </p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-4xl">
+                Coordinated production,
+                <br />
+                not just isolated clips.
+              </h2>
+            </div>
+          </div>
 
-              {/* Scrolling Beats */}
-              <div className="order-1 flex-1 space-y-12 pb-8 pt-0 lg:order-2 lg:space-y-[28vh] lg:pb-[20vh] lg:pt-[10vh]">
-                <div className="max-w-xl">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/62 md:tracking-[0.35em]">
-                    The Workflow
-                  </p>
-                  <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-4xl">
-                    Coordinated production,
-                    <br />
-                    not just isolated clips.
-                  </h2>
-                  <div className="mt-8 hidden animate-bounce lg:flex items-center gap-2 text-white/30">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
-                      <path d="M7 2v10M3 8l4 4 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em]">Scroll to explore</span>
-                  </div>
-                </div>
-
-                {SCENES.map((scene, i) => (
-                  <div
-                    key={scene.title}
-                    ref={(el) => {
-                      sceneRefs.current[i] = el;
-                    }}
-                    className="max-w-xl"
-                  >
-                    <p className="scene-num mb-4 font-mono text-[11px] uppercase tracking-[0.18em] text-white/50">
-                      Beat {String(i + 1).padStart(2, "0")}
-                    </p>
-                    <h2 className="text-3xl font-semibold leading-tight tracking-tight text-white md:text-4xl">
-                      {scene.title}
-                    </h2>
-                    <p className="scene-sub mt-5 text-base leading-7 text-[#d4d7ff]/88">
-                      {scene.subtitle}
-                    </p>
-                    <p className="scene-detail mt-4 text-sm leading-7 text-white/58">
-                      {scene.detail}
-                    </p>
-                    <div className="mt-6">
-                      <WorkflowVisual index={i} />
+          {/* Alternating full-bleed beats */}
+          <div className="space-y-0">
+            {SCENES.map((scene, i) => {
+              const isEven = i % 2 === 1;
+              // Editorial images from bizarro/infinite-webgl-gallery
+              const images = [
+                "https://raw.githubusercontent.com/bizarro/infinite-webgl-gallery/main/public/images/1.jpg",
+                "https://raw.githubusercontent.com/bizarro/infinite-webgl-gallery/main/public/images/2.jpg",
+                "https://raw.githubusercontent.com/bizarro/infinite-webgl-gallery/main/public/images/3.jpg",
+                "https://raw.githubusercontent.com/bizarro/infinite-webgl-gallery/main/public/images/4.jpg",
+              ];
+              const imgSrc = images[i] ?? images[0];
+              return (
+                <div
+                  key={scene.title}
+                  ref={(el) => { sceneRefs.current[i] = el; }}
+                  className={`flex flex-col ${isEven ? "lg:flex-row-reverse" : "lg:flex-row"} min-h-[60vh] lg:min-h-[70vh]`}
+                >
+                  {/* Media panel */}
+                  <div className="relative w-full overflow-hidden lg:w-1/2">
+                    <img
+                      src={imgSrc}
+                      alt={scene.title}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    {/* Gradient overlay */}
+                    <div className={`absolute inset-0 bg-gradient-to-${isEven ? "l" : "r"} from-transparent via-black/20 to-black/60`} />
+                    {/* WorkflowVisual badge inset */}
+                    <div className="absolute bottom-6 left-6 right-6 lg:bottom-8 lg:left-8 lg:right-8">
+                      <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/70 p-4 backdrop-blur-md">
+                        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.18em] text-white/50">
+                          {scene.previewLabel}
+                        </p>
+                        <div className="space-y-2">
+                          {scene.previewItems.map((item) => (
+                            <div key={item.label} className="flex items-center gap-2">
+                              <span
+                                className="size-1.5 shrink-0 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    item.status === "done" ? "#4ade80"
+                                    : item.status === "active" ? scene.previewAccent
+                                    : "rgba(255,255,255,0.2)",
+                                }}
+                              />
+                              <span className="font-mono text-[11px] text-white/70">{item.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+
+                  {/* Text panel */}
+                  <div className={`flex w-full items-center bg-[#0a0a0f] px-8 py-14 lg:w-1/2 lg:px-16 lg:py-20 ${isEven ? "lg:pr-20" : "lg:pl-20"}`}>
+                    <div className="max-w-md">
+                      <p className="scene-num mb-4 font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">
+                        Beat {String(i + 1).padStart(2, "0")} / {String(SCENES.length).padStart(2, "0")}
+                      </p>
+                      <h3 className="text-3xl font-semibold leading-tight tracking-tight text-white md:text-4xl">
+                        {scene.title}
+                      </h3>
+                      <p className="scene-sub mt-5 text-base leading-7 text-[#d4d7ff]/88">
+                        {scene.subtitle}
+                      </p>
+                      <p className="scene-detail mt-4 text-sm leading-7 text-white/55">
+                        {scene.detail}
+                      </p>
+                      <div className="mt-8 h-px w-12 bg-gradient-to-r from-white/30 to-transparent" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
