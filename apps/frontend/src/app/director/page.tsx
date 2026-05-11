@@ -26,6 +26,7 @@ import { ApiKeyPanel, useRunwayApiKey } from "@/components/storyboard/ApiKeyPane
 import { StoryboardTimeline } from "@/components/storyboard/StoryboardTimeline";
 import { ShotPreview } from "@/components/storyboard/ShotPreview";
 import { ToolFallbackCard } from "@/components/copilot/ToolFallbackCard";
+import { AvatarShowcase } from "@/components/storyboard/AvatarShowcase";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -243,7 +244,6 @@ function DirectorChat({
 // Main canvas
 // ---------------------------------------------------------------------------
 
-const RUNWAY_WIDGET_KEY = "pub_01163893d305f4fceb059eba9fc49e8f7b9a53f19cd9f4235fe7486bd54f40b2";
 
 function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Storyboard) => void }) {
   const { agent } = useAgent();
@@ -446,13 +446,8 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                 </div>
               </div>
 
-              {/* Runway Characters widget */}
-              <div className="w-full max-w-sm">
-                <runway-widget
-                  pub-key={RUNWAY_WIDGET_KEY}
-                  style={{ width: "100%", borderRadius: "12px", overflow: "hidden" }}
-                />
-              </div>
+              {/* Avatar showcase — live Runway Characters call or branded placeholder */}
+              <AvatarShowcase />
 
               <div className="grid w-full max-w-3xl gap-3 text-left md:grid-cols-3">
                 {[

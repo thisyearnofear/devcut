@@ -48,14 +48,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${jakarta.variable} ${splineMono.variable}`}>
-      <head>
-        {/* Runway Characters widget */}
-        <script
-          src="https://cdn.dev.runwayml.com/prod/widget.js"
-          data-pub-key="pub_01163893d305f4fceb059eba9fc49e8f7b9a53f19cd9f4235fe7486bd54f40b2"
-          async
-        />
-      </head>
+      <head />
       <body className={`${jakarta.variable} ${splineMono.variable} subpixel-antialiased`}>
         <CopilotKitProviderShell>{children}</CopilotKitProviderShell>
       </body>

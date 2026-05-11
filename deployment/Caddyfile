@@ -1,5 +1,17 @@
 {$DOMAIN} {
-    # Reverse proxy everything to the Next.js frontend.
+    # Reverse proxy the Intelligence realtime-gateway WebSocket so the
+    # browser can reach it at wss://{DOMAIN}/ws/* instead of an internal
+    # Docker hostname. The CopilotKit SDK opens a Phoenix channel here
+    # for thread subscriptions and live run events.
+    @intelligence_ws {
+        path /ws/*
+    }
+    handle @intelligence_ws {
+        uri strip_prefix /ws
+        reverse_proxy intelligence:4401
+    }
+
+    # Reverse proxy everything else to the Next.js frontend.
     # Next.js proxies /api/copilotkit/* to the BFF internally (next.config.ts rewrites).
     reverse_proxy frontend:3000
 

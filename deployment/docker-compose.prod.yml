@@ -149,6 +149,9 @@ services:
       INTELLIGENCE_API_URL: "http://intelligence:4201"
       INTELLIGENCE_GATEWAY_WS_URL: "ws://intelligence:4401"
       INTELLIGENCE_API_KEY: "${INTELLIGENCE_API_KEY:-cpk_sPRVSEED_seed0privat0longtoken00}"
+      # Public WebSocket URL the browser uses to reach the Intelligence
+      # realtime gateway. Caddy proxies wss://<DOMAIN>/ws/* → intelligence:4401.
+      PUBLIC_INTELLIGENCE_WS_URL: "wss://${DOMAIN}/ws"
       COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN}"
       MCP_SERVER_URL: "http://mcp:3001/mcp"
       RUNWAY_BUDGET_PER_THREAD: "${RUNWAY_BUDGET_PER_THREAD:-20}"

@@ -14,6 +14,14 @@ const intelligence = new CopilotKitIntelligence({
   wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4403",
 });
 
+// Public-facing WebSocket URL that the browser can reach.
+// In production the Intelligence gateway lives on an internal Docker network,
+// so Caddy proxies wss://<DOMAIN>/ws/* → intelligence:4401.
+// When set, the BFF rewrites the wsUrl in the runtime-info response so the
+// CopilotKit client SDK connects through the public proxy instead of the
+// unreachable internal hostname.
+const PUBLIC_INTELLIGENCE_WS_URL = process.env.PUBLIC_INTELLIGENCE_WS_URL ?? "";
+
 const agent = new LangGraphAgent({
   deploymentUrl:
     process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
@@ -212,7 +220,31 @@ async function handleRequest(req: Request): Promise<Response> {
     });
   }
 
-  return rewriteErrors(await copilotApp.fetch(proxiedReq));
+  return rewriteWsUrl(rewriteErrors(await copilotApp.fetch(proxiedReq)));
+}
+
+// ----------------------------------------------------------------- ws url rewrite
+// When PUBLIC_INTELLIGENCE_WS_URL is set, rewrite the `intelligence.wsUrl`
+// field in the runtime-info JSON response so the browser connects to the
+// public Caddy proxy instead of the internal Docker hostname.
+async function rewriteWsUrl(resPromise: Response | Promise<Response>): Promise<Response> {
+  const res = await resPromise;
+  if (!PUBLIC_INTELLIGENCE_WS_URL) return res;
+  const ctype = res.headers.get("content-type") || "";
+  if (!ctype.includes("json")) return res;
+  let text: string;
+  try { text = await res.text(); } catch { return res; }
+  let json: Record<string, unknown>;
+  try { json = JSON.parse(text); } catch { return new Response(text, res); }
+  const intel = json.intelligence as Record<string, unknown> | undefined;
+  if (intel?.wsUrl) {
+    intel.wsUrl = PUBLIC_INTELLIGENCE_WS_URL;
+    return new Response(JSON.stringify(json), {
+      status: res.status,
+      headers: res.headers,
+    });
+  }
+  return new Response(text, res);
 }
 
 // Rewrite known 5xx error bodies into structured { error, hint, command }
