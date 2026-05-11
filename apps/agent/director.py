@@ -29,7 +29,7 @@ from src.storyboard_state import StoryboardStateMiddleware
 from src.timing import TimingMiddleware
 
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Cleanup is idempotent — safe to call from both main.py and director.py.
 # In production with persistent checkpoints, this would destroy valid threads.
