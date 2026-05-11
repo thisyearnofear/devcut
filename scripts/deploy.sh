@@ -58,6 +58,12 @@ for d in "$ROOT" "$ROOT/apps/frontend" "$ROOT/apps/bff"; do
 done
 
 # ── 4. Build frontend ─────────────────────────────────────────────────────
+# Clear Next.js build cache so the patched node_modules code is actually
+# bundled into the output. Without this, Next.js reuses cached chunks
+# from before the patches were applied.
+info "Clearing frontend build cache…"
+rm -rf apps/frontend/.next
+
 info "Building frontend…"
 (cd apps/frontend && npx next build) 2>&1 | tail -5
 
