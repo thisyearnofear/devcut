@@ -55,6 +55,14 @@ def sanitize_schema(obj: Any) -> Any:  # noqa: ANN401
 
         result[key] = sanitize_schema(value)
 
+    # Gemini rejects "required" entries that don't appear in "properties".
+    # Filter required to only include keys that exist in the sanitized properties.
+    if "required" in result and "properties" in result:
+        valid_props = set(result["properties"].keys())
+        result["required"] = [r for r in result["required"] if r in valid_props]
+        if not result["required"]:
+            del result["required"]
+
     return result
 
 
