@@ -60,6 +60,13 @@ info "Building BFF…"
 # ── 5. Ensure logs directory ──────────────────────────────────────────────
 mkdir -p "$ROOT/logs"
 
+# ── 5b. Ensure agent .env symlink (single source of truth) ───────────────
+if [ ! -L "$ROOT/apps/agent/.env" ]; then
+  info "Creating agent .env symlink → root .env"
+  rm -f "$ROOT/apps/agent/.env"
+  ln -s ../../.env "$ROOT/apps/agent/.env"
+fi
+
 # ── 6. Reload PM2 ─────────────────────────────────────────────────────────
 info "Reloading PM2 services…"
 pm2 startOrReload ecosystem.config.js --update-env
@@ -70,12 +77,26 @@ sleep 3
 info "Service status:"
 pm2 list
 
-# Quick health check on BFF
-BFF_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:4010/api/copilotkit/info 2>/dev/null || echo "000")
-if [ "$BFF_STATUS" = "200" ]; then
-  info "BFF health check: ${GREEN}OK${NC} (HTTP $BFF_STATUS)"
-else
-  warn "BFF health check: HTTP $BFF_STATUS — check logs: pm2 logs director-bff"
-fi
+# Health checks — all 4 services
+FAIL=0
+check_svc() {
+  local NAME="$1" URL="$2" PM2NAME="$3"
+  local STATUS
+  STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$URL" 2>/dev/null || echo "000")
+  if [ "$STATUS" = "200" ]; then
+    info "$NAME: ${GREEN}OK${NC}"
+  else
+    warn "$NAME: HTTP $STATUS — check: pm2 logs $PM2NAME"
+    FAIL=1
+  fi
+}
+check_svc "Frontend" "http://localhost:3100/"                    "director-frontend"
+check_svc "BFF"      "http://localhost:4010/api/copilotkit/info" "director-bff"
+check_svc "Agent"    "http://localhost:8123/"                    "director-agent"
+check_svc "MCP"      "http://localhost:3011/mcp"                 "director-mcp"
 
-info "Deploy complete ✓"
+if [ "$FAIL" = "0" ]; then
+  info "Deploy complete — all services healthy ✓"
+else
+  warn "Deploy complete — some services need attention (see above)"
+fi

@@ -16,6 +16,9 @@ postgres-data
 redis-data
 .DS_Store
 
+# PM2 log files (created by ecosystem.config.js)
+logs/
+
 # LangGraph dev runtime state (per-session checkpoint cache)
 apps/agent/.langgraph_api/
 
