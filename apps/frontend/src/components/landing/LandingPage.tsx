@@ -579,26 +579,11 @@ export default function LandingPage() {
             {/* Shot grid — real Runway clips */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               {[
-                {
-                  label: "01 · Tram at dusk",
-                  src: "https://dnznrvs05pmza.cloudfront.net/d40f6920-069f-4bf3-b78e-bf67142992ae.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMDJlYTBjYWFhODNiYWQ5ZiIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODYyMTA5OH0.0rO6eg3Qgz9RsHaeTdM54xhW8sr1gd6avZepltCdLvU",
-                },
-                {
-                  label: "02 · Azulejo tiles",
-                  src: "https://dnznrvs05pmza.cloudfront.net/dd17083d-cb6b-4a5c-a163-2a64ce3fda1a.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMzAwOGNiMjMxY2U2Y2I0ZiIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODY2MDI1OX0.rCa0vXt_1rl1SGpeElnE_CRuo0o3W1xEuW_WZC3nsaU",
-                },
-                {
-                  label: "03 · River view",
-                  src: "https://dnznrvs05pmza.cloudfront.net/4cd99850-1877-4dff-9169-5f1c19ab0a50.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiOGFmYzdhNmJmNjk2MjVmNyIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODY2OTQxOX0.nh-b3Mz_B7NHVvnlgEmVTcwFWBdvGlmWH3ObFVIkjNI",
-                },
-                {
-                  label: "04 · Street life",
-                  src: "https://dnznrvs05pmza.cloudfront.net/21205806-a603-4e01-a74b-44b2db51bf0f.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZjkxYWZiNTcyMmQxZjZhNiIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODY3MTA2M30.QTRGM0PhBC4SdfVe5mtWcMOE2iqm-APl0nK0DFJVNLY",
-                },
-                {
-                  label: "05 · Blue hour glow",
-                  src: "https://dnznrvs05pmza.cloudfront.net/2c86ec72-fae0-4ccf-bc05-17e8e362b607.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZGU2ODAxMTVkMDkxOTQxZCIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODYzMTU3M30.01L-hJnnbd70NcS9D-YrfCbA8-06bZZgKGVpyTa8lMQ",
-                },
+                { label: "01 · Tram at dusk",     src: "/demo/lisbon-1.mp4" },
+                { label: "02 · Azulejo tiles",   src: "/demo/lisbon-2.mp4" },
+                { label: "03 · River view",       src: "/demo/lisbon-3.mp4" },
+                { label: "04 · Street life",      src: "/demo/lisbon-4.mp4" },
+                { label: "05 · Blue hour glow",   src: "/demo/lisbon-5.mp4" },
               ].map((shot) => (
                 <div
                   key={shot.label}
