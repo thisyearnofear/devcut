@@ -265,7 +265,7 @@ def generate_shot_reference(
     except Exception as e:  # noqa: BLE001 - surface to the agent
         _log("ERROR", "runway_image_error", shot_id=shot_id, error=str(e), elapsed_s=round(time.monotonic()-t0, 2))
         new_shots = _patch_shot(
-            shots, shot_id, {"status": "error", "error": str(e)}
+            shots, shot_id, {"status": "error", "error": str(e), "progress_label": None}
         )
         return Command(
             update={
@@ -280,10 +280,11 @@ def generate_shot_reference(
         )
 
     _log("INFO", "runway_image_done", shot_id=shot_id, url=result.url, mode=result.mode, elapsed_s=round(time.monotonic()-t0, 2))
+    elapsed_img = round(time.monotonic() - t0, 1)
     new_shots = _patch_shot(
         shots,
         shot_id,
-        {"ref_image_url": result.url, "status": "image", "error": None},
+        {"ref_image_url": result.url, "status": "image", "error": None, "progress_label": f"Still ready · {elapsed_img}s — generating video…"},
     )
 
     # Promote shot-0's reference to the storyboard-level style anchor so
@@ -367,7 +368,7 @@ def generate_shot_video(
     except Exception as e:  # noqa: BLE001
         _log("ERROR", "runway_video_error", shot_id=shot_id, error=str(e), elapsed_s=round(time.monotonic()-t0, 2))
         new_shots = _patch_shot(
-            shots, shot_id, {"status": "error", "error": str(e)}
+            shots, shot_id, {"status": "error", "error": str(e), "progress_label": None}
         )
         return Command(
             update={
@@ -382,10 +383,11 @@ def generate_shot_video(
         )
 
     _log("INFO", "runway_video_done", shot_id=shot_id, url=result.url, elapsed_s=round(time.monotonic()-t0, 2))
+    elapsed_vid = round(time.monotonic() - t0, 1)
     new_shots = _patch_shot(
         shots,
         shot_id,
-        {"video_url": result.url, "status": "ready", "error": None},
+        {"video_url": result.url, "status": "ready", "error": None, "progress_label": f"Ready ✓ · {elapsed_vid}s"},
     )
     msg = (
         f"Video ready for shot {shot.get('beat') or shot_id} "

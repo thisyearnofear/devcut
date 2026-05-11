@@ -556,6 +556,83 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── Example output strip ── */}
+        <section className="relative border-t border-white/[0.06] px-6 py-16 md:px-10 lg:px-16">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#f7c982]/80">
+                  Real output · Ceramic mug product reveal
+                </p>
+                <h2 className="mt-2 text-xl font-semibold tracking-tight text-white md:text-2xl">
+                  4 shots · ~2 min · Runway Gen-4.5
+                </h2>
+              </div>
+              <Link
+                href="/director"
+                className="shrink-0 self-start rounded-full border border-white/14 bg-white/[0.05] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-white/72 transition-all hover:border-white/26 hover:bg-white/[0.09] hover:text-white sm:self-auto"
+              >
+                Make your own →
+              </Link>
+            </div>
+
+            {/* Shot grid */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { beat: "Establishing", label: "01 · Studio wide", status: "Ready ✓ · 18s" },
+                { beat: "Close-up", label: "02 · Mug detail", status: "Ready ✓ · 22s" },
+                { beat: "Rotation", label: "03 · Slow spin", status: "Ready ✓ · 19s" },
+                { beat: "Hero", label: "04 · Steam rising", status: "Ready ✓ · 21s" },
+              ].map((shot) => (
+                <div
+                  key={shot.beat}
+                  className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]"
+                  style={{ aspectRatio: "16/9" }}
+                >
+                  {/* Gradient placeholder simulating a generated still */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#1a1200] via-[#2a1e00] to-[#1a1200]" />
+                  <div
+                    className="absolute inset-0 opacity-30"
+                    style={{
+                      background: `radial-gradient(ellipse 80% 60% at 50% 40%, #ffbe7040, transparent 70%)`,
+                    }}
+                  />
+                  <div className="absolute inset-0 flex flex-col justify-between p-3">
+                    <span className="self-start rounded-full bg-black/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/70 backdrop-blur-sm">
+                      {shot.label}
+                    </span>
+                    <span className="self-start rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
+                      {shot.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Final cut bar */}
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="size-2 shrink-0 rounded-full bg-emerald-400" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Final cut ready</p>
+                  <p className="text-xs text-white/50">ceramic-mug-product-reveal.mp4 · 4 shots stitched · FFmpeg concat</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-400 ring-1 ring-sky-500/20">
+                  <span>⬡</span> Saved to Grove
+                </span>
+                <Link
+                  href="/director"
+                  className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-white/80 transition-all hover:bg-white/[0.12]"
+                >
+                  Try it yourself
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="relative px-6 py-20 md:px-10 lg:px-16">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col lg:flex-row lg:items-start lg:gap-20">

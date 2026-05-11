@@ -30,6 +30,7 @@ class _Shot(TypedDict, total=False):
     ref_image_url: Optional[str]
     video_url: Optional[str]
     status: str        # "pending" | "image" | "ready" | "error"
+    progress_label: Optional[str]  # short human-readable progress e.g. "Generating still… 12s"
     error: Optional[str]
     duration: int      # seconds
     aspect_ratio: str  # "1280:720" | "720:1280" | etc.

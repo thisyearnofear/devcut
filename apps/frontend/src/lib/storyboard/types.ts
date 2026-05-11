@@ -14,6 +14,8 @@ export interface Shot {
   ref_image_url: string | null;
   video_url: string | null;
   status: ShotStatus;
+  /** Short human-readable progress label emitted by the agent during generation. */
+  progress_label: string | null;
   error: string | null;
   duration: number;
   aspect_ratio: AspectRatio;

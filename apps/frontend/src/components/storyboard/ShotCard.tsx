@@ -88,10 +88,10 @@ export function ShotCard({
             {shot.status === "error" ? "Error" : "Awaiting reference"}
           </div>
         )}
-        {shot.status === "image" && (
+        {(shot.status === "image" || shot.status === "pending") && !shot.video_url && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
             <span className="rounded-full bg-black/70 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-white">
-              Generating still…
+              {shot.progress_label ?? (shot.status === "image" ? "Generating video…" : "Generating still…")}
             </span>
           </div>
         )}
@@ -101,10 +101,13 @@ export function ShotCard({
       {(shot.status === "image" || shot.status === "pending") && (
         <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label={`Shot ${shot.index + 1} progress`} aria-valuenow={shot.status === "image" ? 50 : 10} aria-valuemin={0} aria-valuemax={100}>
           <div
-            className={`h-full rounded-full ${shot.status === "image" ? "animate-pulse bg-amber-400/70" : "bg-white/20"}`}
+            className={`h-full rounded-full transition-all duration-500 ${shot.status === "image" ? "animate-pulse bg-amber-400/70" : "bg-white/20"}`}
             style={{ width: shot.status === "image" ? "60%" : "10%" }}
           />
         </div>
+      )}
+      {shot.status === "ready" && shot.progress_label && (
+        <p className="text-[10px] text-emerald-400/70 font-mono">{shot.progress_label}</p>
       )}
       {shot.status === "ready" && (
         <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label={`Shot ${shot.index + 1} complete`} aria-valuenow={100} aria-valuemin={0} aria-valuemax={100}>

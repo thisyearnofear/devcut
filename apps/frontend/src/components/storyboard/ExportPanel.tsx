@@ -91,10 +91,15 @@ export function ExportPanel({
 
       {/* Title + actions */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="size-2 shrink-0 rounded-full bg-emerald-500" />
           <p className="text-sm font-semibold text-foreground">Final cut ready</p>
           <span className="text-xs text-muted-foreground">{filename}</span>
+          {groveUri && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-400 ring-1 ring-sky-500/20">
+              <span>⬡</span> Saved to Grove
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <ShareButton title={storyboardTitle} groveUri={groveUri} />
