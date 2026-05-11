@@ -79,7 +79,11 @@ function mergeStoryboardState(raw: unknown): StoryboardState {
 }
 
 function useLiveStoryboardState() {
-  const { agent } = useAgent();
+  // Must pass agentId: "director" so the storyboard state hooks bind to the
+  // director graph, not the default (leads) graph. Without this, useAgent()
+  // returns the "default" agent and the canvas stays in its initial state
+  // because no storyboard updates ever arrive.
+  const { agent } = useAgent({ agentId: "director" });
   const state = mergeStoryboardState(agent?.state);
   const setState = (updater: (prev: StoryboardState) => StoryboardState) => {
     agent?.setState(updater(mergeStoryboardState(agent?.state)));
@@ -386,7 +390,8 @@ function DirectorChat({
 
 
 function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Storyboard) => void }) {
-  const { agent } = useAgent();
+  // Must pass agentId: "director" — see useLiveStoryboardState above.
+  const { agent } = useAgent({ agentId: "director" });
   const { copilotkit } = useCopilotKit();
   const [showKeyPanel, setShowKeyPanel] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
