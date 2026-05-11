@@ -31,13 +31,7 @@ export function ShotCard({
 
   return (
     <div
-      className={`group flex shrink-0 flex-col gap-2 rounded-xl bg-card/80 p-3 text-card-foreground shadow-sm transition hover:shadow-md ${ringClass}`}
-      style={{
-        width:
-          shot.aspect_ratio === "720:1280"
-            ? "clamp(176px, 48vw, 200px)"
-            : "clamp(240px, 76vw, 320px)",
-      }}
+      className={`group flex w-full flex-col gap-2 rounded-xl bg-card/80 p-3 text-card-foreground shadow-sm transition hover:shadow-md ${ringClass}`}
     >
       {/* Header: beat label + status */}
       <div className="flex items-center justify-between gap-2">

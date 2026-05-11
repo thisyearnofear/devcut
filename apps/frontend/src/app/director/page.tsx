@@ -206,6 +206,41 @@ function getAgentProgress(state: StoryboardState, isRunning: boolean): AgentProg
   };
 }
 
+// Stage time estimates (seconds) based on observed production runs
+const STAGE_ESTIMATES: Record<string, number> = {
+  "Storyboard": 15,
+  "Reference stills": 60,
+  "Motion clips": 180,
+  "Final cut": 30,
+};
+
+function ElapsedTimer({ isRunning }: { isRunning: boolean }) {
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isRunning) {
+      startRef.current = Date.now();
+      setElapsed(0);
+      const id = setInterval(() => {
+        setElapsed(Math.floor((Date.now() - (startRef.current ?? Date.now())) / 1000));
+      }, 1000);
+      return () => clearInterval(id);
+    } else {
+      startRef.current = null;
+    }
+  }, [isRunning]);
+
+  if (!isRunning) return null;
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  return (
+    <span className="font-mono text-[11px] text-white/45">
+      {mins > 0 ? `${mins}m ` : ""}{secs}s elapsed
+    </span>
+  );
+}
+
 function DirectorChat({
   onSend,
   isRunning,
@@ -296,37 +331,54 @@ function DirectorChat({
               <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/70">
                 Agent working
               </p>
-              <div className="flex items-center gap-1.5">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="size-1.5 rounded-full bg-[#ffbe70] animate-pulse"
-                    style={{ animationDelay: `${i * 150}ms` }}
-                  />
-                ))}
+              <div className="flex items-center gap-2">
+                <ElapsedTimer isRunning={isRunning} />
+                <div className="flex items-center gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="size-1.5 rounded-full bg-[#ffbe70] animate-pulse"
+                      style={{ animationDelay: `${i * 150}ms` }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="mt-3 space-y-2">
-              {progress.stages.map((stage) => (
-                <div key={stage.label} className="flex items-center gap-3">
-                  <span
-                    className={`size-2 rounded-full ${
-                      stage.status === "done"
-                        ? "bg-emerald-400"
-                        : stage.status === "active"
-                          ? "bg-[#ffbe70]"
-                          : stage.status === "error"
-                            ? "bg-rose-400"
-                            : "bg-white/18"
-                    }`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-white/82">{stage.label}</p>
-                    <p className="truncate text-[11px] text-white/55">{stage.detail}</p>
+            <div className="mt-3 space-y-2.5">
+              {progress.stages.map((stage) => {
+                const est = STAGE_ESTIMATES[stage.label];
+                return (
+                  <div key={stage.label} className="flex items-start gap-3">
+                    <span
+                      className={`mt-0.5 size-2 shrink-0 rounded-full ${
+                        stage.status === "done"
+                          ? "bg-emerald-400"
+                          : stage.status === "active"
+                            ? "bg-[#ffbe70] animate-pulse"
+                            : stage.status === "error"
+                              ? "bg-rose-400"
+                              : "bg-white/18"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="truncate text-xs font-medium text-white/82">{stage.label}</p>
+                        {stage.status === "active" && est && (
+                          <span className="shrink-0 font-mono text-[10px] text-white/38">~{est < 60 ? `${est}s` : `${Math.round(est/60)}m`}</span>
+                        )}
+                        {stage.status === "waiting" && est && (
+                          <span className="shrink-0 font-mono text-[10px] text-white/22">~{est < 60 ? `${est}s` : `${Math.round(est/60)}m`}</span>
+                        )}
+                      </div>
+                      <p className="truncate text-[11px] text-white/55">{stage.detail}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+            <p className="mt-3 text-[11px] leading-4 text-white/35">
+              A full run takes ~5 min. Runway generates each clip in parallel — stills first, then video.
+            </p>
           </div>
         )}
         {!isRunning && progress.total > 0 && (

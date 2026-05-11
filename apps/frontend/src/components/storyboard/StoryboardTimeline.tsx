@@ -32,20 +32,16 @@ export function StoryboardTimeline({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 items-stretch gap-3 overflow-x-auto pb-4 pt-1">
-      {shots.map((shot, idx) => (
-        <div key={shot.id} className="flex items-center gap-2">
-          <ShotCard
-            shot={shot}
-            isSelected={selectedShotId === shot.id}
-            onSelect={onSelect}
-            onRegenerate={onRegenerate}
-            onDownload={onDownload}
-          />
-          {idx < shots.length - 1 ? (
-            <div className="hidden h-0.5 w-8 shrink-0 rounded-full bg-border md:block" />
-          ) : null}
-        </div>
+    <div className="grid gap-4 pb-4 pt-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+      {shots.map((shot) => (
+        <ShotCard
+          key={shot.id}
+          shot={shot}
+          isSelected={selectedShotId === shot.id}
+          onSelect={onSelect}
+          onRegenerate={onRegenerate}
+          onDownload={onDownload}
+        />
       ))}
     </div>
   );
