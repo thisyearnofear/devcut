@@ -154,12 +154,15 @@ const copilotApp = createCopilotEndpoint({
 //    Intelligence → Intelligence's app-api UnhandledPromiseRejection →
 //    everyone hangs. Failures must be confined to the bad thread.
 //
-// 2. Global concurrency semaphore — a hard cap on in-flight CopilotKit
-//    POST handlers. Above the cap we shed load with 503 + Retry-After
-//    instead of queuing (keeps tail latency predictable and prevents one
-//    user's runaway turn from monopolising the box).
+// 2. Global concurrency semaphore with FIFO queue — a hard cap on in-flight
+//    CopilotKit POST handlers. Above the cap, up to MAX_QUEUE_WAITERS requests
+//    are held in a FIFO queue (max QUEUE_TIMEOUT_MS). When a slot opens the
+//    oldest waiter is released. If the queue is full or the waiter times out
+//    we shed with 503 + Retry-After. Queue position + estimated wait are
+//    returned in X-Queue-Position / X-Estimated-Wait headers so the frontend
+//    can show "Position 2 of 3 — ~4 min wait" instead of a generic spinner.
 //
-// Both are intentionally process-local (Map / counter, not Redis): the
+// Both layers are intentionally process-local (Map / counter, not Redis): the
 // failure modes we're guarding against are localised to one BFF instance,
 // and we want zero external dependencies on the recovery path.
 
@@ -167,6 +170,11 @@ const CB_FAILURES_TO_OPEN = Number(process.env.CB_FAILURES_TO_OPEN ?? 3);
 const CB_WINDOW_MS        = Number(process.env.CB_WINDOW_MS ?? 15_000);
 const CB_COOLDOWN_MS      = Number(process.env.CB_COOLDOWN_MS ?? 30_000);
 const MAX_INFLIGHT_RUNS   = Number(process.env.MAX_INFLIGHT_RUNS ?? 3);
+const MAX_QUEUE_WAITERS   = Number(process.env.MAX_QUEUE_WAITERS ?? 5);
+const QUEUE_TIMEOUT_MS    = Number(process.env.QUEUE_TIMEOUT_MS ?? 60_000);
+// Estimated seconds per run — used to compute X-Estimated-Wait for queued
+// requests. Defaults to 5 min (300 s) which matches a full director run.
+const EST_RUN_SECONDS     = Number(process.env.EST_RUN_SECONDS ?? 300);
 
 interface ThreadBreakerState {
   failures: number[];   // ms timestamps within window
@@ -221,6 +229,44 @@ setInterval(() => {
 }, 60_000).unref();
 
 let _inflight = 0;
+
+// FIFO queue of resolve functions — each entry is a callback that unblocks
+// one waiting request when a concurrency slot opens.
+type QueueEntry = { resolve: () => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> };
+const _queue: QueueEntry[] = [];
+
+/** Acquire a concurrency slot. Waits in queue if at capacity. */
+async function acquireSlot(): Promise<{ queuePosition: number; waitedMs: number }> {
+  if (_inflight < MAX_INFLIGHT_RUNS) {
+    _inflight++;
+    return { queuePosition: 0, waitedMs: 0 };
+  }
+  if (_queue.length >= MAX_QUEUE_WAITERS) {
+    throw Object.assign(new Error("queue_full"), { status: 503 });
+  }
+  const position = _queue.length + 1;
+  const waitStart = Date.now();
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const idx = _queue.findIndex((e) => e.resolve === resolve);
+      if (idx !== -1) _queue.splice(idx, 1);
+      reject(Object.assign(new Error("queue_timeout"), { status: 503 }));
+    }, QUEUE_TIMEOUT_MS);
+    _queue.push({ resolve, reject, timer });
+  });
+  _inflight++;
+  return { queuePosition: position, waitedMs: Date.now() - waitStart };
+}
+
+/** Release a concurrency slot and unblock the next waiter if any. */
+function releaseSlot(): void {
+  _inflight = Math.max(0, _inflight - 1);
+  const next = _queue.shift();
+  if (next) {
+    clearTimeout(next.timer);
+    next.resolve();
+  }
+}
 
 // ----------------------------------------------------------------- /info cache
 // The CopilotKit client polls /api/copilotkit/info aggressively (multiple
@@ -399,23 +445,25 @@ async function handleRequest(req: Request): Promise<Response> {
       );
     }
 
-    // ---- Global concurrency cap ----
-    if (_inflight >= MAX_INFLIGHT_RUNS) {
+    // ---- Global concurrency cap with FIFO queue ----
+    let queuePosition = 0;
+    let waitedMs = 0;
+    try {
+      ({ queuePosition, waitedMs } = await acquireSlot());
+    } catch (qErr: unknown) {
+      const isFull = qErr instanceof Error && qErr.message === "queue_full";
+      const isTimeout = qErr instanceof Error && qErr.message === "queue_timeout";
+      const hint = isFull
+        ? `Queue is full (${MAX_QUEUE_WAITERS} waiters). Try again in a moment.`
+        : `Waited ${Math.round(QUEUE_TIMEOUT_MS / 1000)}s for a slot — server is overloaded.`;
       return new Response(
-        JSON.stringify({
-          error: "Server is busy",
-          hint: `Too many in-flight runs (${_inflight}/${MAX_INFLIGHT_RUNS}). Try again in a moment.`,
-        }),
+        JSON.stringify({ error: "Server is busy", hint }),
         {
           status: 503,
-          headers: {
-            "content-type": "application/json",
-            "retry-after": "5",
-          },
+          headers: { "content-type": "application/json", "retry-after": "30" },
         },
       );
     }
-
     const currentCount = threadId ? await threadCallCount(threadId) : 0;
     const callsRemaining = Math.max(0, RUNWAY_BUDGET - currentCount);
 
@@ -449,55 +497,60 @@ async function handleRequest(req: Request): Promise<Response> {
       headers: req.headers,
       body: JSON.stringify(newBody),
     });
-  }
 
-  // Track in-flight + record breaker outcome for POSTs only — GETs are
-  // cheap (info polling, etc.) and not the source of cascading failures.
-  if (req.method !== "POST") {
-    return rewriteWsUrl(rewriteErrors(await copilotApp.fetch(proxiedReq)));
-  }
-
-  _inflight++;
-  const cbPost = breakerCheck(threadId);
-  const breakerState = cbPost.open ? "open" : "closed";
-  try {
-    const res = await rewriteWsUrl(rewriteErrors(await copilotApp.fetch(proxiedReq)));
-    // Record breaker state. 4xx that aren't 409 are the client's fault and
-    // shouldn't open the breaker; 5xx and 409 (thread lock) do.
-    if (res.status === 409 || res.status >= 500) {
+    // ---- Execute with slot + breaker tracking ----
+    const cbPost = breakerCheck(threadId);
+    const breakerState = cbPost.open ? "open" : "closed";
+    const estWaitSec = queuePosition > 0 ? queuePosition * EST_RUN_SECONDS : 0;
+    try {
+      const res = await rewriteWsUrl(rewriteErrors(await copilotApp.fetch(proxiedReq)));
+      if (res.status === 409 || res.status >= 500) {
+        breakerRecordFailure(threadId);
+      } else if (res.status >= 200 && res.status < 400) {
+        breakerRecordSuccess(threadId);
+      }
+      const durationMs = Date.now() - requestStart;
+      console.log(JSON.stringify({
+        request_id: requestId,
+        thread_id: threadId,
+        agent_id: agentId,
+        status: res.status,
+        duration_ms: durationMs,
+        breaker_state: breakerState,
+        inflight: _inflight,
+        queue_position: queuePosition,
+        waited_ms: waitedMs,
+      }));
+      // Clone response to inject queue headers (Response headers are immutable).
+      const outHeaders = new Headers(res.headers);
+      if (queuePosition > 0) {
+        outHeaders.set("X-Queue-Position", String(queuePosition));
+        outHeaders.set("X-Estimated-Wait", String(estWaitSec));
+      }
+      return new Response(res.body, { status: res.status, headers: outHeaders });
+    } catch (e) {
       breakerRecordFailure(threadId);
-    } else if (res.status >= 200 && res.status < 400) {
-      breakerRecordSuccess(threadId);
+      const durationMs = Date.now() - requestStart;
+      console.log(JSON.stringify({
+        request_id: requestId,
+        thread_id: threadId,
+        agent_id: agentId,
+        status: 0,
+        duration_ms: durationMs,
+        breaker_state: breakerState,
+        inflight: _inflight,
+        queue_position: queuePosition,
+        waited_ms: waitedMs,
+        error: e instanceof Error ? e.message : "unknown",
+      }));
+      throw e;
+    } finally {
+      releaseSlot();
     }
-    const durationMs = Date.now() - requestStart;
-    console.log(JSON.stringify({
-      request_id: requestId,
-      thread_id: threadId,
-      agent_id: agentId,
-      status: res.status,
-      duration_ms: durationMs,
-      breaker_state: breakerState,
-      inflight: _inflight,
-    }));
-    return res;
-  } catch (e) {
-    // Network / runtime error — count as a failure for breaker purposes.
-    breakerRecordFailure(threadId);
-    const durationMs = Date.now() - requestStart;
-    console.log(JSON.stringify({
-      request_id: requestId,
-      thread_id: threadId,
-      agent_id: agentId,
-      status: 0,
-      duration_ms: durationMs,
-      breaker_state: breakerState,
-      inflight: _inflight,
-      error: e instanceof Error ? e.message : "unknown",
-    }));
-    throw e;
-  } finally {
-    _inflight--;
   }
+
+  // GETs (info polling, etc.) pass through without slot tracking.
+  return rewriteWsUrl(rewriteErrors(await copilotApp.fetch(proxiedReq)));
 }
 
 // ----------------------------------------------------------------- ws url rewrite

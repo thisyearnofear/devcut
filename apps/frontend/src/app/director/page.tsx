@@ -463,6 +463,8 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
   const [isRunning, setIsRunning] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [mobilePanel, setMobilePanel] = useState<"canvas" | "chat">("canvas");
+  const [queuePosition, setQueuePosition] = useState(0);
+  const [estimatedWaitSec, setEstimatedWaitSec] = useState(0);
   const { key: runwayKey } = useRunwayApiKey();
 
   // Auto-inject ?brief= from landing page
@@ -499,6 +501,26 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
       agent.addMessage({ id, role: "user", content: prompt });
       setIsRunning(true);
       setLastError(null);
+      setQueuePosition(0);
+      setEstimatedWaitSec(0);
+
+      // Intercept fetch to read X-Queue-Position / X-Estimated-Wait headers
+      // emitted by the BFF when the request had to wait for a concurrency slot.
+      // Headers arrive with the first chunk of the streaming response, so we
+      // can read them synchronously from the cloned Response before returning.
+      const _origFetch = window.fetch;
+      window.fetch = async (...args) => {
+        const res = await _origFetch(...args);
+        const url = typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
+        if (url.includes("/api/copilotkit")) {
+          const pos = Number(res.headers.get("x-queue-position") ?? 0);
+          const wait = Number(res.headers.get("x-estimated-wait") ?? 0);
+          setQueuePosition(pos);
+          setEstimatedWaitSec(wait);
+        }
+        return res;
+      };
+
       void copilotkit.runAgent({ agent }).catch((error: unknown) => {
         console.error("injectPrompt: runAgent failed", error);
         const msg =
@@ -508,7 +530,10 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
         setLastError(msg);
         toast.error(msg, { duration: 6000 });
       }).finally(() => {
+        window.fetch = _origFetch;
         setIsRunning(false);
+        setQueuePosition(0);
+        setEstimatedWaitSec(0);
         // Toast on completion — only if shots were generated
         const finalState = mergeStoryboardState(agent?.state);
         const readyCount = finalState.shots.filter((s) => s.status === "ready").length;
@@ -711,6 +736,8 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                 shotCount={progress.total}
                 refsReady={progress.refs}
                 videosReady={progress.videos}
+                queuePosition={queuePosition}
+                estimatedWaitSec={estimatedWaitSec}
               />
 
               {/* Mobile warning */}
@@ -783,6 +810,8 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                 shotCount={progress.total}
                 refsReady={progress.refs}
                 videosReady={progress.videos}
+                queuePosition={queuePosition}
+                estimatedWaitSec={estimatedWaitSec}
               />
 
               {/* Pipeline action bar */}

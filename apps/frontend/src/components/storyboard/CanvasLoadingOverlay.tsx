@@ -20,6 +20,10 @@ interface CanvasLoadingOverlayProps {
   shotCount: number;
   refsReady: number;
   videosReady: number;
+  /** Queue position (1-based) when waiting for a concurrency slot. 0 = not queued. */
+  queuePosition?: number;
+  /** Estimated wait in seconds returned by the BFF X-Estimated-Wait header. */
+  estimatedWaitSec?: number;
 }
 
 const DIRECTOR_TIPS = [
@@ -101,7 +105,10 @@ export function CanvasLoadingOverlay({
   shotCount,
   refsReady,
   videosReady,
+  queuePosition = 0,
+  estimatedWaitSec = 0,
 }: CanvasLoadingOverlayProps) {
+  const isQueued = queuePosition > 0 && !isRunning;
   const elapsed = useElapsedSeconds(isRunning);
   const [tipIndex, setTipIndex] = useState(0);
   const [tipVisible, setTipVisible] = useState(true);
@@ -133,7 +140,26 @@ export function CanvasLoadingOverlay({
 
   const activeStage = stages.find((s) => s.status === "active");
 
-  if (!isRunning) return null;
+  if (!isRunning && !isQueued) return null;
+
+  if (isQueued) {
+    const waitMin = estimatedWaitSec > 0 ? Math.ceil(estimatedWaitSec / 60) : null;
+    return (
+      <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-background/85 backdrop-blur-sm">
+        <div className="flex max-w-sm flex-col items-center gap-5 px-6 text-center">
+          <span className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-indigo-400" />
+          <div className="space-y-1.5">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/55">Queued</p>
+            <p className="text-sm font-medium text-white/85">
+              Position {queuePosition} in queue
+              {waitMin !== null ? ` — ~${waitMin} min wait` : ""}
+            </p>
+            <p className="text-xs text-white/40">A slot will open when the current run finishes.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-background/85 backdrop-blur-sm">
