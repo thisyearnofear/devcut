@@ -281,29 +281,74 @@ def _live_image(
     return RunwayImageResult(url=url, prompt=prompt, mode="LIVE")
 
 
+# Default video model — override with RUNWAY_VIDEO_MODEL=seedance2 for product shots.
+# seedance2: up to 15s, better for product/e-commerce, 36 credits/sec (vs 12 for gen4.5).
+_RUNWAY_VIDEO_MODEL = os.getenv("RUNWAY_VIDEO_MODEL", "gen4.5")
+
+
+def _upload_to_runway_ephemeral(image_url: str) -> str:
+    """Upload an image to Runway's ephemeral storage and return a runway:// URI.
+
+    Runway output CDN URLs are signed and expire within hours. Uploading to
+    ephemeral storage gives a stable runway:// URI that is valid for the
+    duration of the session and avoids URL-expiry failures on slow/retried runs.
+
+    Falls back to the original URL on any error so the pipeline is not blocked.
+    """
+    try:
+        import io
+        import urllib.request as _req
+        with _req.urlopen(image_url, timeout=30) as resp:
+            image_bytes = resp.read()
+        # FileTypes accepts (filename, file-like, content-type) tuples.
+        file_tuple = ("image.jpg", io.BytesIO(image_bytes), "image/jpeg")
+        client = _client()
+        upload = client.uploads.create_ephemeral(file=file_tuple)
+        if upload.uri:
+            return str(upload.uri)
+    except Exception as exc:  # noqa: BLE001
+        import logging
+        logging.getLogger(__name__).warning(
+            "runway_ephemeral_upload_failed url=%s err=%s — using original URL",
+            image_url, exc,
+        )
+    return image_url
+
+
 def _live_video(
     image_url: str,
     prompt: str,
     duration: int = 5,
     ratio: str = "1280:720",
 ) -> RunwayVideoResult:
-    """Image→video via Gen-4.5.
+    """Image→video via Runway.
 
-    Gen-4.5 is the current best model: better quality and control than
-    gen4_turbo, same pricing, 2-10s flexible duration. The shot's own
-    reference image is passed as the first frame, which already encodes
-    the visual style established by generate_reference_image.
+    Model selection (RUNWAY_VIDEO_MODEL env var):
+    - gen4.5 (default): best quality/control, 2-10s, 12 credits/sec.
+    - seedance2: up to 15s, optimised for product/e-commerce shots, 36 credits/sec.
+
+    The shot's reference image is uploaded to Runway ephemeral storage first
+    so the runway:// URI is stable even if the original CDN URL expires during
+    a slow or retried run.
     """
     from runwayml import TaskFailedError
+
+    model = _RUNWAY_VIDEO_MODEL
+    # Cap duration to model limits: seedance2 supports up to 15s, gen4.5 up to 10s.
+    max_duration = 15 if model == "seedance2" else 10
+    capped_duration = min(duration, max_duration)
+
+    # Upload image to Runway ephemeral storage for a stable runway:// URI.
+    stable_image_uri = _upload_to_runway_ephemeral(image_url)
 
     client = _client()
     try:
         task = client.image_to_video.create(
-            model="gen4.5",
-            prompt_image=image_url,
+            model=model,
+            prompt_image=stable_image_uri,
             prompt_text=prompt,
             ratio=ratio,
-            duration=duration,
+            duration=capped_duration,
         )
         task = _wait_for_task(task, "image_to_video")
     except TaskFailedError as e:
@@ -313,7 +358,7 @@ def _live_video(
     if not url:
         raise RuntimeError("Runway image_to_video returned no output URL")
     return RunwayVideoResult(
-        url=url, prompt=prompt, duration=duration, mode="LIVE", image_url=image_url
+        url=url, prompt=prompt, duration=capped_duration, mode="LIVE", image_url=image_url
     )
 
 
