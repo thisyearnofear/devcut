@@ -43,7 +43,21 @@ git pull --ff-only || { warn "git pull failed — continuing with current code";
 info "Installing dependencies…"
 npm ci 2>&1 | tail -3
 
-# ── 3. Build frontend ─────────────────────────────────────────────────────
+# ── 3. Apply patches ───────────────────────────────────────────────────────
+# MUST run BEFORE the frontend/BFF builds so Next.js bundles the patched
+# @copilotkit/core and @ag-ui/client into .next/standalone. Patches need to
+# be applied to BOTH the hoisted root node_modules and the per-app
+# node_modules (whichever the workspace resolver picks up).
+info "Applying patches…"
+for d in "$ROOT" "$ROOT/apps/frontend" "$ROOT/apps/bff"; do
+  if [ -d "$d/node_modules" ]; then
+    for patch in "$ROOT"/scripts/patches/*.sh; do
+      [ -f "$patch" ] && (cd "$d" && bash "$patch") 2>&1 | sed "s|^|  ($(basename "$d")) |"
+    done
+  fi
+done
+
+# ── 4. Build frontend ─────────────────────────────────────────────────────
 info "Building frontend…"
 (cd apps/frontend && npx next build) 2>&1 | tail -5
 
@@ -53,18 +67,12 @@ if [ -d apps/frontend/.next/standalone ]; then
   cp -r apps/frontend/public apps/frontend/.next/standalone/apps/frontend/public 2>/dev/null || true
 fi
 
-# ── 4. Build BFF ───────────────────────────────────────────────────────────
+# ── 5. Build BFF ───────────────────────────────────────────────────────────
 info "Building BFF…"
 (cd apps/bff && npx tsc) 2>&1 | tail -3
 
-# ── 5. Ensure logs directory ──────────────────────────────────────────────
+# ── 5a. Ensure logs directory ─────────────────────────────────────────────
 mkdir -p "$ROOT/logs"
-
-# ── 5b. Apply patches ─────────────────────────────────────────────────────
-info "Applying patches…"
-for patch in "$ROOT"/scripts/patches/*.sh; do
-  [ -f "$patch" ] && bash "$patch" 2>&1 | tail -1
-done
 
 # ── 5c. Ensure agent .env symlink (single source of truth) ───────────────
 if [ ! -L "$ROOT/apps/agent/.env" ]; then

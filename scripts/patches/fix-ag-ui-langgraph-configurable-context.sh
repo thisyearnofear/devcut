@@ -126,8 +126,17 @@ for CORE_TARGET in \
   node_modules/@copilotkit/core/dist/index.umd.js
 do
   if [ ! -f "$CORE_TARGET" ]; then continue; fi
-  if grep -qF 'stream_mode: "run",' "$CORE_TARGET" 2>/dev/null && \
-     ! grep -qE 'stream_mode: "run",\s*run_id: input\.runId,\s*last_seen_event_id' "$CORE_TARGET" 2>/dev/null; then
+  # grep -E doesn't match across newlines, so use python to detect
+  # whether the multi-line patched form is already present.
+  if [ -f "$CORE_TARGET" ] && TARGET_FILE="$CORE_TARGET" python3 -c "
+import os, re, sys
+with open(os.environ['TARGET_FILE']) as f: c = f.read()
+# Already patched if run-mode object includes last_seen_event_id
+patched = re.search(r'stream_mode:\s*\"run\",\s*run_id:\s*input\.runId,\s*last_seen_event_id', c)
+sys.exit(0 if patched else 1)
+" 2>/dev/null; then
+    echo "[patch] @copilotkit/core run-mode replay already patched in $CORE_TARGET"
+  elif grep -qF 'stream_mode: "run",' "$CORE_TARGET" 2>/dev/null; then
     TARGET_FILE="$CORE_TARGET" python3 <<'PYEOF'
 import os, sys, re
 target = os.environ['TARGET_FILE']
