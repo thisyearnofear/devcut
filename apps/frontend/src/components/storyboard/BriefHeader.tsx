@@ -22,6 +22,10 @@ export function BriefHeader({
   hasPersonalKey,
 }: BriefHeaderProps) {
   const isLive = storyboard.runway_mode === "LIVE";
+  // Only show the LIVE/MOCK badge once the agent has set the mode
+  // (i.e. after the storyboard has a title). Before that, the default
+  // "MOCK" is misleading because the server may have a Runway key.
+  const showModeBadge = Boolean(storyboard.title);
 
   return (
     <header className="flex flex-col gap-3 border-b border-white/[0.06] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
@@ -55,27 +59,29 @@ export function BriefHeader({
         )}
 
         {/* LIVE/MOCK + key — single clickable control */}
-        <button
-          type="button"
-          onClick={onKeyClick}
-          className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] transition-all hover:border-white/20 hover:bg-white/[0.04]"
-          title="Configure Runway API key"
-        >
-          <span
-            className={`size-1.5 rounded-full ${
-              isLive ? "bg-emerald-500" : "bg-amber-500/60"
-            }`}
-          />
-          <span className={isLive ? "text-emerald-400/80" : "text-amber-400/60"}>
-            {isLive ? "Live" : "Mock"}
-          </span>
-          {hasPersonalKey && (
-            <>
-              <span className="text-white/40">·</span>
-              <span className="text-white/62">Your key</span>
-            </>
-          )}
-        </button>
+        {showModeBadge && (
+          <button
+            type="button"
+            onClick={onKeyClick}
+            className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] transition-all hover:border-white/20 hover:bg-white/[0.04]"
+            title="Configure Runway API key"
+          >
+            <span
+              className={`size-1.5 rounded-full ${
+                isLive ? "bg-emerald-500" : "bg-amber-500/60"
+              }`}
+            />
+            <span className={isLive ? "text-emerald-400/80" : "text-amber-400/60"}>
+              {isLive ? "Live" : "Mock"}
+            </span>
+            {hasPersonalKey && (
+              <>
+                <span className="text-white/40">·</span>
+                <span className="text-white/62">Your key</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
     </header>
   );

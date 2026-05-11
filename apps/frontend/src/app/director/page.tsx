@@ -165,17 +165,17 @@ function getAgentProgress(state: StoryboardState, isRunning: boolean): AgentProg
     stages: [
       {
         label: "Storyboard",
-        detail: total > 0 ? `${total} shots planned` : "Waiting for a brief",
+        detail: total > 0 ? `${total} shots planned` : isRunning ? "Planning your storyboard…" : "Waiting for a brief",
         status: total > 0 ? "done" : isRunning ? "active" : "waiting",
       },
       {
         label: "Reference stills",
-        detail: total > 0 ? `${refs}/${total} stills ready` : "Starts after planning",
+        detail: total > 0 ? `${refs}/${total} stills ready` : isRunning ? "Queued" : "Starts after planning",
         status: refs === total && total > 0 ? "done" : total > 0 && isRunning ? "active" : "waiting",
       },
       {
         label: "Motion clips",
-        detail: total > 0 ? `${videos}/${total} clips ready` : "Starts after stills",
+        detail: total > 0 ? `${videos}/${total} clips ready` : isRunning ? "Queued" : "Starts after stills",
         status: videos === total && total > 0 ? "done" : refs > 0 && isRunning ? "active" : "waiting",
       },
       {
@@ -187,7 +187,7 @@ function getAgentProgress(state: StoryboardState, isRunning: boolean): AgentProg
               ? "Stitching clips"
               : ready === total && total > 0
                 ? "Ready to export"
-                : "Waiting for clips",
+                : isRunning ? "Queued" : "Waiting for clips",
         status:
           state.export_status === "error" || hasErrors
             ? "error"
@@ -434,7 +434,14 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
   const progress = useMemo(() => getAgentProgress(state, isRunning), [state, isRunning]);
 
   useEffect(() => {
-    onStoryboardChange?.(state.storyboard);
+    onStoryboardChange?.({
+      title: state.storyboard.title,
+      logline: state.storyboard.logline,
+      aspect_ratio: state.storyboard.aspect_ratio,
+      runway_mode: state.storyboard.runway_mode,
+      stitch_mode: state.storyboard.stitch_mode,
+      style_ref_url: state.storyboard.style_ref_url,
+    });
   }, [
     state.storyboard.title,
     state.storyboard.logline,
