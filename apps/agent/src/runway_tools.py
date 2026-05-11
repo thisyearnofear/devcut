@@ -703,15 +703,16 @@ def stitch_final_cut(
         f"Final cut ready ({result.mode}, {result.duration}s, "
         f"{result.shot_count} shots). URL: {result.url}"
     )
-    return Command(
-        update={
-            "final_video_url": result.url,
-            "export_status": "ready",
-            "export_error": None,
-            "storyboard": {**storyboard, "stitch_mode": result.mode},
-            "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
-        }
-    )
+    update: dict = {
+        "final_video_url": result.url,
+        "export_status": "ready",
+        "export_error": None,
+        "storyboard": {**storyboard, "stitch_mode": result.mode},
+        "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
+    }
+    if result.grove_uri:
+        update["grove_uri"] = result.grove_uri
+    return Command(update=update)
 
 
 def load_runway_tools() -> list:

@@ -85,6 +85,7 @@ class StitchResult:
     mode: str         # "LIVE" | "MOCK"
     duration: int     # seconds
     shot_count: int
+    grove_uri: Optional[str] = None  # set when Grove upload succeeds
 
 
 # --------------------------------------------------------------------- mock
@@ -341,8 +342,15 @@ def _live_stitch(shots: list[dict], slug: str) -> StitchResult:
         _ffmpeg_concat(local_inputs, out_path, force_reencode=any_audio)
 
     duration = sum(int(s.get("duration") or 5) for s in shots if s.get("video_url"))
-    url = f"{_export_base_url()}/{out_name}"
-    return StitchResult(url=url, mode="LIVE", duration=duration, shot_count=len(shots))
+
+    # Try Grove first for a permanent, publicly accessible URL.
+    # Falls back to EXPORT_BASE_URL if Grove is disabled or the upload fails.
+    from .grove_client import upload_to_grove
+    grove = upload_to_grove(out_path, content_type="video/mp4")
+    url = grove.gateway_url if grove else f"{_export_base_url()}/{out_name}"
+    grove_uri = grove.uri if grove else None
+
+    return StitchResult(url=url, mode="LIVE", duration=duration, shot_count=len(shots), grove_uri=grove_uri)
 
 
 # --------------------------------------------------------------------- public

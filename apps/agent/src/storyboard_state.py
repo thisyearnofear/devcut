@@ -68,6 +68,8 @@ class StoryboardCanvasState(AgentState):
     header: NotRequired[Annotated[_Header, _replace]]
     # Final stitched MP4. Populated by `stitch_final_cut`.
     final_video_url: NotRequired[Annotated[Optional[str], _replace]]
+    # Permanent Grove URI (lens://...) — set when Grove upload succeeds.
+    grove_uri: NotRequired[Annotated[Optional[str], _replace]]
     # "idle" | "stitching" | "ready" | "error"
     export_status: NotRequired[Annotated[str, _replace]]
     export_error: NotRequired[Annotated[Optional[str], _replace]]
