@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { Toaster, toast } from "sonner";
 import {
@@ -103,6 +103,22 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
   const { copilotkit } = useCopilotKit();
   const [showKeyPanel, setShowKeyPanel] = useState(false);
   const { key: runwayKey } = useRunwayApiKey();
+
+  // Auto-inject a brief from the landing page ?brief= query param
+  const briefInjectedRef = useRef(false);
+  useEffect(() => {
+    if (briefInjectedRef.current || !agent) return;
+    const params = new URLSearchParams(window.location.search);
+    const brief = params.get("brief");
+    if (!brief) return;
+    briefInjectedRef.current = true;
+    // Remove the param from the URL without a reload
+    const url = new URL(window.location.href);
+    url.searchParams.delete("brief");
+    window.history.replaceState({}, "", url.toString());
+    // Small delay so the agent is fully mounted
+    setTimeout(() => injectPrompt(brief), 800);
+  }, [agent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useConfigureSuggestions({
     available: "before-first-message",
