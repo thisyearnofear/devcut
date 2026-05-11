@@ -43,3 +43,20 @@ fi
 sed -i.bak 's/config:w,context:{/config:w\&\&{...w,configurable:void 0},context:{/' "$TARGET"
 rm -f "${TARGET}.bak"
 echo "[patch] @ag-ui/langgraph patched (configurable stripped when context present)"
+
+# --- Patch 2: guard JSON.parse(e.function.arguments) ---
+# The g() message-conversion function calls JSON.parse on tool-call arguments
+# which can be empty or partial during streaming, causing
+# "Unexpected end of JSON input".  Wrap in try/catch with {} fallback.
+UNSAFE_ARGS='JSON.parse(e.function.arguments)'
+SAFE_ARGS='(()=>{try{return JSON.parse(e.function.arguments)}catch{return{}}})()'
+
+if grep -qF "$SAFE_ARGS" "$TARGET" 2>/dev/null; then
+  echo "[patch] @ag-ui/langgraph tool-args parse already patched"
+elif grep -qF "$UNSAFE_ARGS" "$TARGET" 2>/dev/null; then
+  sed -i.bak "s|$UNSAFE_ARGS|$SAFE_ARGS|g" "$TARGET"
+  rm -f "${TARGET}.bak"
+  echo "[patch] @ag-ui/langgraph patched (safe JSON.parse for tool-call arguments)"
+else
+  echo "[patch] WARNING: JSON.parse(e.function.arguments) pattern not found – skipping"
+fi
