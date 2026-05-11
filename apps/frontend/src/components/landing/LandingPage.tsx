@@ -562,10 +562,10 @@ export default function LandingPage() {
             <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#f7c982]/80">
-                  Real output · Ceramic mug product reveal
+                  Real output · Lisbon at blue hour
                 </p>
                 <h2 className="mt-2 text-xl font-semibold tracking-tight text-white md:text-2xl">
-                  4 shots · ~2 min · Runway Gen-4.5
+                  5 shots · ~5 min · Runway Gen-4.5
                 </h2>
               </div>
               <Link
@@ -576,58 +576,87 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            {/* Shot grid */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Shot grid — real Runway clips */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               {[
-                { beat: "Establishing", label: "01 · Studio wide", status: "Ready ✓ · 18s" },
-                { beat: "Close-up", label: "02 · Mug detail", status: "Ready ✓ · 22s" },
-                { beat: "Rotation", label: "03 · Slow spin", status: "Ready ✓ · 19s" },
-                { beat: "Hero", label: "04 · Steam rising", status: "Ready ✓ · 21s" },
+                {
+                  label: "01 · Tram at dusk",
+                  src: "https://dnznrvs05pmza.cloudfront.net/d40f6920-069f-4bf3-b78e-bf67142992ae.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMDJlYTBjYWFhODNiYWQ5ZiIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODYyMTA5OH0.0rO6eg3Qgz9RsHaeTdM54xhW8sr1gd6avZepltCdLvU",
+                },
+                {
+                  label: "02 · Azulejo tiles",
+                  src: "https://dnznrvs05pmza.cloudfront.net/dd17083d-cb6b-4a5c-a163-2a64ce3fda1a.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMzAwOGNiMjMxY2U2Y2I0ZiIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODY2MDI1OX0.rCa0vXt_1rl1SGpeElnE_CRuo0o3W1xEuW_WZC3nsaU",
+                },
+                {
+                  label: "03 · River view",
+                  src: "https://dnznrvs05pmza.cloudfront.net/4cd99850-1877-4dff-9169-5f1c19ab0a50.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiOGFmYzdhNmJmNjk2MjVmNyIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODY2OTQxOX0.nh-b3Mz_B7NHVvnlgEmVTcwFWBdvGlmWH3ObFVIkjNI",
+                },
+                {
+                  label: "04 · Street life",
+                  src: "https://dnznrvs05pmza.cloudfront.net/21205806-a603-4e01-a74b-44b2db51bf0f.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZjkxYWZiNTcyMmQxZjZhNiIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODY3MTA2M30.QTRGM0PhBC4SdfVe5mtWcMOE2iqm-APl0nK0DFJVNLY",
+                },
+                {
+                  label: "05 · Blue hour glow",
+                  src: "https://dnznrvs05pmza.cloudfront.net/2c86ec72-fae0-4ccf-bc05-17e8e362b607.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZGU2ODAxMTVkMDkxOTQxZCIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3ODYzMTU3M30.01L-hJnnbd70NcS9D-YrfCbA8-06bZZgKGVpyTa8lMQ",
+                },
               ].map((shot) => (
                 <div
-                  key={shot.beat}
-                  className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]"
+                  key={shot.label}
+                  className="group relative overflow-hidden rounded-xl border border-white/10 bg-black"
                   style={{ aspectRatio: "16/9" }}
                 >
-                  {/* Gradient placeholder simulating a generated still */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#1a1200] via-[#2a1e00] to-[#1a1200]" />
-                  <div
-                    className="absolute inset-0 opacity-30"
-                    style={{
-                      background: `radial-gradient(ellipse 80% 60% at 50% 40%, #ffbe7040, transparent 70%)`,
-                    }}
+                  <video
+                    src={shot.src}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="absolute inset-0 h-full w-full object-cover opacity-90 transition-opacity group-hover:opacity-100"
                   />
                   <div className="absolute inset-0 flex flex-col justify-between p-3">
                     <span className="self-start rounded-full bg-black/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/70 backdrop-blur-sm">
                       {shot.label}
                     </span>
                     <span className="self-start rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
-                      {shot.status}
+                      Ready ✓
                     </span>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Final cut bar */}
-            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3">
-                <span className="size-2 shrink-0 rounded-full bg-emerald-400" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Final cut ready</p>
-                  <p className="text-xs text-white/50">ceramic-mug-product-reveal.mp4 · 4 shots stitched · FFmpeg concat</p>
+            {/* Final cut hero */}
+            <div className="mt-4 overflow-hidden rounded-xl border border-emerald-400/20 bg-black">
+              <div className="relative" style={{ aspectRatio: "16/9" }}>
+                <video
+                  src="https://api.grove.storage/fdc642559451b5224ab8116630e1b239858aa43cf3d83b940b445b86f52061fa"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="size-2 shrink-0 rounded-full bg-emerald-400" />
+                    <div>
+                      <p className="text-sm font-semibold text-white">Final cut · Lisbon at blue hour</p>
+                      <p className="text-xs text-white/60">5 shots stitched · FFmpeg concat · Runway Gen-4.5</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-400 ring-1 ring-sky-500/20">
+                      <span>⬡</span> Saved to Grove
+                    </span>
+                    <Link
+                      href={`/director?brief=${encodeURIComponent(BRIEFS[2].brief)}`}
+                      className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-white/80 transition-all hover:bg-white/[0.12]"
+                    >
+                      Try Lisbon →
+                    </Link>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-400 ring-1 ring-sky-500/20">
-                  <span>⬡</span> Saved to Grove
-                </span>
-                <Link
-                  href="/director"
-                  className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-white/80 transition-all hover:bg-white/[0.12]"
-                >
-                  Try it yourself
-                </Link>
               </div>
             </div>
           </div>
