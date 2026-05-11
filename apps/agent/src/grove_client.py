@@ -105,17 +105,18 @@ def upload_to_grove(
             return None
 
         data = resp.json()
-        # Grove returns {"uri": "lens://...", ...} or {"storageKey": "..."}
-        uri = data.get("uri") or data.get("storageKey") or ""
+        # Grove returns a JSON array: [{"uri": "lens://...", "gateway_url": "...", ...}]
+        item = data[0] if isinstance(data, list) else data
+        uri = item.get("uri") or item.get("storageKey") or ""
         if not uri:
             _log("ERROR", "grove_upload_error", reason="no_uri_in_response", body=str(data)[:300])
             return None
 
-        # Derive the gateway URL from the URI hash
-        # lens://Qm... → https://api.grove.storage/Qm...
-        # grove://Qm... → same
-        uri_hash = uri.split("://", 1)[-1].lstrip("/")
-        gateway_url = f"{_GROVE_API}/{uri_hash}"
+        # Prefer the gateway_url Grove returns directly; derive as fallback.
+        gateway_url = (
+            item.get("gateway_url")
+            or f"{_GROVE_API}/{uri.split('://', 1)[-1].lstrip('/')}"
+        )
 
         elapsed = round(time.time() - t0, 2)
         _log(
