@@ -41,7 +41,7 @@ git pull --ff-only || { warn "git pull failed — continuing with current code";
 
 # ── 2. Install dependencies ───────────────────────────────────────────────
 info "Installing dependencies…"
-npm ci --omit=dev 2>&1 | tail -3
+npm ci 2>&1 | tail -3
 
 # ── 3. Build frontend ─────────────────────────────────────────────────────
 info "Building frontend…"
