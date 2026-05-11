@@ -236,9 +236,24 @@ async function rewriteWsUrl(resPromise: Response | Promise<Response>): Promise<R
   try { text = await res.text(); } catch { return res; }
   let json: Record<string, unknown>;
   try { json = JSON.parse(text); } catch { return new Response(text, res); }
+  let changed = false;
+  // Rewrite intelligence.wsUrl in /info responses
   const intel = json.intelligence as Record<string, unknown> | undefined;
   if (intel?.wsUrl) {
     intel.wsUrl = PUBLIC_INTELLIGENCE_WS_URL;
+    changed = true;
+  }
+  // Rewrite realtime.clientUrl in /run responses so the browser connects
+  // through the public proxy instead of the internal Docker hostname.
+  const realtime = json.realtime as Record<string, unknown> | undefined;
+  if (realtime?.clientUrl && typeof realtime.clientUrl === "string") {
+    // PUBLIC_INTELLIGENCE_WS_URL is e.g. "wss://domain/ws".
+    // Nginx maps /ws/* → /client/* on the gateway, so the clientUrl
+    // should be the bare public WS base — the SDK appends /websocket.
+    realtime.clientUrl = PUBLIC_INTELLIGENCE_WS_URL;
+    changed = true;
+  }
+  if (changed) {
     return new Response(JSON.stringify(json), {
       status: res.status,
       headers: res.headers,
