@@ -8,12 +8,12 @@
     }
     handle @intelligence_ws {
         uri strip_prefix /ws
-        reverse_proxy intelligence:4401
+        reverse_proxy localhost:4403
     }
 
     # Reverse proxy everything else to the Next.js frontend.
     # Next.js proxies /api/copilotkit/* to the BFF internally (next.config.ts rewrites).
-    reverse_proxy frontend:3000
+    reverse_proxy localhost:3100
 
     # Serve stitched MP4 exports directly — the frontend container mounts
     # the exports volume at /app/apps/frontend/public/exports, so Next.js
