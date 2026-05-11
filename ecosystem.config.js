@@ -59,6 +59,10 @@ module.exports = {
         NODE_ENV: 'production',
         HOSTNAME: '0.0.0.0',
       }),
+      restart_delay: 3000,
+      exp_backoff_restart_delay: 100,
+      max_memory_restart: '512M',
+      kill_timeout: 8000,
       error_file: path.join(ROOT, 'logs/frontend-error.log'),
       out_file:   path.join(ROOT, 'logs/frontend-out.log'),
     },
@@ -72,27 +76,28 @@ module.exports = {
         NODE_ENV: 'production',
         PUBLIC_INTELLIGENCE_WS_URL: `wss://${DOMAIN}/ws`,
       }),
+      restart_delay: 3000,
+      exp_backoff_restart_delay: 100,
+      max_memory_restart: '512M',
+      kill_timeout: 8000,
       error_file: path.join(ROOT, 'logs/bff-error.log'),
       out_file:   path.join(ROOT, 'logs/bff-out.log'),
     },
 
     // ── Agent (LangGraph via uv) ───────────────────────────────────────
-    {
-      name: 'director-agent',
-      script: '/home/deploy/.local/bin/uv',
-      // --no-reload is critical in production: without it, langgraph's
-      // watchfiles loop restarts the agent on every __pycache__ touch,
-      // killing in-flight runs mid-stream. The Intelligence thread lock
-      // is never released, so all subsequent requests on the same thread
-      // hang on 409 THREAD_LOCK_FAILED until the lock TTL expires.
-      args: 'run langgraph dev --port 8123 --no-browser --no-reload',
-      cwd: path.join(ROOT, 'apps/agent'),
-      env: serviceEnv({
-        PATH: '/home/deploy/.local/bin:/usr/local/bin:/usr/bin:/bin',
-      }),
-      error_file: path.join(ROOT, 'logs/agent-error.log'),
-      out_file:   path.join(ROOT, 'logs/agent-out.log'),
-    },
+    // DISABLED: Docker now owns the agent process (langgraph up).
+    // Kept commented out for reference / rollback.
+    // {
+    //   name: 'director-agent',
+    //   script: '/home/deploy/.local/bin/uv',
+    //   args: 'run langgraph dev --port 8123 --no-browser --no-reload',
+    //   cwd: path.join(ROOT, 'apps/agent'),
+    //   env: serviceEnv({
+    //     PATH: '/home/deploy/.local/bin:/usr/local/bin:/usr/bin:/bin',
+    //   }),
+    //   error_file: path.join(ROOT, 'logs/agent-error.log'),
+    //   out_file:   path.join(ROOT, 'logs/agent-out.log'),
+    // },
 
     // ── MCP Server (mcp-use widgets) ──────────────────────────────────
     {

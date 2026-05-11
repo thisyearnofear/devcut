@@ -112,7 +112,7 @@ check_svc() {
 }
 check_svc "Frontend" "http://localhost:3100/"                    "director-frontend"
 check_svc "BFF"      "http://localhost:4010/health"              "director-bff"
-check_svc "Agent"    "http://localhost:8123/"                    "director-agent"
+check_svc "Agent"    "http://localhost:8123/ok"                  "director-agent"
 check_svc "MCP"      "http://localhost:3011/mcp"                 "director-mcp"
 
 if [ "$FAIL" = "0" ]; then

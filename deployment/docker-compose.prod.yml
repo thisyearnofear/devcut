@@ -126,8 +126,9 @@ services:
       # Stitched MP4s are written here and served by the frontend container.
       EXPORT_DIR: /exports
       EXPORT_BASE_URL: "https://${DOMAIN}/exports"
-      # LangGraph needs a Postgres URL for thread persistence.
-      LANGGRAPH_POSTGRES_URL: "postgresql://intelligence:intelligence@postgres:5432/intelligence_app"
+      # LangGraph needs its own DB (not Intelligence's) for thread persistence.
+      DATABASE_URI: "postgresql://intelligence:intelligence@postgres:5432/langgraph_app"
+      REDIS_URI: "redis://redis:6379/2"
     volumes:
       - exports:/exports
     depends_on:

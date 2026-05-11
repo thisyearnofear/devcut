@@ -30,10 +30,12 @@ from src.timing import TimingMiddleware
 load_dotenv()
 
 # Cleanup is idempotent — safe to call from both main.py and director.py.
-wipe_orphan_threads()
+# In production with persistent checkpoints, this would destroy valid threads.
+if os.getenv("WIPE_ORPHAN_THREADS_ON_BOOT") == "1":
+    wipe_orphan_threads()
 
 
-_AGENT_RUNTIME = os.getenv("AGENT_RUNTIME", "gemini-flash-deep")
+_AGENT_RUNTIME = os.getenv("AGENT_RUNTIME", "gemini-flash-react")
 print(f"[director] AGENT_RUNTIME={_AGENT_RUNTIME}", flush=True)
 
 _gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""

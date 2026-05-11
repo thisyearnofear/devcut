@@ -27,6 +27,7 @@ which is the conservative direction for a budget check.
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -41,11 +42,9 @@ from langchain_core.messages import ToolMessage
 from langgraph.types import Command
 
 
-# Per-thread turn counter, scoped to the agent process. Resets when the
-# process restarts. Sufficient for local dev — production would key by
-# (thread_id, run_id) instead, but langgraph dev only runs one thread at a
-# time on the typical workshop machine.
+# Global turn counter, protected by a lock for concurrent runs.
 _turn_counter = 0
+_turn_counter_lock = threading.Lock()
 
 
 class _TurnTiming:
@@ -84,15 +83,34 @@ class TimingMiddleware(AgentMiddleware):
 
     def __init__(self) -> None:
         super().__init__()
-        # We only run one turn at a time in the dev runtime, so a single slot is
-        # fine. If we ever multiplex turns we'd key by run_id from the runtime.
-        self._current: _TurnTiming | None = None
+        # Keyed by thread_id so concurrent runs don't clobber each other.
+        self._runs: dict[str, _TurnTiming] = {}
+        self._lock = threading.Lock()
 
     # ------------------------------------------------------------------ turn
+    @staticmethod
+    def _thread_key(state: Any) -> str:
+        """Extract a key to disambiguate concurrent runs."""
+        # Try configurable.thread_id first (LangGraph standard).
+        try:
+            from langgraph.config import get_config
+            cfg = get_config().get("configurable", {})
+            tid = cfg.get("thread_id", "")
+            if tid:
+                return str(tid)
+        except Exception:  # noqa: BLE001
+            pass
+        # Fallback: use the OS thread id.
+        return str(threading.get_ident())
+
     def before_agent(self, state: Any, runtime: Any) -> dict[str, Any] | None:  # noqa: ARG002
         global _turn_counter
-        _turn_counter += 1
-        self._current = _TurnTiming(turn_id=_turn_counter)
+        with _turn_counter_lock:
+            _turn_counter += 1
+            turn_id = _turn_counter
+        key = self._thread_key(state)
+        with self._lock:
+            self._runs[key] = _TurnTiming(turn_id=turn_id)
         return None
 
     async def abefore_agent(  # noqa: D401
@@ -101,7 +119,8 @@ class TimingMiddleware(AgentMiddleware):
         return self.before_agent(state, runtime)
 
     def after_agent(self, state: Any, runtime: Any) -> dict[str, Any] | None:  # noqa: ARG002
-        self._emit()
+        key = self._thread_key(state)
+        self._emit(key)
         return None
 
     async def aafter_agent(  # noqa: D401
@@ -134,8 +153,14 @@ class TimingMiddleware(AgentMiddleware):
             elapsed = time.perf_counter() - start
             self._record_model(elapsed)
 
+    def _current(self) -> _TurnTiming | None:
+        """Return the timing accumulator for the current run."""
+        key = self._thread_key(None)
+        with self._lock:
+            return self._runs.get(key)
+
     def _record_model(self, elapsed: float) -> None:
-        cur = self._current
+        cur = self._current()
         if cur is None:
             return
         cur.model_total += elapsed
@@ -170,7 +195,7 @@ class TimingMiddleware(AgentMiddleware):
             self._record_tool(name, elapsed)
 
     def _record_tool(self, name: str, elapsed: float) -> None:
-        cur = self._current
+        cur = self._current()
         if cur is None:
             return
         cur.tool_totals[name] = cur.tool_totals.get(name, 0.0) + elapsed
@@ -185,8 +210,9 @@ class TimingMiddleware(AgentMiddleware):
             return "<unknown>"
 
     # --------------------------------------------------------------- emit
-    def _emit(self) -> None:
-        cur = self._current
+    def _emit(self, key: str) -> None:
+        with self._lock:
+            cur = self._runs.pop(key, None)
         if cur is None:
             return
         total = time.perf_counter() - cur.turn_start
@@ -204,4 +230,3 @@ class TimingMiddleware(AgentMiddleware):
             + f"total={total:.2f}s first_token={first_token:.2f}s"
         )
         print(line, flush=True)
-        self._current = None

@@ -5,6 +5,7 @@ import {
   createCopilotEndpoint,
 } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { randomUUID } from "node:crypto";
 import Redis from "ioredis";
 
 const intelligence = new CopilotKitIntelligence({
@@ -36,13 +37,19 @@ const agent = new LangGraphAgent({
 
 // Director / storyboard agent — same LangGraph deployment, different graphId.
 // The frontend mounts this at agentId="director" on the /director route.
+//
+// Director uses a *lower* recursion limit than the default agent. The
+// storyboard pipeline is a finite chain (plan → references → videos →
+// stitch) and shouldn't legitimately recurse 60 times. Capping at 25 turns
+// a Gemini planner that's stuck in a tool-call loop into a fast,
+// recoverable failure instead of a 5-minute worker hold.
 const director = new LangGraphAgent({
   deploymentUrl:
     process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
   graphId: "director",
   langsmithApiKey: process.env.LANGSMITH_API_KEY ?? "",
   assistantConfig: {
-    recursion_limit: Number(process.env.LANGGRAPH_RECURSION_LIMIT ?? 60),
+    recursion_limit: Number(process.env.LANGGRAPH_DIRECTOR_RECURSION_LIMIT ?? 25),
   },
 });
 
@@ -100,6 +107,19 @@ async function incrementThreadCallCount(threadId: string): Promise<number> {
 }
 
 // ----------------------------------------------------------------- copilot endpoint
+//
+// lockTtlSeconds / lockHeartbeatIntervalSeconds are set explicitly (rather
+// than relying on the Intelligence defaults of 20s/15s) so a run that dies
+// mid-stream — agent crash, OOM, network blip — releases its Intelligence
+// thread lock within `lockTtlSeconds` instead of staying locked until the
+// upstream default timeout (which we've seen strand threads for minutes).
+//
+// The heartbeat keeps healthy in-flight runs alive; the TTL bounds how long
+// a dead run can hold a lock. Keep `heartbeat << ttl` (≥3x) so a single
+// missed heartbeat doesn't drop the lock.
+const RUNTIME_LOCK_TTL = Number(process.env.CPKI_LOCK_TTL_SECONDS ?? 45);
+const RUNTIME_LOCK_HEARTBEAT = Number(process.env.CPKI_LOCK_HEARTBEAT_SECONDS ?? 10);
+
 const copilotApp = createCopilotEndpoint({
   basePath: "/api/copilotkit",
   runtime: new CopilotRuntime({
@@ -107,6 +127,8 @@ const copilotApp = createCopilotEndpoint({
     identifyUser: () => ({ id: "default", name: "Hackathon User" }),
     licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
     agents: { default: agent, director },
+    lockTtlSeconds: RUNTIME_LOCK_TTL,
+    lockHeartbeatIntervalSeconds: RUNTIME_LOCK_HEARTBEAT,
     openGenerativeUI: true,
     a2ui: { injectA2UITool: false },
     mcpApps: {
@@ -120,6 +142,95 @@ const copilotApp = createCopilotEndpoint({
     },
   }),
 });
+
+// ----------------------------------------------------------------- bulkheads
+// Two layers of admission control sit in front of the CopilotKit endpoint:
+//
+// 1. Per-thread circuit breaker — if a thread accumulates K consecutive
+//    failures (409 / 5xx / network error) within a sliding window, we open
+//    its breaker for COOLDOWN seconds and short-circuit further requests
+//    with 423 Locked + Retry-After. This is the key defense against the
+//    cascade where a single stuck thread → CopilotKit retries → BFF storms
+//    Intelligence → Intelligence's app-api UnhandledPromiseRejection →
+//    everyone hangs. Failures must be confined to the bad thread.
+//
+// 2. Global concurrency semaphore — a hard cap on in-flight CopilotKit
+//    POST handlers. Above the cap we shed load with 503 + Retry-After
+//    instead of queuing (keeps tail latency predictable and prevents one
+//    user's runaway turn from monopolising the box).
+//
+// Both are intentionally process-local (Map / counter, not Redis): the
+// failure modes we're guarding against are localised to one BFF instance,
+// and we want zero external dependencies on the recovery path.
+
+const CB_FAILURES_TO_OPEN = Number(process.env.CB_FAILURES_TO_OPEN ?? 3);
+const CB_WINDOW_MS        = Number(process.env.CB_WINDOW_MS ?? 15_000);
+const CB_COOLDOWN_MS      = Number(process.env.CB_COOLDOWN_MS ?? 30_000);
+const MAX_INFLIGHT_RUNS   = Number(process.env.MAX_INFLIGHT_RUNS ?? 3);
+
+interface ThreadBreakerState {
+  failures: number[];   // ms timestamps within window
+  openUntil: number;    // 0 if closed
+}
+const _breakers = new Map<string, ThreadBreakerState>();
+
+function breakerCheck(threadId: string): { open: boolean; retryAfterSec: number } {
+  if (!threadId) return { open: false, retryAfterSec: 0 };
+  const s = _breakers.get(threadId);
+  if (!s) return { open: false, retryAfterSec: 0 };
+  const now = Date.now();
+  if (s.openUntil > now) {
+    return { open: true, retryAfterSec: Math.ceil((s.openUntil - now) / 1000) };
+  }
+  if (s.openUntil > 0 && s.openUntil <= now) {
+    // Cooldown expired; reset.
+    _breakers.delete(threadId);
+  }
+  return { open: false, retryAfterSec: 0 };
+}
+
+function breakerRecordFailure(threadId: string): void {
+  if (!threadId) return;
+  const now = Date.now();
+  const s = _breakers.get(threadId) ?? { failures: [], openUntil: 0 };
+  s.failures = s.failures.filter((t) => now - t < CB_WINDOW_MS);
+  s.failures.push(now);
+  if (s.failures.length >= CB_FAILURES_TO_OPEN) {
+    s.openUntil = now + CB_COOLDOWN_MS;
+    s.failures = [];
+    console.warn(
+      `[bff] circuit breaker OPEN thread=${threadId} cooldown=${CB_COOLDOWN_MS}ms`,
+    );
+  }
+  _breakers.set(threadId, s);
+}
+
+function breakerRecordSuccess(threadId: string): void {
+  if (!threadId) return;
+  // Any success closes the breaker entirely.
+  if (_breakers.has(threadId)) _breakers.delete(threadId);
+}
+
+// Periodic GC so breaker state doesn't accumulate forever for one-off threads.
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, s] of _breakers) {
+    const stale = s.failures.every((t) => now - t > CB_WINDOW_MS);
+    if (stale && s.openUntil <= now) _breakers.delete(id);
+  }
+}, 60_000).unref();
+
+let _inflight = 0;
+
+// ----------------------------------------------------------------- /info cache
+// The CopilotKit client polls /api/copilotkit/info aggressively (multiple
+// times per page load + on reconnect). Each call hits Intelligence to get
+// runtime metadata. Caching the response for a few seconds breaks the
+// retry-storm feedback loop without hiding genuine outages: if Intelligence
+// is down we still surface 5xx on /run, and a stale /info for 10s is
+// strictly better than a fresh 404.
+const INFO_CACHE_TTL_MS = Number(process.env.INFO_CACHE_TTL_MS ?? 10_000);
+let _infoCache: { at: number; status: number; headers: Headers; body: string } | null = null;
 
 // ----------------------------------------------------------------- wrapper
 // Adds two capabilities on top of the CopilotKit endpoint:
@@ -144,10 +255,20 @@ const copilotApp = createCopilotEndpoint({
 async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
-  // ---- Health check endpoint ----
-  // Checks connectivity to Intelligence gateway, LangGraph agent, and MCP server.
-  // Used by deploy.sh, uptime monitors, and manual debugging.
-  if (url.pathname === "/health") {
+  // ---- Liveness ----
+  // /livez returns 200 as long as the event loop is alive. Use this for
+  // PM2/Docker liveness probes — restarting the BFF because Intelligence
+  // is having a bad minute makes everything worse, not better.
+  if (url.pathname === "/livez") {
+    return new Response("ok", { status: 200 });
+  }
+
+  // ---- Readiness + legacy /health ----
+  // /readyz (and the legacy /health alias) probes downstream dependencies
+  // and returns 503 when one is degraded. Use this for *load balancer*
+  // and *deploy script* checks where you want traffic shifted away from a
+  // sick node — but never for a process supervisor.
+  if (url.pathname === "/readyz" || url.pathname === "/health") {
     const checks: Record<string, string> = {};
     const probe = async (name: string, target: string, headers?: Record<string, string>) => {
       try {
@@ -164,14 +285,22 @@ async function handleRequest(req: Request): Promise<Response> {
         `${process.env.INTELLIGENCE_API_URL ?? "http://localhost:4203"}/api/threads`,
         intelKey ? { Authorization: `Bearer ${intelKey}` } : undefined,
       ),
-      probe("agent", `${process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123"}/`),
+      probe("agent", `${process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123"}/ok`),
       probe("mcp", `${process.env.MCP_SERVER_URL ?? "http://localhost:3001/mcp"}`),
     ]);
     const allOk = Object.values(checks).every((v) => v.startsWith("ok"));
-    return new Response(JSON.stringify({ status: allOk ? "healthy" : "degraded", services: checks }), {
-      status: allOk ? 200 : 503,
-      headers: { "content-type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        status: allOk ? "healthy" : "degraded",
+        services: checks,
+        inflight: _inflight,
+        breakers_open: Array.from(_breakers.values()).filter((s) => s.openUntil > Date.now()).length,
+      }),
+      {
+        status: allOk ? 200 : 503,
+        headers: { "content-type": "application/json" },
+      },
+    );
   }
 
   // ---- Budget increment endpoint (called by Python agent) ----
@@ -198,10 +327,37 @@ async function handleRequest(req: Request): Promise<Response> {
     return copilotApp.fetch(req);
   }
 
+  // ---- /info cache (short-circuit before hitting the runtime) ----
+  // Many CopilotKit client retries hammer /info; cache it briefly.
+  if (url.pathname === "/api/copilotkit/info" && req.method === "GET") {
+    const now = Date.now();
+    if (_infoCache && now - _infoCache.at < INFO_CACHE_TTL_MS) {
+      return rewriteWsUrl(
+        new Response(_infoCache.body, {
+          status: _infoCache.status,
+          headers: _infoCache.headers,
+        }),
+      );
+    }
+    const fresh = await rewriteWsUrl(await copilotApp.fetch(req));
+    // Only cache 2xx — never cache failures.
+    if (fresh.status >= 200 && fresh.status < 300) {
+      try {
+        const body = await fresh.clone().text();
+        _infoCache = { at: now, status: fresh.status, headers: fresh.headers, body };
+      } catch { /* ignore caching failure */ }
+    }
+    return fresh;
+  }
+
   // ---- Inject BYOK key + budget into POST body ----
+  const requestId = randomUUID();
+  const requestStart = Date.now();
   const userRunwayKey = req.headers.get("x-runway-api-key") ?? "";
 
   let proxiedReq = req;
+  let threadId = "";
+  let agentId = "";
   if (req.method === "POST") {
     let body: Record<string, unknown>;
     try {
@@ -211,11 +367,55 @@ async function handleRequest(req: Request): Promise<Response> {
       return rewriteErrors(await copilotApp.fetch(req));
     }
 
-    // Extract thread ID from the request body (CopilotKit always sends it).
-    const threadId =
+    // Extract thread ID and agent ID from the request body.
+    threadId =
       (body.threadId as string | undefined) ??
       (body.thread_id as string | undefined) ??
       "";
+    agentId =
+      (body.agentId as string | undefined) ??
+      (body.agent_id as string | undefined) ??
+      "";
+
+    // ---- Per-thread circuit breaker ----
+    // Refuse fast for threads that are currently flapping. This keeps the
+    // failure isolated to the bad thread instead of letting CopilotKit's
+    // retry loop turn into a BFF→Intelligence DoS.
+    const cb = breakerCheck(threadId);
+    if (cb.open) {
+      return new Response(
+        JSON.stringify({
+          error: "Thread is temporarily unavailable",
+          hint: "This thread had repeated failures and is in cooldown. Start a new conversation (sidebar → +).",
+          command: "new-thread",
+        }),
+        {
+          status: 423, // Locked
+          headers: {
+            "content-type": "application/json",
+            "retry-after": String(cb.retryAfterSec),
+          },
+        },
+      );
+    }
+
+    // ---- Global concurrency cap ----
+    if (_inflight >= MAX_INFLIGHT_RUNS) {
+      return new Response(
+        JSON.stringify({
+          error: "Server is busy",
+          hint: `Too many in-flight runs (${_inflight}/${MAX_INFLIGHT_RUNS}). Try again in a moment.`,
+        }),
+        {
+          status: 503,
+          headers: {
+            "content-type": "application/json",
+            "retry-after": "5",
+          },
+        },
+      );
+    }
+
     const currentCount = threadId ? await threadCallCount(threadId) : 0;
     const callsRemaining = Math.max(0, RUNWAY_BUDGET - currentCount);
 
@@ -229,6 +429,7 @@ async function handleRequest(req: Request): Promise<Response> {
       ...cfgurable,
       runway_calls_remaining: callsRemaining,
       runway_budget: RUNWAY_BUDGET,
+      request_id: requestId,
     };
     // Only inject the user key if one was provided — never overwrite with empty.
     if (userRunwayKey) {
@@ -250,7 +451,53 @@ async function handleRequest(req: Request): Promise<Response> {
     });
   }
 
-  return rewriteWsUrl(rewriteErrors(await copilotApp.fetch(proxiedReq)));
+  // Track in-flight + record breaker outcome for POSTs only — GETs are
+  // cheap (info polling, etc.) and not the source of cascading failures.
+  if (req.method !== "POST") {
+    return rewriteWsUrl(rewriteErrors(await copilotApp.fetch(proxiedReq)));
+  }
+
+  _inflight++;
+  const cbPost = breakerCheck(threadId);
+  const breakerState = cbPost.open ? "open" : "closed";
+  try {
+    const res = await rewriteWsUrl(rewriteErrors(await copilotApp.fetch(proxiedReq)));
+    // Record breaker state. 4xx that aren't 409 are the client's fault and
+    // shouldn't open the breaker; 5xx and 409 (thread lock) do.
+    if (res.status === 409 || res.status >= 500) {
+      breakerRecordFailure(threadId);
+    } else if (res.status >= 200 && res.status < 400) {
+      breakerRecordSuccess(threadId);
+    }
+    const durationMs = Date.now() - requestStart;
+    console.log(JSON.stringify({
+      request_id: requestId,
+      thread_id: threadId,
+      agent_id: agentId,
+      status: res.status,
+      duration_ms: durationMs,
+      breaker_state: breakerState,
+      inflight: _inflight,
+    }));
+    return res;
+  } catch (e) {
+    // Network / runtime error — count as a failure for breaker purposes.
+    breakerRecordFailure(threadId);
+    const durationMs = Date.now() - requestStart;
+    console.log(JSON.stringify({
+      request_id: requestId,
+      thread_id: threadId,
+      agent_id: agentId,
+      status: 0,
+      duration_ms: durationMs,
+      breaker_state: breakerState,
+      inflight: _inflight,
+      error: e instanceof Error ? e.message : "unknown",
+    }));
+    throw e;
+  } finally {
+    _inflight--;
+  }
 }
 
 // ----------------------------------------------------------------- ws url rewrite

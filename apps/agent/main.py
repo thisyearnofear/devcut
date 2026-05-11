@@ -42,7 +42,11 @@ load_dotenv()
 # cleanup, the next `getCheckpointByMessage` lookup throws "Message not
 # found" and surfaces in the UI as an opaque rxjs stack trace.
 # See `src/intelligence_cleanup.py` for the full rationale.
-wipe_orphan_threads()
+#
+# In production with persistent checkpoints (langgraph up), this would
+# destroy valid threads on every restart. Guard behind an env flag.
+if os.getenv("WIPE_ORPHAN_THREADS_ON_BOOT") == "1":
+    wipe_orphan_threads()
 
 
 def _format_integration_status() -> str:

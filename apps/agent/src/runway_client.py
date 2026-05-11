@@ -183,11 +183,36 @@ def _mock_video(prompt: str, duration: int, image_url: Optional[str]) -> RunwayV
 # --------------------------------------------------------------------- live
 
 
+# Default timeout (seconds) for waiting on Runway task completion.
+_RUNWAY_TASK_TIMEOUT = float(os.getenv("RUNWAY_TASK_TIMEOUT", "120"))
+
+
 def _client():
     """Lazy-import the SDK and initialise with the effective API key."""
     from runwayml import RunwayML
     key = _effective_api_key()
     return RunwayML(api_key=key if key else None)
+
+
+def _wait_for_task(task, kind: str, timeout: float = _RUNWAY_TASK_TIMEOUT):
+    """Poll a Runway task until completion, with a hard deadline.
+
+    Similar to the pattern in audio_client.py. The SDK's built-in
+    `wait_for_task_output()` has no timeout and can block forever.
+    """
+    client = _client()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        task = client.tasks.retrieve(task.id)
+        status = getattr(task, "status", None)
+        if status == "SUCCEEDED":
+            return task
+        if status in ("FAILED", "CANCELLED"):
+            from runwayml import TaskFailedError
+            details = getattr(task, "failure", None) or status
+            raise RuntimeError(f"Runway {kind} task {status}: {details}")
+        time.sleep(2.0)
+    raise RuntimeError(f"Runway {kind} task timed out after {timeout:.0f}s")
 
 
 def _build_ref_images(
@@ -245,7 +270,8 @@ def _live_image(
         }
 
     try:
-        task = client.text_to_image.create(**kwargs).wait_for_task_output()
+        task = client.text_to_image.create(**kwargs)
+        task = _wait_for_task(task, "text_to_image")
     except TaskFailedError as e:
         raise RuntimeError(f"Runway text_to_image failed: {e.task_details}") from e
 
@@ -278,7 +304,8 @@ def _live_video(
             prompt_text=prompt,
             ratio=ratio,
             duration=duration,
-        ).wait_for_task_output()
+        )
+        task = _wait_for_task(task, "image_to_video")
     except TaskFailedError as e:
         raise RuntimeError(f"Runway image_to_video failed: {e.task_details}") from e
 
@@ -316,7 +343,8 @@ def _live_restyle(
         kwargs["references"] = [{"type": "image", "uri": style_ref_url}]
 
     try:
-        task = client.video_to_video.create(**kwargs).wait_for_task_output()
+        task = client.video_to_video.create(**kwargs)
+        task = _wait_for_task(task, "video_to_video")
     except TaskFailedError as e:
         raise RuntimeError(f"Runway video_to_video failed: {e.task_details}") from e
 
