@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
-MODEL = os.getenv("GEMINI_TEST_MODEL", "gemini-2.0-flash-lite")
+MODEL = os.getenv("GEMINI_TEST_MODEL", "gemini-3.1-flash-lite")
 
 PASS = "\033[32m✓\033[0m"
 FAIL = "\033[31m✗\033[0m"
