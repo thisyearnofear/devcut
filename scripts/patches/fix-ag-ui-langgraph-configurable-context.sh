@@ -57,3 +57,42 @@ elif grep -qF "$UNSAFE_ARGS" "$TARGET" 2>/dev/null; then
 else
   echo "[patch] WARNING: JSON.parse(e.function.arguments) pattern not found – skipping"
 fi
+
+# --- Patch 3: tolerate missing RUN_STARTED in @ag-ui/client ---
+# When using CopilotKit Intelligence (Phoenix realtime gateway), the runner
+# pushes events to the ingestion channel before the browser client connects
+# to the thread channel.  If RUN_STARTED is broadcast before the client
+# subscribes, the @ag-ui/client validation throws
+# "First event must be 'RUN_STARTED'".
+# Fix: remove the strict first-event check — just set the flag and continue.
+CLIENT_TARGET="node_modules/@ag-ui/client/dist/index.mjs"
+CLIENT_PKG="node_modules/@ag-ui/client/package.json"
+
+if [ ! -f "$CLIENT_TARGET" ]; then
+  echo "[patch] @ag-ui/client not found – skipping"
+else
+  OLD_CLIENT="if(!l){if(l=!0,t!==i.RUN_STARTED&&t!==i.RUN_ERROR)return _(()=>new n(\`First event must be 'RUN_STARTED'\`))}"
+  NEW_CLIENT="if(!l){l=!0}"
+
+  if grep -qF "$NEW_CLIENT" "$CLIENT_TARGET" 2>/dev/null && ! grep -qF "First event must be" "$CLIENT_TARGET" 2>/dev/null; then
+    echo "[patch] @ag-ui/client RUN_STARTED tolerance already patched"
+  elif grep -qF "First event must be" "$CLIENT_TARGET" 2>/dev/null; then
+    python3 -c "
+import sys
+with open('$CLIENT_TARGET') as f:
+    content = f.read()
+old = \"if(!l){if(l=!0,t!==i.RUN_STARTED&&t!==i.RUN_ERROR)return _(()=>new n(\\\`First event must be 'RUN_STARTED'\\\`))}\";
+new = 'if(!l){l=!0}'
+if old in content:
+    content = content.replace(old, new)
+    with open('$CLIENT_TARGET', 'w') as f:
+        f.write(content)
+    print('[patch] @ag-ui/client patched (tolerant of missing RUN_STARTED)')
+else:
+    print('[patch] WARNING: @ag-ui/client exact pattern not found – skipping')
+    sys.exit(1)
+"
+  else
+    echo "[patch] WARNING: @ag-ui/client RUN_STARTED pattern not found – skipping"
+  fi
+fi
