@@ -656,7 +656,7 @@ export default function LandingPage() {
               </div>
 
               {/* Scrolling Beats */}
-              <div className="order-1 flex-1 space-y-12 pb-8 pt-0 lg:order-2 lg:space-y-[45vh] lg:pb-[30vh] lg:pt-[15vh]">
+              <div className="order-1 flex-1 space-y-12 pb-8 pt-0 lg:order-2 lg:space-y-[28vh] lg:pb-[20vh] lg:pt-[10vh]">
                 <div className="max-w-xl">
                   <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/62 md:tracking-[0.35em]">
                     The Workflow
@@ -666,6 +666,12 @@ export default function LandingPage() {
                     <br />
                     not just isolated clips.
                   </h2>
+                  <div className="mt-8 hidden animate-bounce lg:flex items-center gap-2 text-white/30">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
+                      <path d="M7 2v10M3 8l4 4 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em]">Scroll to explore</span>
+                  </div>
                 </div>
 
                 {SCENES.map((scene, i) => (
@@ -688,7 +694,7 @@ export default function LandingPage() {
                     <p className="scene-detail mt-4 text-sm leading-7 text-white/58">
                       {scene.detail}
                     </p>
-                    <div className="mt-6 lg:hidden">
+                    <div className="mt-6">
                       <WorkflowVisual index={i} />
                     </div>
                   </div>
