@@ -102,9 +102,12 @@ def _build_director_graph() -> CompiledStateGraph:
             temperature=0,
             api_key=_gemini_key or "stub",
         )
-        _log("INFO", "graph_build", runtime=_AGENT_RUNTIME, tools=[t.name for t in backend_tools])
+        # tool_choice="any" forces the model to call a tool on the first turn
+        # instead of emitting a plain-text reply and looping.
+        llm_with_tools = llm.bind_tools(backend_tools, tool_choice="any")
+        _log("INFO", "graph_build", runtime=_AGENT_RUNTIME, tool_choice="any", tools=[t.name for t in backend_tools])
         return create_deep_agent(
-            model=llm,
+            model=llm_with_tools,
             tools=backend_tools,
             system_prompt=SYSTEM_PROMPT,
             middleware=middleware,
