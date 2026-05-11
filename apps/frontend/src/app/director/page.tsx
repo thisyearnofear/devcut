@@ -27,7 +27,7 @@ import { StoryboardTimeline } from "@/components/storyboard/StoryboardTimeline";
 import { ShotPreview } from "@/components/storyboard/ShotPreview";
 import { ToolFallbackCard } from "@/components/copilot/ToolFallbackCard";
 import { AvatarShowcase } from "@/components/storyboard/AvatarShowcase";
-import { CanvasLoadingOverlay } from "@/components/storyboard/CanvasLoadingOverlay";
+import { AvatarPanel } from "@/components/storyboard/AvatarPanel";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -248,12 +248,16 @@ function DirectorChat({
   progress,
   lastError,
   onRetry,
+  shots,
+  storyboard,
 }: {
   onSend: (msg: string) => void;
   isRunning: boolean;
   progress: AgentProgress;
   lastError: string | null;
   onRetry: () => void;
+  shots: Shot[];
+  storyboard: Storyboard;
 }) {
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -350,31 +354,68 @@ function DirectorChat({
             <div className="mt-3 space-y-2.5">
               {progress.stages.map((stage) => {
                 const est = STAGE_ESTIMATES[stage.label];
+                // Collect shots relevant to this stage for thumbnail strip
+                const stageThumbs: string[] = [];
+                if (stage.label === "Reference stills") {
+                  shots.forEach((s) => { if (s.ref_image_url) stageThumbs.push(s.ref_image_url); });
+                } else if (stage.label === "Motion clips") {
+                  shots.forEach((s) => { if (s.video_url) stageThumbs.push(s.video_url); });
+                }
+                // Sub-progress label from the most recent active shot
+                const activeShot = stage.label === "Reference stills" || stage.label === "Motion clips"
+                  ? shots.find((s) => s.progress_label && s.status !== "ready")
+                  : undefined;
                 return (
-                  <div key={stage.label} className="flex items-start gap-3">
-                    <span
-                      className={`mt-0.5 size-2 shrink-0 rounded-full ${
-                        stage.status === "done"
-                          ? "bg-emerald-400"
-                          : stage.status === "active"
-                            ? "bg-[#ffbe70] animate-pulse"
-                            : stage.status === "error"
-                              ? "bg-rose-400"
-                              : "bg-white/18"
-                      }`}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <p className="truncate text-xs font-medium text-white/82">{stage.label}</p>
-                        {stage.status === "active" && est && (
-                          <span className="shrink-0 font-mono text-[10px] text-white/38">~{est < 60 ? `${est}s` : `${Math.round(est/60)}m`}</span>
-                        )}
-                        {stage.status === "waiting" && est && (
-                          <span className="shrink-0 font-mono text-[10px] text-white/22">~{est < 60 ? `${est}s` : `${Math.round(est/60)}m`}</span>
-                        )}
+                  <div key={stage.label} className="space-y-1.5">
+                    <div className="flex items-start gap-3">
+                      <span
+                        className={`mt-0.5 size-2 shrink-0 rounded-full ${
+                          stage.status === "done"
+                            ? "bg-emerald-400"
+                            : stage.status === "active"
+                              ? "bg-[#ffbe70] animate-pulse"
+                              : stage.status === "error"
+                                ? "bg-rose-400"
+                                : "bg-white/18"
+                        }`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="truncate text-xs font-medium text-white/82">{stage.label}</p>
+                          {stage.status === "active" && est && (
+                            <span className="shrink-0 font-mono text-[10px] text-white/38">~{est < 60 ? `${est}s` : `${Math.round(est/60)}m`}</span>
+                          )}
+                          {stage.status === "waiting" && est && (
+                            <span className="shrink-0 font-mono text-[10px] text-white/22">~{est < 60 ? `${est}s` : `${Math.round(est/60)}m`}</span>
+                          )}
+                        </div>
+                        <p className="truncate text-[11px] text-white/55">
+                          {activeShot?.progress_label ?? stage.detail}
+                        </p>
                       </div>
-                      <p className="truncate text-[11px] text-white/55">{stage.detail}</p>
                     </div>
+                    {/* Shot thumbnail strip — appears as stills/clips arrive */}
+                    {stageThumbs.length > 0 && (
+                      <div className="ml-5 flex gap-1.5 overflow-x-auto pb-0.5">
+                        {stageThumbs.map((url, i) => (
+                          <div key={i} className="relative shrink-0 size-12 overflow-hidden rounded-md border border-white/10 bg-white/5">
+                            {stage.label === "Motion clips" ? (
+                              <video
+                                src={url}
+                                className="size-full object-cover"
+                                muted
+                                playsInline
+                                autoPlay
+                                loop
+                              />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={url} alt={`Still ${i + 1}`} className="size-full object-cover" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -415,6 +456,13 @@ function DirectorChat({
           </div>
         )}
       </div>
+
+      {/* Avatar — pinned above input, collapsed by default (only when configured) */}
+      {process.env.NEXT_PUBLIC_RUNWAY_AVATAR_ID && (
+        <div className="border-t border-white/10">
+          <AvatarPanel storyboard={storyboard} />
+        </div>
+      )}
 
       {/* Input */}
       <div className="border-t border-white/10 p-3">
@@ -729,17 +777,6 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
           {totalShots === 0 ? (
             /* Empty state — hero onboarding with optional avatar */
             <div className="relative flex flex-1 flex-col items-center justify-center gap-8 px-3 py-8 text-center sm:px-6 lg:py-0">
-              {/* Loading overlay — shown on canvas while agent works */}
-              <CanvasLoadingOverlay
-                isRunning={isRunning}
-                stages={progress.stages}
-                shotCount={progress.total}
-                refsReady={progress.refs}
-                videosReady={progress.videos}
-                queuePosition={queuePosition}
-                estimatedWaitSec={estimatedWaitSec}
-              />
-
               {/* Mobile warning */}
               <div className="w-full max-w-2xl rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-left sm:hidden">
                 <p className="text-xs leading-5 text-amber-300/80">
@@ -803,17 +840,6 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
             </div>
           ) : (
             <div className="relative flex flex-1 flex-col gap-3 overflow-auto">
-              {/* Loading overlay — shown on canvas while agent works */}
-              <CanvasLoadingOverlay
-                isRunning={isRunning}
-                stages={progress.stages}
-                shotCount={progress.total}
-                refsReady={progress.refs}
-                videosReady={progress.videos}
-                queuePosition={queuePosition}
-                estimatedWaitSec={estimatedWaitSec}
-              />
-
               {/* Pipeline action bar */}
               {readyShots < totalShots && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/12 bg-white/[0.06] px-4 py-3">
@@ -971,6 +997,8 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
             isRunning={isRunning}
             progress={progress}
             lastError={lastError}
+            shots={state.shots}
+            storyboard={state.storyboard}
             onRetry={() => {
               setLastError(null);
               const lastUserMsg = state.shots.length > 0
