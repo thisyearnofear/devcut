@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Clapperboard, Film, KeyRound, Sparkles, Zap } from "lucide-react";
 import { AboutToc, type TocItem } from "./toc";
@@ -134,16 +133,6 @@ export default function AboutPage() {
             stitch a final MP4. The agent&apos;s output <em>is</em> the
             interface.
           </p>
-          <div className="mt-6 overflow-hidden rounded-xl border bg-muted">
-            <Image
-              src="/banner.jpg"
-              alt="Director's Canvas — storyboard timeline with shot cards"
-              width={1280}
-              height={420}
-              priority
-              className="h-auto w-full object-cover"
-            />
-          </div>
         </header>
 
         <Section

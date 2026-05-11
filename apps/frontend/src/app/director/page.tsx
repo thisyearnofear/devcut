@@ -150,7 +150,7 @@ function DirectorChat({
   const showSuggestions = messages.length === 0 && !isRunning;
 
   return (
-    <div className="flex h-full flex-col bg-black/95">
+    <div className="flex h-full flex-col bg-sidebar border-l border-sidebar-border">
       {/* Messages */}
       <div
         ref={messagesRef}
@@ -412,7 +412,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
   return (
     <>
       {/* ── Layout: canvas left, chat right ── */}
-      <div className="flex h-screen overflow-hidden bg-black">
+      <div className="flex h-screen overflow-hidden bg-background">
 
         {/* Canvas */}
         <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden p-4">
@@ -426,7 +426,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
             hasPersonalKey={Boolean(runwayKey)}
           />
 
-          {showKeyPanel && <ApiKeyPanel onClose={() => setShowKeyPanel(false)} />}
+          {showKeyPanel && <ApiKeyPanel onClose={() => setShowKeyPanel(false)} isLive={state.storyboard.runway_mode === "LIVE"} />}
 
           {totalShots === 0 ? (
             /* Empty state — Runway widget as the hero onboarding */
@@ -590,7 +590,7 @@ function DirectorPage() {
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
   const [storyboard, setStoryboard] = useState(initialStoryboardState.storyboard);
   return (
-    <div className={drawerStyles.layout}>
+    <div data-theme="cinema" className={drawerStyles.layout}>
       <ThreadsDrawer
         agentId="director"
         threadId={threadId}

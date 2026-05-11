@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const STORAGE_KEY = "director_runway_api_key";
 
@@ -26,28 +26,27 @@ export function useRunwayApiKey() {
 
 interface ApiKeyPanelProps {
   onClose: () => void;
+  isLive: boolean;
 }
 
 /**
- * Slide-in panel for entering a personal Runway API key.
- * The key is stored in localStorage and sent as X-Runway-Api-Key on
- * every BFF request — it overrides the server's shared key so the user
- * pays from their own Runway account.
+ * Inline key panel — dark cinema theme.
+ * Shows clearly whether we're in LIVE (server key) or BYOK mode,
+ * and makes it easy to switch between them.
  */
-export function ApiKeyPanel({ onClose }: ApiKeyPanelProps) {
+export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
   const { key, setKey } = useRunwayApiKey();
   const [draft, setDraft] = useState(key);
   const [saved, setSaved] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync draft when key loads from localStorage
-  useEffect(() => {
-    setDraft(key);
-  }, [key]);
+  useEffect(() => { setDraft(key); }, [key]);
+  useEffect(() => { if (!key) inputRef.current?.focus(); }, [key]);
 
   const handleSave = () => {
     setKey(draft);
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => { setSaved(false); onClose(); }, 1200);
   };
 
   const handleClear = () => {
@@ -55,76 +54,99 @@ export function ApiKeyPanel({ onClose }: ApiKeyPanelProps) {
     setDraft("");
   };
 
-  const isActive = Boolean(key);
+  const usingByok = Boolean(key);
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold text-foreground">
-            Runway API Key
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            Use your own key — charges go to your Runway account, not ours.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-[10px] uppercase text-muted-foreground hover:text-foreground"
-        >
-          Close
-        </button>
-      </div>
-
-      {isActive && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-          <span className="size-1.5 rounded-full bg-emerald-500" />
-          <p className="text-[10px] text-emerald-700">
-            Using your key ···{key.slice(-6)}
-          </p>
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+      {/* Mode status */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* Server key mode */}
           <button
             type="button"
             onClick={handleClear}
-            className="ml-auto text-[10px] text-emerald-600 underline hover:text-emerald-800"
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] transition-all ${
+              !usingByok
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                : "border-white/10 text-white/30 hover:border-white/20 hover:text-white/50"
+            }`}
           >
-            Remove
+            <span className={`size-1.5 rounded-full ${!usingByok ? "bg-emerald-500" : "bg-white/20"}`} />
+            {isLive ? "Server key (live)" : "Server key (mock)"}
+          </button>
+
+          {/* BYOK mode */}
+          <button
+            type="button"
+            onClick={() => inputRef.current?.focus()}
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] transition-all ${
+              usingByok
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                : "border-white/10 text-white/30 hover:border-white/20 hover:text-white/50"
+            }`}
+          >
+            <span className={`size-1.5 rounded-full ${usingByok ? "bg-emerald-500" : "bg-white/20"}`} />
+            Your key
           </button>
         </div>
-      )}
 
-      <div className="flex gap-2">
-        <input
-          type="password"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSave()}
-          placeholder="key_xxxxxxxxxxxxxxxx"
-          className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
-          autoComplete="off"
-          spellCheck={false}
-        />
         <button
           type="button"
-          onClick={handleSave}
-          disabled={!draft.trim()}
-          className="rounded-lg border border-border bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+          onClick={onClose}
+          className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/25 hover:text-white/60"
         >
-          {saved ? "Saved ✓" : "Save"}
+          ✕
         </button>
       </div>
 
-      <p className="text-[10px] text-muted-foreground">
+      {/* Context */}
+      <p className="mb-3 font-mono text-[10px] leading-relaxed text-white/30">
+        {usingByok
+          ? `Using your key ···${key.slice(-6)} — charges go to your Runway account. No budget limit.`
+          : isLive
+          ? "Using the shared server key — limited to 20 calls per conversation. Add your own key for unlimited use."
+          : "No Runway key configured — running in MOCK mode with placeholder media."}
+      </p>
+
+      {/* Input */}
+      <div className="flex gap-2">
+        <input
+          ref={inputRef}
+          type="password"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && draft.trim() && handleSave()}
+          placeholder="key_xxxxxxxxxxxxxxxx"
+          className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-[11px] text-white/70 placeholder:text-white/20 focus:border-white/25 focus:outline-none"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {draft.trim() && (
+          <button
+            type="button"
+            onClick={handleSave}
+            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/60 hover:bg-white/20 hover:text-white"
+          >
+            {saved ? "Saved ✓" : "Use"}
+          </button>
+        )}
+        {usingByok && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="rounded-lg border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/30 hover:text-white/60"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+
+      <p className="mt-2 font-mono text-[9px] text-white/20">
         Get a key at{" "}
-        <a
-          href="https://dev.runwayml.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline hover:text-foreground"
-        >
+        <a href="https://dev.runwayml.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">
           dev.runwayml.com
         </a>
-        . Stored in your browser only — never sent to our servers in logs.
+        {" "}· Stored in your browser only
       </p>
     </div>
   );
