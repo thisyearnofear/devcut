@@ -66,7 +66,8 @@ try:
     t0 = time.perf_counter()
     resp = llm.invoke("Reply with exactly: PONG")
     elapsed = time.perf_counter() - t0
-    content = resp.content if hasattr(resp, "content") else str(resp)
+    raw = resp.content if hasattr(resp, "content") else str(resp)
+    content = raw if isinstance(raw, str) else " ".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in raw)
     ok = "PONG" in content.upper()
     _result(ok, "Got response", f"{elapsed:.2f}s — {content[:80]!r}")
 except Exception as e:
@@ -139,10 +140,13 @@ try:
     for chunk in llm_stream.stream("Create a 1-shot storyboard plan for a horror film."):
         chunks.append(chunk)
     elapsed = time.perf_counter() - t0
-    final = chunks[-1] if chunks else None
-    called = bool(getattr(final, "tool_calls", None)) if final else False
+    # Merge tool_calls across all chunks (streaming accumulates them)
+    all_tool_calls: list = []
+    for c in chunks:
+        all_tool_calls.extend(getattr(c, "tool_calls", []) or [])
+    called = bool(all_tool_calls)
     _result(len(chunks) > 0, f"Received {len(chunks)} chunks", f"{elapsed:.2f}s")
-    _result(called, "Final chunk has tool_calls")
+    _result(called, "Merged tool_calls across chunks", all_tool_calls[0].get("name", "?") if called else "none")
 except Exception as e:
     _result(False, "Exception", str(e))
 
