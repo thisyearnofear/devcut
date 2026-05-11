@@ -30,19 +30,16 @@ if [ -f "$PKG" ]; then
   fi
 fi
 
+# --- Patch 1: strip configurable when context is present ---
 if grep -q 'config:w&&{\.\.\.w,configurable:void 0}' "$TARGET" 2>/dev/null; then
-  echo "[patch] @ag-ui/langgraph v${EXPECTED_VERSION} already patched"
-  exit 0
+  echo "[patch] @ag-ui/langgraph configurable/context already patched"
+elif grep -q 'config:w,context:{' "$TARGET" 2>/dev/null; then
+  sed -i.bak 's/config:w,context:{/config:w\&\&{...w,configurable:void 0},context:{/' "$TARGET"
+  rm -f "${TARGET}.bak"
+  echo "[patch] @ag-ui/langgraph patched (configurable stripped when context present)"
+else
+  echo "[patch] WARNING: configurable/context pattern not found – skipping"
 fi
-
-if ! grep -q 'config:w,context:{' "$TARGET" 2>/dev/null; then
-  echo "[patch] WARNING: expected pattern not found in @ag-ui/langgraph – skipping"
-  exit 0
-fi
-
-sed -i.bak 's/config:w,context:{/config:w\&\&{...w,configurable:void 0},context:{/' "$TARGET"
-rm -f "${TARGET}.bak"
-echo "[patch] @ag-ui/langgraph patched (configurable stripped when context present)"
 
 # --- Patch 2: guard JSON.parse(e.function.arguments) ---
 # The g() message-conversion function calls JSON.parse on tool-call arguments
