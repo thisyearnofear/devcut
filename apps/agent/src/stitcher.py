@@ -57,11 +57,19 @@ def _export_base_url() -> str:
 # --------------------------------------------------------------------- mode
 
 
+# Cache the ffmpeg lookup at import time. shutil.which() calls os.access
+# internally, which is a blocking syscall — calling it from an async
+# context (e.g. a LangGraph middleware's before_agent hook) trips
+# blockbuster's BlockingError under `langgraph dev`. The result doesn't
+# change at runtime, so caching is both correct and faster.
+_FFMPEG_AVAILABLE = shutil.which("ffmpeg") is not None
+
+
 def stitcher_is_live() -> bool:
     """LIVE iff ffmpeg is on PATH and we're not forced into MOCK."""
     if os.getenv("STITCH_MODE", "").lower() == "mock":
         return False
-    return shutil.which("ffmpeg") is not None
+    return _FFMPEG_AVAILABLE
 
 
 def stitcher_mode_label() -> str:
