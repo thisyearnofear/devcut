@@ -33,6 +33,14 @@ class _Shot(TypedDict, total=False):
     error: Optional[str]
     duration: int      # seconds
     aspect_ratio: str  # "1280:720" | "720:1280" | etc.
+    # --- audio (Runway eleven_multilingual_v2 + eleven_text_to_sound_v2) ---
+    voiceover_url: Optional[str]    # set by generate_shot_voiceover
+    voiceover_line: Optional[str]   # the spoken line (kept for re-voicing)
+    voiceover_voice: Optional[str]  # which preset narrator was used
+    sfx_url: Optional[str]          # set by generate_shot_sfx
+    sfx_prompt: Optional[str]       # the ambient/SFX description
+    # --- restyle (Runway gen4_aleph) ---
+    restyle_prompt: Optional[str]   # most recent restyle instruction
 
 
 class _Storyboard(TypedDict, total=False):
@@ -41,7 +49,9 @@ class _Storyboard(TypedDict, total=False):
     aspect_ratio: str
     runway_mode: str   # "LIVE" | "MOCK"
     stitch_mode: str   # "LIVE" | "MOCK" — set after first stitch
+    audio_mode: str    # "LIVE" | "MOCK" — set on plan creation
     style_ref_url: Optional[str]  # ref_image_url of shot 0; consistency anchor
+    narrator_voice: Optional[str]  # locked voice preset for the whole piece
 
 
 def _replace(_left: Any, right: Any) -> Any:

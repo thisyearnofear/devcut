@@ -49,6 +49,8 @@ from langchain_core.tools import InjectedToolCallId, tool
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 
+from .audio_client import audio_mode_label
+from .audio_tools import load_audio_tools
 from .runway_client import (
     generate_reference_image,
     generate_shot_video as _runway_video,
@@ -116,12 +118,18 @@ def generate_storyboard_plan(
             }
         )
 
+    from .audio_client import pick_voice_for
+
     storyboard = {
         "title": title,
         "logline": logline,
         "aspect_ratio": aspect_ratio,
         "runway_mode": runway_mode_label(),
+        "audio_mode": audio_mode_label(),
         "style_ref_url": None,  # set to shot-0's ref_image_url once generated
+        # Lock the narrator at plan time so every voiceover sounds like
+        # the same person — agent can override per-call when needed.
+        "narrator_voice": pick_voice_for(title or logline or "default"),
     }
 
     msg = (
@@ -679,7 +687,13 @@ def stitch_final_cut(
 
 
 def load_runway_tools() -> list:
-    """All director-side backend tools the agent should have wired in."""
+    """All director-side backend tools the agent should have wired in.
+
+    Includes the image / video pipeline (planning, references, videos,
+    stitching), the audio pipeline (TTS voiceovers + SFX beds), and the
+    gen4_aleph restyle tools — every Runway capability the director
+    needs lives in this single registration list.
+    """
     return [
         generate_storyboard_plan,
         generate_shot_reference,
@@ -688,4 +702,5 @@ def load_runway_tools() -> list:
         generate_all_references,
         generate_all_videos,
         stitch_final_cut,
+        *load_audio_tools(),
     ]

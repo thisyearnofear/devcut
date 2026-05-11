@@ -18,6 +18,7 @@ import os
 from dotenv import load_dotenv
 from copilotkit import CopilotKitMiddleware
 
+from src.audio_client import boot_status as _audio_boot_status
 from src.intelligence_cleanup import wipe_orphan_threads
 from src.runway_client import boot_status as _runway_boot_status
 from src.runway_tools import load_runway_tools

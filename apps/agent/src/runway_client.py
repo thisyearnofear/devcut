@@ -290,6 +290,44 @@ def _live_video(
     )
 
 
+def _live_restyle(
+    video_url: str,
+    prompt: str,
+    style_ref_url: Optional[str] = None,
+) -> RunwayVideoResult:
+    """Video→video restyle via gen4_aleph.
+
+    Takes an existing clip and re-renders it in a new style described by
+    `prompt` ("anime", "claymation", "noir film grain", etc.). When
+    `style_ref_url` is provided, it's passed as the single supported
+    `references[]` image so the model emulates that look on top of the
+    text instruction. The output preserves motion and timing from the
+    source video — only the look changes.
+    """
+    from runwayml import TaskFailedError
+
+    client = _client()
+    kwargs: dict = {
+        "model": "gen4_aleph",
+        "prompt_text": prompt,
+        "video_uri": video_url,
+    }
+    if style_ref_url:
+        kwargs["references"] = [{"type": "image", "uri": style_ref_url}]
+
+    try:
+        task = client.video_to_video.create(**kwargs).wait_for_task_output()
+    except TaskFailedError as e:
+        raise RuntimeError(f"Runway video_to_video failed: {e.task_details}") from e
+
+    url = (task.output or [None])[0]
+    if not url:
+        raise RuntimeError("Runway video_to_video returned no output URL")
+    return RunwayVideoResult(
+        url=url, prompt=prompt, duration=0, mode="LIVE", image_url=style_ref_url
+    )
+
+
 # --------------------------------------------------------------------- public
 
 
@@ -334,6 +372,37 @@ def generate_shot_video(
         return result
     time.sleep(0.6)
     return _mock_video(prompt, duration=duration, image_url=image_url)
+
+
+def restyle_shot_video(
+    video_url: str,
+    prompt: str,
+    style_ref_url: Optional[str] = None,
+    duration: int = 5,
+) -> RunwayVideoResult:
+    """Restyle an existing clip via gen4_aleph (video→video).
+
+    Same budget + BYOK contract as the other generators. In MOCK mode
+    this returns the original `video_url` unchanged with a "(restyled:
+    <prompt>)" appended to the prompt — enough for the canvas state to
+    update without any external dependency.
+    """
+    if runway_is_live():
+        _check_budget()
+        result = _live_restyle(video_url, prompt, style_ref_url=style_ref_url)
+        _notify_bff_call_used(_current_thread_id())
+        # Aleph preserves source duration — pass through whatever the
+        # caller knows so downstream timing stays correct.
+        result.duration = duration
+        return result
+    time.sleep(0.4)
+    return RunwayVideoResult(
+        url=video_url,
+        prompt=f"{prompt} (mock restyle)",
+        duration=duration,
+        mode="MOCK",
+        image_url=style_ref_url,
+    )
 
 
 def boot_status() -> str:

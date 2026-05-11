@@ -105,13 +105,106 @@ def _download(url: str, dest: Path) -> None:
         shutil.copyfileobj(resp, fh)
 
 
-def _ffmpeg_concat(inputs: list[Path], output: Path) -> None:
+def _ffmpeg_mux_audio(
+    video_in: Path,
+    voiceover_path: Optional[Path],
+    sfx_path: Optional[Path],
+    duration: float,
+    output: Path,
+) -> None:
+    """Mux a voiceover and/or SFX bed onto a single shot's video.
+
+    The video's own audio (if any — Runway Gen-4.5 outputs are typically
+    silent) is replaced. The mix is:
+      voiceover at 1.0 (full level)
+      sfx at 0.35 (sits underneath the voice)
+
+    When both inputs are present we use `amix=inputs=2`. When only one is
+    present, that single track is mapped directly. When neither is
+    present, this function should not be called — callers must check.
+    The output is trimmed / padded to `duration` seconds so the concat
+    later doesn't desync.
+    """
+    inputs: list[str] = ["-i", str(video_in)]
+    audio_inputs: list[tuple[str, float]] = []  # (label, volume)
+    if voiceover_path:
+        inputs += ["-i", str(voiceover_path)]
+        audio_inputs.append((f"{len(audio_inputs) + 1}:a", 1.0))
+    if sfx_path:
+        inputs += ["-i", str(sfx_path)]
+        audio_inputs.append((f"{len(audio_inputs) + 1}:a", 0.35))
+
+    if not audio_inputs:
+        # Caller guard — keep the function safe to call.
+        shutil.copyfile(video_in, output)
+        return
+
+    if len(audio_inputs) == 1:
+        label, volume = audio_inputs[0]
+        filter_complex = f"[{label}]volume={volume},apad=whole_dur={duration}[aout]"
+    else:
+        # Volume + amix the two tracks, then pad/trim to the shot duration.
+        parts = []
+        for i, (label, volume) in enumerate(audio_inputs):
+            parts.append(f"[{label}]volume={volume}[a{i}]")
+        amix_inputs = "".join(f"[a{i}]" for i in range(len(audio_inputs)))
+        parts.append(
+            f"{amix_inputs}amix=inputs={len(audio_inputs)}:duration=longest:dropout_transition=0,"
+            f"apad=whole_dur={duration}[aout]"
+        )
+        filter_complex = ";".join(parts)
+
+    cmd = [
+        "ffmpeg",
+        "-y",
+        *inputs,
+        "-filter_complex", filter_complex,
+        "-map", "0:v:0",
+        "-map", "[aout]",
+        "-t", f"{duration}",
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-shortest",
+        "-movflags", "+faststart",
+        str(output),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    if result.returncode != 0:
+        # Fallback: re-encode video too (some Runway clips have non-standard
+        # streams that copy-mux refuses).
+        cmd_reencode = list(cmd)
+        # Replace `-c:v copy` with a real encoder
+        v_idx = cmd_reencode.index("copy", cmd_reencode.index("-c:v"))
+        cmd_reencode[v_idx] = "libx264"
+        cmd_reencode.insert(v_idx + 1, "-preset")
+        cmd_reencode.insert(v_idx + 2, "veryfast")
+        cmd_reencode.insert(v_idx + 3, "-crf")
+        cmd_reencode.insert(v_idx + 4, "20")
+        result2 = subprocess.run(
+            cmd_reencode, capture_output=True, text=True, timeout=600
+        )
+        if result2.returncode != 0:
+            raise RuntimeError(
+                f"ffmpeg audio mux failed:\n{result2.stderr[-2000:]}"
+            )
+
+
+def _ffmpeg_concat(
+    inputs: list[Path],
+    output: Path,
+    force_reencode: bool = False,
+) -> None:
     """Concat a list of MP4s into one MP4 via ffmpeg's concat demuxer.
 
     Uses `-c copy` (stream copy, no re-encode) when all inputs share
     codecs — fast and lossless. Runway Gen-4 outputs are uniform H.264,
     so this works in practice. If a future shot has a mismatched codec,
     we fall back to a re-encode pass automatically.
+
+    When `force_reencode=True` (set by the caller when some shots had
+    audio muxed in and others didn't), we skip the stream-copy fast
+    path entirely — mixing copy and encode for audio almost never works.
     """
     # Build the ffmpeg concat manifest. Paths must be quoted ffmpeg-style.
     with tempfile.NamedTemporaryFile(
@@ -124,24 +217,25 @@ def _ffmpeg_concat(inputs: list[Path], output: Path) -> None:
             manifest.write(f"file '{escaped}'\n")
 
     try:
-        # Fast path: stream copy.
-        result = subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", str(manifest_path),
-                "-c", "copy",
-                "-movflags", "+faststart",
-                str(output),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=600,
-        )
-        if result.returncode == 0:
-            return
+        if not force_reencode:
+            # Fast path: stream copy.
+            result = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-f", "concat",
+                    "-safe", "0",
+                    "-i", str(manifest_path),
+                    "-c", "copy",
+                    "-movflags", "+faststart",
+                    str(output),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+            if result.returncode == 0:
+                return
 
         # Fallback: re-encode if stream copy failed (codec/timebase mismatch).
         result = subprocess.run(
@@ -174,7 +268,18 @@ def _ffmpeg_concat(inputs: list[Path], output: Path) -> None:
 
 
 def _live_stitch(shots: list[dict], slug: str) -> StitchResult:
-    """Download every shot's video and concat them into one MP4."""
+    """Download every shot's video, mux per-shot audio, then concat.
+
+    Per-shot pipeline (only when audio is present on the shot):
+      1. download video → shot_NNN.mp4
+      2. download voiceover (if shot.voiceover_url) → shot_NNN_vo.mp3
+      3. download SFX (if shot.sfx_url) → shot_NNN_sfx.mp3
+      4. ffmpeg mux video + audio → shot_NNN_mixed.mp4
+      5. use the mixed file for concat instead of the raw video.
+
+    Shots with no audio fall through to the raw video — concat handles
+    a mix of audio-bearing and silent inputs by re-encoding when needed.
+    """
     export_dir = _export_dir()
     export_dir.mkdir(parents=True, exist_ok=True)
 
@@ -184,18 +289,48 @@ def _live_stitch(shots: list[dict], slug: str) -> StitchResult:
     with tempfile.TemporaryDirectory(prefix="stitch-") as tmp:
         tmp_dir = Path(tmp)
         local_inputs: list[Path] = []
+        any_audio = False
         for i, s in enumerate(shots):
             url = s.get("video_url")
             if not url:
                 continue
-            local = tmp_dir / f"shot_{i:03d}.mp4"
-            _download(url, local)
-            local_inputs.append(local)
+            local_video = tmp_dir / f"shot_{i:03d}.mp4"
+            _download(url, local_video)
+
+            # Audio side-channels (optional per-shot)
+            vo_path: Optional[Path] = None
+            sfx_path: Optional[Path] = None
+            if s.get("voiceover_url"):
+                vo_path = tmp_dir / f"shot_{i:03d}_vo.mp3"
+                try:
+                    _download(s["voiceover_url"], vo_path)
+                except Exception:  # noqa: BLE001
+                    vo_path = None
+            if s.get("sfx_url"):
+                sfx_path = tmp_dir / f"shot_{i:03d}_sfx.mp3"
+                try:
+                    _download(s["sfx_url"], sfx_path)
+                except Exception:  # noqa: BLE001
+                    sfx_path = None
+
+            if vo_path or sfx_path:
+                any_audio = True
+                mixed = tmp_dir / f"shot_{i:03d}_mixed.mp4"
+                _ffmpeg_mux_audio(
+                    video_in=local_video,
+                    voiceover_path=vo_path,
+                    sfx_path=sfx_path,
+                    duration=float(s.get("duration") or 5),
+                    output=mixed,
+                )
+                local_inputs.append(mixed)
+            else:
+                local_inputs.append(local_video)
 
         if not local_inputs:
             raise RuntimeError("No shot videos available to stitch.")
 
-        _ffmpeg_concat(local_inputs, out_path)
+        _ffmpeg_concat(local_inputs, out_path, force_reencode=any_audio)
 
     duration = sum(int(s.get("duration") or 5) for s in shots if s.get("video_url"))
     url = f"{_export_base_url()}/{out_name}"

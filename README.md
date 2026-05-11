@@ -1,15 +1,15 @@
 # Director's Canvas
 
-> Agent-directed video production as a generative interface.
+> Agent-directed video production on the Runway API.
 
 Type a one-line brief — *"direct a 30s sci-fi opener: lone astronaut on
 a glass-domed alien city at golden hour"* — and watch a LangGraph Deep
-Agent decompose it into shots, generate Runway reference stills, then
-animate every still into a clip on a live storyboard canvas.
+Agent decompose it into shots, generate Runway reference stills, animate
+every still into a clip, lay in voiceover + sound, and stitch the whole
+thing into a deliverable MP4 — all on a live storyboard canvas.
 No chat-wrapper: the agent's output **is** the interface.
 
-Built for the **Generative UI Global Hackathon** (CopilotKit + AG-UI +
-LangGraph + A2UI) and the **Runway API Hackathon**.
+Built for the **[Runway API Hackathon](https://runwayml.com/api-hackathon)**.
 
 ![Hackathon Banner](apps/frontend/public/banner.jpg)
 
@@ -44,10 +44,10 @@ Open <http://localhost:3000> → `/director`. Try a suggestion chip or paste a b
 
 ## Key features
 
-- **Brief → storyboard → video** in one agent loop, no prompt engineering required
+- **Brief → storyboard → video → audio → final cut** in one agent loop, no prompt engineering required
 - **Cross-shot character consistency** — shot 0's reference image anchors all subsequent shots via Runway `gen4_image_turbo` `referenceImages`
-- **Model-aware generation** — `gen4_image` for shot 0, `gen4_image_turbo` for shots 1+, `gen4.5` for video
-- **Stitched export** — FFmpeg concat of all clips into one MP4, served directly from the frontend
+- **Model-aware generation** — `gen4_image` for shot 0, `gen4_image_turbo` for shots 1+, `gen4.5` for video, `gen4_aleph` for restyle, `eleven_multilingual_v2` for voiceover, `eleven_text_to_sound_v2` for ambient sound — all through the same Runway key
+- **Stitched export with audio** — FFmpeg concat of all clips into one MP4 with per-shot voiceover + ambient sound bed muxed in, served directly from the frontend
 - **BYOK** — users supply their own Runway API key via the canvas header; stored in localStorage, never logged
 - **Per-thread budget guard** — default 20 Runway calls per conversation when using the shared server key
 - **MOCK mode** — full pipeline runs without any API keys; deterministic placeholder media
@@ -57,11 +57,14 @@ Open <http://localhost:3000> → `/director`. Try a suggestion chip or paste a b
 | Layer | Technology |
 | --- | --- |
 | Agent | LangGraph Deep Agents + Gemini 3.1 Flash-Lite (default) |
-| Video | Runway Gen-4 Image / Gen-4 Image Turbo / Gen-4.5 |
+| Image | Runway `gen4_image` (shot 0) + `gen4_image_turbo` (shots 1+, with `referenceImages` for cross-shot character anchoring) |
+| Video | Runway `gen4.5` (image→video) + `gen4_aleph` (video→video restyle) |
+| Audio | Runway `eleven_multilingual_v2` (voiceover) + `eleven_text_to_sound_v2` (ambient sound) |
+| Avatar | Runway `gwm1_avatars` realtime WebRTC director persona |
 | Transport | AG-UI + CopilotKit Intelligence (durable threads) |
 | UI | Next.js + React + A2UI declarative components |
 | BFF | Hono (CopilotKit runtime + BYOK injection + budget guard) |
-| Export | FFmpeg concat (LIVE) / placeholder URL (MOCK) |
+| Export | FFmpeg concat + per-shot audio mux (LIVE) / placeholder URL (MOCK) |
 | MCP | mcp-use server for Claude / ChatGPT |
 
 Swap any layer with a one-line edit — see [`docs/setup.md`](./docs/setup.md) (model switching section).
@@ -74,7 +77,7 @@ Swap any layer with a one-line edit — see [`docs/setup.md`](./docs/setup.md) (
 | [Concept](./docs/concept.md) | What it is, who it's for, why it's not just a Runway wrapper |
 | [Architecture](./docs/architecture.md) | How brief → storyboard → video flows through the stack |
 | [Roadmap](./docs/roadmap.md) | What's shipped, what's next |
-| [Hackathons](./docs/hackathons.md) | Runway API + Generative UI submission notes |
+| [Hackathons](./docs/hackathons.md) | Runway API hackathon submission notes |
 
 ### Developer
 | | |

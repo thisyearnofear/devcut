@@ -9,7 +9,7 @@ Start with the root [README](../README.md) for the project overview and quicksta
 | [Concept](concept.md) | What it is, who it's for, why it's not just a Runway wrapper |
 | [Architecture](architecture.md) | Full system architecture — Director pipeline, leads infrastructure, model selection, BYOK |
 | [Roadmap](roadmap.md) | What's shipped, what's next, what we won't build |
-| [Hackathons](hackathons.md) | Generative UI + Runway API submission notes |
+| [Hackathons](hackathons.md) | Runway API hackathon submission notes |
 
 ## Developer
 
