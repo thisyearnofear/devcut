@@ -67,7 +67,7 @@ export default function LandingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const progressTextRef = useRef<HTMLSpanElement>(null);
-  const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const sceneRefs = useRef<(HTMLElement | null)[]>([]);
   const lightLeakRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
