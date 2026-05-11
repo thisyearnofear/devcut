@@ -435,7 +435,15 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 
   useEffect(() => {
     onStoryboardChange?.(state.storyboard);
-  }, [state.storyboard, onStoryboardChange]);
+  }, [
+    state.storyboard.title,
+    state.storyboard.logline,
+    state.storyboard.aspect_ratio,
+    state.storyboard.runway_mode,
+    state.storyboard.stitch_mode,
+    state.storyboard.style_ref_url,
+    onStoryboardChange,
+  ]);
 
   const updateState = useCallback(
     (updater: (prev: StoryboardState) => StoryboardState) => {
@@ -793,6 +801,22 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 function DirectorPage() {
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
   const [storyboard, setStoryboard] = useState(initialStoryboardState.storyboard);
+  const handleStoryboardChange = useCallback((next: Storyboard) => {
+    setStoryboard((prev) => {
+      if (
+        prev.title === next.title &&
+        prev.logline === next.logline &&
+        prev.aspect_ratio === next.aspect_ratio &&
+        prev.runway_mode === next.runway_mode &&
+        prev.stitch_mode === next.stitch_mode &&
+        prev.style_ref_url === next.style_ref_url
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
+
   return (
     <div data-theme="cinema" className={drawerStyles.layout}>
       <ThreadsDrawer
@@ -803,7 +827,7 @@ function DirectorPage() {
       />
       <div className={drawerStyles.mainPanel}>
         <CopilotChatConfigurationProvider agentId="director" threadId={threadId}>
-          <DirectorCanvas onStoryboardChange={setStoryboard} />
+          <DirectorCanvas onStoryboardChange={handleStoryboardChange} />
         </CopilotChatConfigurationProvider>
       </div>
     </div>

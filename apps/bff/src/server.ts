@@ -144,6 +144,31 @@ const copilotApp = createCopilotEndpoint({
 async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
+  // ---- Health check endpoint ----
+  // Checks connectivity to Intelligence gateway, LangGraph agent, and MCP server.
+  // Used by deploy.sh, uptime monitors, and manual debugging.
+  if (url.pathname === "/health") {
+    const checks: Record<string, string> = {};
+    const probe = async (name: string, target: string) => {
+      try {
+        const r = await fetch(target, { signal: AbortSignal.timeout(3000) });
+        checks[name] = `ok (${r.status})`;
+      } catch (e: unknown) {
+        checks[name] = `fail (${e instanceof Error ? e.message : "unknown"})`;
+      }
+    };
+    await Promise.all([
+      probe("intelligence", `${process.env.INTELLIGENCE_API_URL ?? "http://localhost:4203"}/api/threads`),
+      probe("agent", `${process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123"}/`),
+      probe("mcp", `${process.env.MCP_SERVER_URL ?? "http://localhost:3001/mcp"}`),
+    ]);
+    const allOk = Object.values(checks).every((v) => v.startsWith("ok"));
+    return new Response(JSON.stringify({ status: allOk ? "healthy" : "degraded", services: checks }), {
+      status: allOk ? 200 : 503,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   // ---- Budget increment endpoint (called by Python agent) ----
   if (url.pathname === "/api/runway-call-used" && req.method === "POST") {
     let body: Record<string, unknown> = {};

@@ -72,7 +72,7 @@ services:
       THREAD_STALE_HOURS: "${THREAD_STALE_HOURS:-72}"
       THREAD_CULL_BATCH_SIZE: "${THREAD_CULL_BATCH_SIZE:-1000}"
       PHX_HOST: "${DOMAIN}"
-      CHECK_ORIGIN: "false"
+      CHECK_ORIGIN: "https://${DOMAIN}"
     depends_on:
       postgres:
         condition: service_healthy
