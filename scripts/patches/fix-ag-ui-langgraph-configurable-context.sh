@@ -77,22 +77,101 @@ else
   if grep -qF "$NEW_CLIENT" "$CLIENT_TARGET" 2>/dev/null && ! grep -qF "First event must be" "$CLIENT_TARGET" 2>/dev/null; then
     echo "[patch] @ag-ui/client RUN_STARTED tolerance already patched"
   elif grep -qF "First event must be" "$CLIENT_TARGET" 2>/dev/null; then
-    python3 -c "
-import sys
-with open('$CLIENT_TARGET') as f:
+    # Use python via stdin heredoc to avoid shell-escaping the backticks
+    # in the minified template literal `First event must be 'RUN_STARTED'`.
+    TARGET_FILE="$CLIENT_TARGET" python3 <<'PYEOF'
+import os, sys, re
+target = os.environ['TARGET_FILE']
+with open(target) as f:
     content = f.read()
-old = \"if(!l){if(l=!0,t!==i.RUN_STARTED&&t!==i.RUN_ERROR)return _(()=>new n(\\\`First event must be 'RUN_STARTED'\\\`))}\";
-new = 'if(!l){l=!0}'
-if old in content:
-    content = content.replace(old, new)
-    with open('$CLIENT_TARGET', 'w') as f:
-        f.write(content)
-    print('[patch] @ag-ui/client patched (tolerant of missing RUN_STARTED)')
-else:
-    print('[patch] WARNING: @ag-ui/client exact pattern not found – skipping')
+
+# .mjs bundle (uses minified locals l, t, i, n, _)
+mjs_pat = re.compile(
+    r"if\(!l\)\{if\(l=!0,t!==i\.RUN_STARTED&&t!==i\.RUN_ERROR\)return _\(\(\)=>new n\(`First event must be 'RUN_STARTED'`\)\)\}"
+)
+# .js bundle (uses l.EventType.* and l.AGUIError, throwError from rxjs as d)
+js_pat = re.compile(
+    r"if\(!s\)\{if\(s=!0,t!==l\.EventType\.RUN_STARTED&&t!==l\.EventType\.RUN_ERROR\)return\s*\(0,d\.throwError\)\(\(\)=>new l\.AGUIError\(`First event must be 'RUN_STARTED'`\)\)\}"
+)
+
+new_content, n1 = mjs_pat.subn("if(!l){l=!0}", content)
+new_content, n2 = js_pat.subn("if(!s){s=!0}", new_content)
+
+if n1 + n2 == 0:
+    print('[patch] WARNING: @ag-ui/client RUN_STARTED regex did not match – skipping')
     sys.exit(1)
-"
+
+with open(target, 'w') as f:
+    f.write(new_content)
+print(f'[patch] @ag-ui/client patched (tolerant of missing RUN_STARTED, {n1+n2} site(s))')
+PYEOF
   else
     echo "[patch] WARNING: @ag-ui/client RUN_STARTED pattern not found – skipping"
   fi
+fi
+
+# --- Patch 4: request RUN_STARTED replay in run-mode channel join ----------
+# Root-cause fix for the race that caused the "First event must be 'RUN_STARTED'"
+# error.  The Intelligence runner publishes RUN_STARTED to the ingestion channel
+# before the browser has time to open its WebSocket and join thread:${threadId}.
+# Connect-mode joins already include `last_seen_event_id` so Intelligence can
+# replay missed events; run-mode joins do not, so RUN_STARTED is lost.
+#
+# Patch: also send `last_seen_event_id` in run mode (null on fresh run, real
+# cursor on reconnect) so Intelligence replays the run's events from the start.
+# Files: @copilotkit/core dist bundles (index.mjs, index.cjs, index.umd.js).
+for CORE_TARGET in \
+  node_modules/@copilotkit/core/dist/index.mjs \
+  node_modules/@copilotkit/core/dist/index.cjs \
+  node_modules/@copilotkit/core/dist/index.umd.js
+do
+  if [ ! -f "$CORE_TARGET" ]; then continue; fi
+  if grep -qF 'stream_mode: "run",' "$CORE_TARGET" 2>/dev/null && \
+     ! grep -qE 'stream_mode: "run",\s*run_id: input\.runId,\s*last_seen_event_id' "$CORE_TARGET" 2>/dev/null; then
+    TARGET_FILE="$CORE_TARGET" python3 <<'PYEOF'
+import os, sys, re
+target = os.environ['TARGET_FILE']
+with open(target) as f:
+    content = f.read()
+# Match the run-mode object literal: { stream_mode: "run", run_id: input.runId }
+# allowing arbitrary whitespace (and trailing commas) between fields.
+pat = re.compile(
+    r'(stream_mode:\s*"run",\s*run_id:\s*input\.runId)(\s*\})',
+    re.MULTILINE,
+)
+new_content, n = pat.subn(
+    r'\1,\n\t\t\tlast_seen_event_id: replayCursor === void 0 ? null : replayCursor\2',
+    content,
+)
+if n == 0:
+    print(f'[patch] WARNING: @copilotkit/core run-mode replay regex did not match in {target}')
+    sys.exit(0)
+with open(target, 'w') as f:
+    f.write(new_content)
+print(f'[patch] @copilotkit/core run-mode replay patched in {target} ({n} site(s))')
+PYEOF
+  else
+    echo "[patch] @copilotkit/core run-mode replay already patched in $CORE_TARGET (or pattern absent)"
+  fi
+done
+
+# Also patch index.js (CJS bundle of @ag-ui/client) — same fix, different minified vars.
+CLIENT_TARGET_CJS="node_modules/@ag-ui/client/dist/index.js"
+if [ -f "$CLIENT_TARGET_CJS" ] && grep -qF "First event must be" "$CLIENT_TARGET_CJS" 2>/dev/null; then
+  TARGET_FILE="$CLIENT_TARGET_CJS" python3 <<'PYEOF'
+import os, sys, re
+target = os.environ['TARGET_FILE']
+with open(target) as f:
+    content = f.read()
+js_pat = re.compile(
+    r"if\(!s\)\{if\(s=!0,t!==l\.EventType\.RUN_STARTED&&t!==l\.EventType\.RUN_ERROR\)return\s*\(0,d\.throwError\)\(\(\)=>new l\.AGUIError\(`First event must be 'RUN_STARTED'`\)\)\}"
+)
+new_content, n = js_pat.subn("if(!s){s=!0}", content)
+if n == 0:
+    print('[patch] WARNING: @ag-ui/client (CJS) RUN_STARTED regex did not match – skipping')
+    sys.exit(0)
+with open(target, 'w') as f:
+    f.write(new_content)
+print(f'[patch] @ag-ui/client (CJS) patched ({n} site(s))')
+PYEOF
 fi
