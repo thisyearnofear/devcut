@@ -13,8 +13,10 @@ interface BriefHeaderProps {
 }
 
 /**
- * Sticky header at the top of the director canvas. Shows title, logline,
- * Runway mode pill, stitch mode pill, and a per-shot progress summary.
+ * Minimal cinematic header. Shows the project title/logline and only the
+ * status signals that matter to the user: LIVE vs MOCK, key state, progress.
+ * Technical details (FFmpeg mode, consistency anchor) are hidden — they're
+ * visible in the About page for those who care.
  */
 export function BriefHeader({
   title,
@@ -25,108 +27,67 @@ export function BriefHeader({
   onKeyClick,
   hasPersonalKey,
 }: BriefHeaderProps) {
-  const isRunwayLive = storyboard.runway_mode === "LIVE";
-  const isStitchLive = storyboard.stitch_mode === "LIVE";
+  const isLive = storyboard.runway_mode === "LIVE";
 
   return (
-    <header className="flex flex-col gap-2 rounded-xl border border-border bg-card/60 p-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold text-foreground">
-            {storyboard.title || title}
+    <header className="flex items-center justify-between gap-4 px-1 py-2">
+      {/* Title / logline */}
+      <div className="min-w-0 flex-1">
+        {storyboard.title ? (
+          <>
+            <h1 className="truncate font-mono text-sm font-medium uppercase tracking-[0.15em] text-foreground">
+              {storyboard.title}
+            </h1>
+            {storyboard.logline && (
+              <p className="truncate font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60">
+                {storyboard.logline}
+              </p>
+            )}
+          </>
+        ) : (
+          <h1 className="font-mono text-sm font-medium uppercase tracking-[0.15em] text-muted-foreground/40">
+            Director&apos;s Canvas
           </h1>
-          <p className="truncate text-xs text-muted-foreground">
-            {storyboard.logline || subtitle}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Runway generation mode */}
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
-              isRunwayLive
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                : "border-amber-300 bg-amber-50 text-amber-700"
-            }`}
-            title={
-              isRunwayLive
-                ? "Calling the live Runway API."
-                : "RUNWAY_API_KEY unset — using deterministic placeholder media."
-            }
-          >
-            <span
-              className={`size-1.5 rounded-full ${isRunwayLive ? "bg-emerald-500" : "bg-amber-500"}`}
-            />
-            Runway {storyboard.runway_mode}
+        )}
+      </div>
+
+      {/* Right controls */}
+      <div className="flex shrink-0 items-center gap-3">
+        {/* Progress — only when shots exist */}
+        {shotCount > 0 && (
+          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/50">
+            {readyCount}/{shotCount}
           </span>
+        )}
 
-          {/* Stitch / FFmpeg mode — only shown once a stitch_mode is known */}
-          {storyboard.stitch_mode && (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
-                isStitchLive
-                  ? "border-sky-300 bg-sky-50 text-sky-700"
-                  : "border-amber-300 bg-amber-50 text-amber-700"
-              }`}
-              title={
-                isStitchLive
-                  ? "FFmpeg is available — exports will be real MP4 files."
-                  : "FFmpeg not found or STITCH_MODE=mock — export returns a placeholder URL."
-              }
-            >
-              <span
-                className={`size-1.5 rounded-full ${isStitchLive ? "bg-sky-500" : "bg-amber-500"}`}
-              />
-              FFmpeg {storyboard.stitch_mode}
-            </span>
-          )}
+        {/* LIVE / MOCK indicator */}
+        <span
+          className={`inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+            isLive ? "text-emerald-500" : "text-amber-500/70"
+          }`}
+          title={isLive ? "Live Runway API" : "MOCK mode — no credits used"}
+        >
+          <span
+            className={`size-1.5 rounded-full ${isLive ? "bg-emerald-500" : "bg-amber-500/70"}`}
+          />
+          {isLive ? "Live" : "Mock"}
+        </span>
 
-          {/* Cross-shot consistency anchor — shown once shot 0's ref is set */}
-          {storyboard.style_ref_url && (
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-violet-700"
-              title="Shot 0's reference image is being used as a character/style anchor for all subsequent shots via Gen-4 Image Turbo referenceImages."
-            >
-              <span className="size-1.5 rounded-full bg-violet-500" />
-              Consistent
-            </span>
-          )}
-
-          {shotCount > 0 ? (
-            <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {readyCount}/{shotCount} shots ready
-            </span>
-          ) : null}
-
-          {/* BYOK button — always visible so users can set their key before generating */}
-          {onKeyClick && (
-            <button
-              type="button"
-              onClick={onKeyClick}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider transition-colors ${
-                hasPersonalKey
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted"
-              }`}
-              title={
-                hasPersonalKey
-                  ? "Using your Runway API key. Click to change."
-                  : "Add your own Runway API key to use your own credits."
-              }
-            >
-              <span
-                className={`size-1.5 rounded-full ${hasPersonalKey ? "bg-emerald-500" : "bg-muted-foreground"}`}
-              />
-              {hasPersonalKey ? "Your Key" : "Add Key"}
-            </button>
-          )}
-          <a
-            href="/about"
-            className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted uppercase tracking-wider"
-            title="About Director's Canvas"
+        {/* Key button */}
+        {onKeyClick && (
+          <button
+            type="button"
+            onClick={onKeyClick}
+            className={`font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
+              hasPersonalKey
+                ? "text-emerald-500 hover:text-emerald-400"
+                : "text-muted-foreground/40 hover:text-muted-foreground"
+            }`}
+            title={hasPersonalKey ? "Using your Runway key" : "Add your Runway API key"}
           >
-            About
-          </a>
-        </div>
+            {hasPersonalKey ? "Your key ✓" : "Add key"}
+          </button>
+        )}
       </div>
     </header>
   );

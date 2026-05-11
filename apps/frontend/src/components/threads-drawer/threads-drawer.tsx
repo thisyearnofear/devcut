@@ -9,7 +9,6 @@ import {
   Clapperboard,
   ExternalLink,
   Filter,
-  Github,
   Info,
   Moon,
   Plus,
@@ -59,18 +58,6 @@ const DOC_LINKS: Array<{
     href: "/about",
     icon: Info,
     external: false,
-  },
-  {
-    label: "Runway API docs",
-    href: "https://docs.dev.runwayml.com",
-    icon: BookOpen,
-    external: true,
-  },
-  {
-    label: "GitHub",
-    href: "https://github.com/thisyearnofear/gen-ui",
-    icon: Github,
-    external: true,
   },
 ];
 

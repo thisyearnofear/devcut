@@ -5,12 +5,12 @@ import { z } from "zod";
 import { Toaster, toast } from "sonner";
 import {
   CopilotChatConfigurationProvider,
-  CopilotSidebar,
   useAgent,
   useConfigureSuggestions,
   useCopilotKit,
   useDefaultRenderTool,
   useFrontendTool,
+  useCopilotChatMessages,
 } from "@copilotkit/react-core/v2";
 import { ThreadsDrawer } from "@/components/threads-drawer";
 import drawerStyles from "@/components/threads-drawer/threads-drawer.module.css";
@@ -27,6 +27,10 @@ import { ApiKeyPanel, useRunwayApiKey } from "@/components/storyboard/ApiKeyPane
 import { StoryboardTimeline } from "@/components/storyboard/StoryboardTimeline";
 import { ShotPreview } from "@/components/storyboard/ShotPreview";
 import { ToolFallbackCard } from "@/components/copilot/ToolFallbackCard";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function ClientOnly({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -63,13 +67,11 @@ function useLiveStoryboardState() {
   return { agent, state, setState };
 }
 
-function LiveShotPreview({
-  shotId,
-  beat,
-}: {
-  shotId: string;
-  beat?: string;
-}) {
+// ---------------------------------------------------------------------------
+// Inline render components (used by frontend tools)
+// ---------------------------------------------------------------------------
+
+function LiveShotPreview({ shotId, beat }: { shotId: string; beat?: string }) {
   const { state, setState } = useLiveStoryboardState();
   const shot = state.shots.find((s) => s.id === shotId);
   return (
@@ -98,13 +100,170 @@ function LiveStoryboardSummary() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Custom cinematic chat — replaces CopilotSidebar
+// ---------------------------------------------------------------------------
+
+const SUGGESTIONS = [
+  "Sci-fi opener: lone astronaut, glass-domed alien city, golden hour. 4 shots.",
+  "Product reveal: ceramic coffee mug, studio light, slow rotation. 4 shots.",
+  "Travel reel: Lisbon at blue hour — trams, tiles, the river. 5 shots.",
+  "TikTok teaser: indie band 'Static Garden', neon, vertical. 3 shots, 720:1280.",
+];
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
+function DirectorChat({
+  onSend,
+  isRunning,
+}: {
+  onSend: (msg: string) => void;
+  isRunning: boolean;
+}) {
+  const [draft, setDraft] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync messages from CopilotKit
+  const { messages: ckMessages } = useCopilotChatMessages();
+  useEffect(() => {
+    const mapped: ChatMessage[] = (ckMessages ?? [])
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: typeof m.content === "string" ? m.content : "",
+      }))
+      .filter((m) => m.content.trim());
+    setMessages(mapped);
+  }, [ckMessages]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = () => {
+    const text = draft.trim();
+    if (!text || isRunning) return;
+    setDraft("");
+    onSend(text);
+    inputRef.current?.focus();
+  };
+
+  const showSuggestions = messages.length === 0 && !isRunning;
+
+  return (
+    <div className="flex h-full flex-col bg-black/95">
+      {/* Messages */}
+      <div
+        ref={messagesRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0"
+      >
+        {showSuggestions ? (
+          <div className="space-y-3 pt-2">
+            <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/25">
+              Suggestions
+            </p>
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onSend(s)}
+                className="block w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-[11px] leading-relaxed text-white/50 transition-colors hover:border-white/25 hover:text-white/80"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        ) : (
+          messages.map((m) => (
+            <div
+              key={m.id}
+              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-xl px-3 py-2 text-[11px] leading-relaxed ${
+                  m.role === "user"
+                    ? "bg-white/10 text-white/90"
+                    : "text-white/60"
+                }`}
+              >
+                {m.content}
+              </div>
+            </div>
+          ))
+        )}
+        {isRunning && (
+          <div className="flex justify-start">
+            <div className="flex items-center gap-1.5 px-1 py-2">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="size-1 rounded-full bg-white/30 animate-pulse"
+                  style={{ animationDelay: `${i * 150}ms` }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-white/10 p-3">
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="Describe your scene…"
+            rows={2}
+            className="flex-1 resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-[11px] text-white/80 placeholder:text-white/25 focus:border-white/25 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!draft.trim() || isRunning}
+            className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/60 transition-colors hover:bg-white/20 hover:text-white/90 disabled:opacity-30"
+          >
+            Cut
+          </button>
+        </div>
+        <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-white/20">
+          ↵ send · shift+↵ newline
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main canvas
+// ---------------------------------------------------------------------------
+
+const RUNWAY_WIDGET_KEY = "pub_01163893d305f4fceb059eba9fc49e8f7b9a53f19cd9f4235fe7486bd54f40b2";
+
 function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Storyboard) => void }) {
   const { agent } = useAgent();
   const { copilotkit } = useCopilotKit();
   const [showKeyPanel, setShowKeyPanel] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
   const { key: runwayKey } = useRunwayApiKey();
 
-  // Auto-inject a brief from the landing page ?brief= query param
+  // Auto-inject ?brief= from landing page
   const briefInjectedRef = useRef(false);
   useEffect(() => {
     if (briefInjectedRef.current || !agent) return;
@@ -112,38 +271,16 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
     const brief = params.get("brief");
     if (!brief) return;
     briefInjectedRef.current = true;
-    // Remove the param from the URL without a reload
     const url = new URL(window.location.href);
     url.searchParams.delete("brief");
     window.history.replaceState({}, "", url.toString());
-    // Small delay so the agent is fully mounted
     setTimeout(() => injectPrompt(brief), 800);
   }, [agent]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keep suggestions registered (used by the chat component)
   useConfigureSuggestions({
     available: "before-first-message",
-    suggestions: [
-      {
-        title: "Sci-fi opener",
-        message:
-          "Direct a 30-second sci-fi opening: a lone astronaut steps onto a glass-domed alien city at golden hour. 4 shots.",
-      },
-      {
-        title: "Product reveal",
-        message:
-          "Direct a 20-second cinematic product reveal for a wireless ceramic coffee mug, premium minimalist style. 4 shots.",
-      },
-      {
-        title: "Travel reel",
-        message:
-          "Direct a 25-second travel reel for Lisbon at blue hour — trams, azulejo tiles, the river. 5 shots.",
-      },
-      {
-        title: "Vertical TikTok",
-        message:
-          "Direct a 15-second vertical TikTok teaser for an indie band's new track 'Static Garden'. 3 shots, 720:1280.",
-      },
-    ],
+    suggestions: SUGGESTIONS.map((s) => ({ title: s.split(":")[0], message: s })),
   });
 
   const injectPrompt = useCallback(
@@ -154,6 +291,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
           ? crypto.randomUUID()
           : `msg-${Date.now()}`;
       agent.addMessage({ id, role: "user", content: prompt });
+      setIsRunning(true);
       void copilotkit.runAgent({ agent }).catch((error: unknown) => {
         console.error("injectPrompt: runAgent failed", error);
         const msg =
@@ -161,15 +299,13 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
             ? String((error as { message: unknown }).message)
             : "Agent run failed";
         toast.error(msg, { duration: 6000 });
-      });
+      }).finally(() => setIsRunning(false));
     },
     [agent, copilotkit],
   );
 
   const state = mergeStoryboardState(agent?.state);
 
-  // Keep the parent (DirectorPage) in sync so the ThreadsDrawer can pass
-  // the current storyboard context to the Director avatar.
   useEffect(() => {
     onStoryboardChange?.(state.storyboard);
   }, [state.storyboard, onStoryboardChange]);
@@ -181,15 +317,11 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
     [agent],
   );
 
-  // ----- Frontend tools the director agent calls --------------------------
-
+  // Frontend tools
   useFrontendTool({
     name: "setHeader",
     description: "Set the workspace header (title and subtitle).",
-    parameters: z.object({
-      title: z.string().optional(),
-      subtitle: z.string().optional(),
-    }),
+    parameters: z.object({ title: z.string().optional(), subtitle: z.string().optional() }),
     handler: async ({ title, subtitle }) => {
       updateState((prev) => ({
         ...prev,
@@ -214,15 +346,12 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 
   useFrontendTool({
     name: "updateShotPrompt",
-    description:
-      "Edit a shot's prompt without regenerating media. Use when refining wording before regenerate_shot.",
+    description: "Edit a shot's prompt without regenerating media.",
     parameters: z.object({ shotId: z.string(), prompt: z.string() }),
     handler: async ({ shotId, prompt }) => {
       updateState((prev) => ({
         ...prev,
-        shots: prev.shots.map((s) =>
-          s.id === shotId ? { ...s, prompt } : s,
-        ),
+        shots: prev.shots.map((s) => (s.id === shotId ? { ...s, prompt } : s)),
       }));
       return "prompt updated";
     },
@@ -230,39 +359,23 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 
   useFrontendTool({
     name: "renderShotPreview",
-    description:
-      "Render an inline shot mini-card in chat. Pass shotId; optional beat label.",
-    parameters: z.object({
-      shotId: z.string(),
-      beat: z.string().optional(),
-    }),
-    render: ({ args }) => (
-      <LiveShotPreview shotId={args.shotId!} beat={args.beat} />
-    ),
+    description: "Render an inline shot mini-card in chat.",
+    parameters: z.object({ shotId: z.string(), beat: z.string().optional() }),
+    render: ({ args }) => <LiveShotPreview shotId={args.shotId!} beat={args.beat} />,
   });
 
   useFrontendTool({
     name: "renderStoryboardSummary",
-    description:
-      "Render a compact storyboard progress summary inline in chat. Takes no args.",
+    description: "Render a compact storyboard progress summary inline in chat.",
     parameters: z.object({}),
     render: () => <LiveStoryboardSummary />,
   });
 
   useDefaultRenderTool({
     render: ({ name, status, result, parameters }) => (
-      <ToolFallbackCard
-        name={name}
-        status={status}
-        result={result}
-        parameters={parameters}
-      />
+      <ToolFallbackCard name={name} status={status} result={result} parameters={parameters} />
     ),
   });
-
-  // ----- Local UI handlers -----------------------------------------------
-
-  // ----- Derived state -----------------------------------------------
 
   const totalShots = state.shots.length;
   const readyShots = useMemo(
@@ -281,52 +394,26 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 
   const handleRegenerate = useCallback(
     (id: string) => {
-      injectPrompt(
-        `Regenerate shot ${id}. Call regenerate_shot then generate_shot_reference then generate_shot_video.`,
-      );
+      injectPrompt(`Regenerate shot ${id}. Call regenerate_shot then generate_shot_reference then generate_shot_video.`);
     },
     [injectPrompt],
   );
 
-  const handleDownload = useCallback(
-    (_shotId: string, url: string, filename: string) => {
-      // Create a temporary <a> element to trigger the download.
-      // This works for same-origin URLs (Runway returns signed URLs
-      // that are directly downloadable).
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    },
-    [],
-  );
+  const handleDownload = useCallback((_shotId: string, url: string, filename: string) => {
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.target = "_blank"; a.rel = "noopener noreferrer";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }, []);
 
   const handleDownloadFinal = useCallback((url: string, filename: string) => {
     const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = url; a.download = filename; a.target = "_blank"; a.rel = "noopener noreferrer";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }, []);
 
   const handleExport = useCallback(() => {
-    // Optimistically flip to "stitching" so the spinner appears immediately,
-    // then let the agent tool update it to "ready" or "error".
-    updateState((prev) => ({
-      ...prev,
-      export_status: "stitching",
-      export_error: null,
-    }));
-    injectPrompt(
-      "Stitch all ready shots into the final cut now. Call stitch_final_cut.",
-    );
+    updateState((prev) => ({ ...prev, export_status: "stitching", export_error: null }));
+    injectPrompt("Stitch all ready shots into the final cut now. Call stitch_final_cut.");
   }, [injectPrompt, updateState]);
 
   const selectedShot: Shot | undefined = state.selectedShotId
@@ -335,219 +422,180 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
 
   return (
     <>
-      <main className="flex h-screen flex-col gap-4 overflow-hidden bg-background px-6 py-6">
-        <BriefHeader
-          title={state.header.title}
-          subtitle={state.header.subtitle}
-          storyboard={state.storyboard}
-          shotCount={state.shots.length}
-          readyCount={readyShots}
-          onKeyClick={() => setShowKeyPanel((v) => !v)}
-          hasPersonalKey={Boolean(runwayKey)}
-        />
+      {/* ── Layout: canvas left, chat right ── */}
+      <div className="flex h-screen overflow-hidden bg-black">
 
-        {showKeyPanel && (
-          <ApiKeyPanel onClose={() => setShowKeyPanel(false)} />
-        )}
+        {/* Canvas */}
+        <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden p-4">
+          <BriefHeader
+            title={state.header.title}
+            subtitle={state.header.subtitle}
+            storyboard={state.storyboard}
+            shotCount={totalShots}
+            readyCount={readyShots}
+            onKeyClick={() => setShowKeyPanel((v) => !v)}
+            hasPersonalKey={Boolean(runwayKey)}
+          />
 
-        {state.shots.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border bg-card/40 p-12 text-center">
-            <div className="max-w-lg space-y-4">
-              <p className="text-base font-medium text-foreground">
-                Give the director a brief
-              </p>
-              <p className="text-sm text-muted-foreground">
-                The agent decomposes your brief into shots, generates a Runway
-                reference still for each, animates every still into a clip, and
-                stitches a final MP4 — all here on the canvas, in real time.
-              </p>
-              <p className="text-xs text-muted-foreground/70">
-                Try a suggestion chip below, or type your own brief.{" "}
-                {!runwayKey && (
-                  <>
-                    No Runway key?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setShowKeyPanel(true)}
-                      className="underline hover:text-foreground"
-                    >
-                      Add yours
-                    </button>{" "}
-                    or run in MOCK mode — same UI, placeholder media, no credits.
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Pipeline action bar */}
-            {totalShots > 0 && readyShots < totalShots && (
-              <div className="flex items-center justify-between rounded-xl border border-border bg-card/60 p-3 shadow-sm">
-                <p className="text-xs text-muted-foreground">
-                  {readyShots}/{totalShots} shots ready
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      injectPrompt(
-                        `Generate all references and all videos for every shot now. Call generate_all_references then generate_all_videos.`,
-                      )
-                    }
-                    className="rounded-full border border-border bg-primary px-4 py-1.5 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
-                  >
-                    ⚡ Run Pipeline
-                  </button>
-                  {readyShots > 0 && state.shots.some((s) => s.ref_image_url && !s.video_url) && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        injectPrompt(
-                          `Generate all remaining videos now. Call generate_all_videos.`,
-                        )
-                      }
-                      className="rounded-full border border-border px-3 py-1.5 text-[11px] hover:bg-muted"
-                    >
-                      Generate Remaining Videos
-                    </button>
-                  )}
-                </div>
+          {showKeyPanel && <ApiKeyPanel onClose={() => setShowKeyPanel(false)} />}
+
+          {totalShots === 0 ? (
+            /* Empty state — Runway widget as the hero onboarding */
+            <div className="flex flex-1 flex-col items-center justify-center gap-8">
+              {/* Runway Characters widget */}
+              <div className="w-full max-w-sm">
+                <runway-widget
+                  pub-key={RUNWAY_WIDGET_KEY}
+                  style={{ width: "100%", borderRadius: "12px", overflow: "hidden" }}
+                />
               </div>
-            )}
+              <div className="text-center">
+                <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-white/30">
+                  Describe your scene in the chat →
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Pipeline action bar */}
+              {readyShots < totalShots && (
+                <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-2.5">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/40">
+                    {readyShots}/{totalShots} shots ready
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => injectPrompt("Generate all references and all videos for every shot now. Call generate_all_references then generate_all_videos.")}
+                      className="rounded-full border border-white/20 bg-white/10 px-4 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-white/70 hover:bg-white/20 hover:text-white"
+                    >
+                      ⚡ Run pipeline
+                    </button>
+                    {readyShots > 0 && state.shots.some((s) => s.ref_image_url && !s.video_url) && (
+                      <button
+                        type="button"
+                        onClick={() => injectPrompt("Generate all remaining videos now. Call generate_all_videos.")}
+                        className="rounded-full border border-white/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-white/40 hover:text-white/70"
+                      >
+                        Animate remaining
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
-            {/* All shots ready — show Export button when not yet exporting */}
-            {readyShots > 0 &&
-              readyShots === totalShots &&
-              state.export_status === "idle" && (
-                <div className="flex items-center justify-between rounded-xl border border-border bg-card/60 p-3 shadow-sm">
-                  <p className="text-xs text-muted-foreground">
+              {/* Export trigger */}
+              {readyShots > 0 && readyShots === totalShots && state.export_status === "idle" && (
+                <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-2.5">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/40">
                     All {totalShots} shots ready
-                  </p>
+                  </span>
                   <button
                     type="button"
                     onClick={handleExport}
-                    className="rounded-full border border-border bg-primary px-4 py-1.5 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
+                    className="rounded-full border border-white/30 bg-white/15 px-4 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-white/80 hover:bg-white/25 hover:text-white"
                   >
-                    🎬 Export Final Cut
+                    🎬 Export final cut
                   </button>
                 </div>
               )}
 
-            <StoryboardTimeline
-              shots={state.shots}
-              selectedShotId={state.selectedShotId}
-              onSelect={handleSelect}
-              onRegenerate={handleRegenerate}
-              onDownload={handleDownload}
-            />
+              <StoryboardTimeline
+                shots={state.shots}
+                selectedShotId={state.selectedShotId}
+                onSelect={handleSelect}
+                onRegenerate={handleRegenerate}
+                onDownload={handleDownload}
+              />
 
-            {/* Export panel — visible once stitching starts */}
-            {state.export_status !== "idle" && (
-              <ExportPanel
-                exportStatus={state.export_status}
-                exportError={state.export_error}
-                finalVideoUrl={state.final_video_url}
-                storyboardTitle={state.storyboard.title}
-                onExport={handleExport}
-                onDownload={handleDownloadFinal}
-              />
-            )}
-          </>
-        )}
+              {state.export_status !== "idle" && (
+                <ExportPanel
+                  exportStatus={state.export_status}
+                  exportError={state.export_error}
+                  finalVideoUrl={state.final_video_url}
+                  storyboardTitle={state.storyboard.title}
+                  onExport={handleExport}
+                  onDownload={handleDownloadFinal}
+                />
+              )}
+            </>
+          )}
 
-        {selectedShot ? (
-          <aside className="flex max-h-[40vh] shrink-0 flex-col gap-3 overflow-auto rounded-xl border border-border bg-card/60 p-4 text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold">
-                #{selectedShot.index + 1} · {selectedShot.beat}
-              </p>
-              <button
-                type="button"
-                onClick={() => handleSelect(selectedShot.id)}
-                className="text-[10px] uppercase text-muted-foreground hover:text-foreground"
-              >
-                Close
-              </button>
-            </div>
-            <p className="text-muted-foreground">{selectedShot.prompt}</p>
-            <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-              <span>Status: {selectedShot.status}</span>
-              <span>Duration: {selectedShot.duration}s</span>
-              <span>Aspect: {selectedShot.aspect_ratio}</span>
-            </div>
-            {selectedShot.video_url ? (
-              <video
-                src={selectedShot.video_url}
-                poster={selectedShot.ref_image_url ?? undefined}
-                controls
-                playsInline
-                className="max-h-[28vh] w-full rounded-lg bg-black object-contain"
-              />
-            ) : selectedShot.ref_image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={selectedShot.ref_image_url}
-                alt={selectedShot.beat}
-                className="max-h-[28vh] w-full rounded-lg object-contain"
-              />
-            ) : null}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => handleRegenerate(selectedShot.id)}
-                className="rounded-full border border-border px-3 py-1 text-[11px] hover:bg-muted"
-              >
-                Regenerate
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  injectPrompt(
-                    `Rewrite the prompt for shot ${selectedShot.id} with more cinematic detail, then regenerate it.`,
-                  )
-                }
-                className="rounded-full border border-border px-3 py-1 text-[11px] hover:bg-muted"
-              >
-                Rewrite + regenerate
-              </button>
-              {(selectedShot.ref_image_url || selectedShot.video_url) && (
+          {/* Selected shot detail */}
+          {selectedShot && (
+            <aside className="flex max-h-[38vh] shrink-0 flex-col gap-3 overflow-auto rounded-xl border border-white/10 bg-white/5 p-4 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/70">
+                  #{selectedShot.index + 1} · {selectedShot.beat}
+                </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    const url = selectedShot.video_url || selectedShot.ref_image_url!;
-                    const filename = selectedShot.video_url
-                      ? `${selectedShot.beat || `shot_${selectedShot.index + 1}`}.mp4`
-                      : `${selectedShot.beat || `shot_${selectedShot.index + 1}`}_ref.png`;
-                    handleDownload(selectedShot.id, url, filename);
-                  }}
-                  className="rounded-full border border-border px-3 py-1 text-[11px] hover:bg-muted"
+                  onClick={() => handleSelect(selectedShot.id)}
+                  className="font-mono text-[9px] uppercase tracking-[0.15em] text-white/30 hover:text-white/60"
                 >
-                  ↓ Download
+                  Close
                 </button>
-              )}
-            </div>
-          </aside>
-        ) : null}
-      </main>
+              </div>
+              <p className="text-[11px] leading-relaxed text-white/50">{selectedShot.prompt}</p>
+              {selectedShot.video_url ? (
+                <video
+                  src={selectedShot.video_url}
+                  poster={selectedShot.ref_image_url ?? undefined}
+                  controls playsInline
+                  className="max-h-[26vh] w-full rounded-lg bg-black object-contain"
+                />
+              ) : selectedShot.ref_image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={selectedShot.ref_image_url} alt={selectedShot.beat}
+                  className="max-h-[26vh] w-full rounded-lg object-contain" />
+              ) : null}
+              <div className="flex gap-2">
+                <button type="button" onClick={() => handleRegenerate(selectedShot.id)}
+                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-white/50 hover:text-white/80">
+                  Regenerate
+                </button>
+                <button type="button"
+                  onClick={() => injectPrompt(`Rewrite the prompt for shot ${selectedShot.id} with more cinematic detail, then regenerate it.`)}
+                  className="rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-white/50 hover:text-white/80">
+                  Rewrite
+                </button>
+                {(selectedShot.ref_image_url || selectedShot.video_url) && (
+                  <button type="button"
+                    onClick={() => {
+                      const url = selectedShot.video_url || selectedShot.ref_image_url!;
+                      const ext = selectedShot.video_url ? ".mp4" : "_ref.png";
+                      handleDownload(selectedShot.id, url, `${selectedShot.beat || `shot_${selectedShot.index + 1}`}${ext}`);
+                    }}
+                    className="rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-white/50 hover:text-white/80">
+                    ↓ Save
+                  </button>
+                )}
+              </div>
+            </aside>
+          )}
+        </main>
 
-      <CopilotSidebar
-        defaultOpen
-        width={420}
-        input={{ disclaimer: () => null, className: "pb-6" }}
-      />
+        {/* Chat panel */}
+        <aside className="flex w-[360px] shrink-0 flex-col border-l border-white/10">
+          <DirectorChat onSend={injectPrompt} isRunning={isRunning} />
+        </aside>
+      </div>
 
       <Toaster
         position="bottom-right"
         toastOptions={{
           classNames: {
-            error: "!bg-rose-50 !text-rose-900 !border !border-rose-200",
+            error: "!bg-rose-950 !text-rose-200 !border !border-rose-800",
           },
         }}
       />
     </>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 function DirectorPage() {
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
@@ -561,10 +609,7 @@ function DirectorPage() {
         storyboard={storyboard}
       />
       <div className={drawerStyles.mainPanel}>
-        <CopilotChatConfigurationProvider
-          agentId="director"
-          threadId={threadId}
-        >
+        <CopilotChatConfigurationProvider agentId="director" threadId={threadId}>
           <DirectorCanvas onStoryboardChange={setStoryboard} />
         </CopilotChatConfigurationProvider>
       </div>

@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     images: ["/banner.jpg"],
   },
   icons: {
-    icon: "/favicon.svg",
+    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦬</text></svg>",
   },
 };
 
@@ -48,6 +48,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${jakarta.variable} ${splineMono.variable}`}>
+      <head>
+        {/* Runway Characters widget */}
+        <script
+          src="https://cdn.dev.runwayml.com/prod/widget.js"
+          data-pub-key="pub_01163893d305f4fceb059eba9fc49e8f7b9a53f19cd9f4235fe7486bd54f40b2"
+          async
+        />
+      </head>
       <body className={`${jakarta.variable} ${splineMono.variable} subpixel-antialiased`}>
         <CopilotKitProviderShell>{children}</CopilotKitProviderShell>
       </body>
