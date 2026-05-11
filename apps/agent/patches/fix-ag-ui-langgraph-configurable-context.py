@@ -14,7 +14,10 @@ if spec is None or spec.origin is None:
     print("ag_ui_langgraph not installed – skipping patch")
     sys.exit(0)
 
-agent_py = pathlib.Path(spec.origin)
+agent_py = pathlib.Path(spec.origin).parent / "agent.py"
+if not agent_py.exists():
+    print(f"ag_ui_langgraph/agent.py not found at {agent_py} – skipping patch")
+    sys.exit(0)
 content = agent_py.read_text()
 
 MARKER = "# LangGraph >=0.6.0 rejects both configurable and context."
