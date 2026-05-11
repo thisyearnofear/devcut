@@ -67,30 +67,12 @@ const BRIEFS = [
   },
 ];
 
-const PROOF_CARDS = [
-  {
-    title: "Shot planning",
-    body: "The canvas decomposes a rough idea into a shot list with prompts and pacing before generation starts.",
-  },
-  {
-    title: "Live generation",
-    body: "Watch stills, clips, and export status update inside the interface instead of bouncing between tools.",
-  },
-  {
-    title: "Character consistency",
-    body: "Runway reference chaining keeps the lead subject stable across scenes, not just within one image.",
-  },
-  {
-    title: "Final MP4 export",
-    body: "Once all clips are ready, the app stitches a final cut you can download or share immediately.",
-  },
-];
-
 export default function LandingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const progressTextRef = useRef<HTMLSpanElement>(null);
-  const sceneRefs = useRef<(HTMLElement | null)[]>([]);
+  const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const visualRef = useRef<HTMLDivElement>(null);
   const lightLeakRef = useRef<HTMLDivElement>(null);
   const heroFrameRef = useRef<HTMLDivElement>(null);
   const heroGlowRef = useRef<HTMLDivElement>(null);
@@ -99,6 +81,7 @@ export default function LandingPage() {
     if (!containerRef.current) return;
 
     const ctx = gsap.context(() => {
+      // Progress bar
       gsap.to(progressBarRef.current, {
         scaleX: 1,
         ease: "none",
@@ -118,6 +101,7 @@ export default function LandingPage() {
         },
       });
 
+      // Parallax and glows
       gsap.to(lightLeakRef.current, {
         y: "-26%",
         ease: "none",
@@ -153,73 +137,108 @@ export default function LandingPage() {
         },
       });
 
+      // Sticky Scenes Logic
       sceneRefs.current.forEach((el, index) => {
         if (!el) return;
-        const card = el.querySelector(".scene-card");
-        const number = el.querySelector(".scene-number");
-        const title = el.querySelector(".scene-title");
+        
+        const title = el.querySelector("h2");
         const sub = el.querySelector(".scene-sub");
         const detail = el.querySelector(".scene-detail");
-        const rule = el.querySelector(".scene-rule");
+        const num = el.querySelector(".scene-num");
 
-        if (title) {
-          const text = title.textContent ?? "";
-          title.innerHTML = text
-            .split("")
-            .map((c) =>
-              c === " "
-                ? '<span style="display:inline-block;width:0.32em"> </span>'
-                : `<span class="char" style="display:inline-block;opacity:0;transform:translateX(-28px)">${c}</span>`,
-            )
-            .join("");
-        }
+        gsap.fromTo([num, title, sub, detail], 
+          { opacity: 0, y: 30 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.8,
+            stagger: 0.1,
+            ease: "power3.out",
+            scrollTrigger: {
+              trigger: el,
+              start: "top 75%",
+              end: "bottom 25%",
+              toggleActions: "play reverse play reverse",
+            }
+          }
+        );
 
-        const chars = el.querySelectorAll(".char");
-
-        gsap.set([card, number, sub, detail, rule], {
-          opacity: 0,
+        // Update visual state based on scroll
+        ScrollTrigger.create({
+          trigger: el,
+          start: "top center",
+          end: "bottom center",
+          onToggle: (self) => {
+            if (self.isActive) {
+              updateVisualState(index);
+            }
+          }
         });
-        gsap.set(card, {
-          y: 34,
-          x: index % 2 === 0 ? -18 : 18,
-        });
-        gsap.set(number, { y: 16 });
-        gsap.set(sub, { y: 18 });
-        gsap.set(detail, { y: 14 });
-        gsap.set(rule, { scaleX: 0.6, transformOrigin: index % 2 === 0 ? "left center" : "right center" });
-
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: el,
-            start: "top 74%",
-            end: "bottom 34%",
-            toggleActions: "play reverse play reverse",
-          },
-        });
-
-        tl.to(card, {
-          opacity: 1,
-          y: 0,
-          x: 0,
-          duration: 0.5,
-          ease: "power3.out",
-        })
-          .to(number, { opacity: 1, y: 0, duration: 0.3 }, "-=0.32")
-          .to(
-            chars,
-            {
-              opacity: 1,
-              x: 0,
-              duration: 0.55,
-              stagger: 0.02,
-              ease: "power3.out",
-            },
-            "-=0.12",
-          )
-          .to(sub, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, "-=0.28")
-          .to(detail, { opacity: 1, y: 0, duration: 0.36, ease: "power2.out" }, "-=0.22")
-          .to(rule, { opacity: 1, scaleX: 1, duration: 0.35, ease: "power2.out" }, "-=0.18");
       });
+
+      function updateVisualState(index: number) {
+        if (!visualRef.current) return;
+        
+        const content = visualRef.current.querySelector(".visual-content");
+        if (!content) return;
+
+        gsap.to(content, {
+          opacity: 0,
+          scale: 0.98,
+          duration: 0.2,
+          onComplete: () => {
+            // Update content based on index
+            const labels = [
+              "01 · Storyboard Beat",
+              "02 · Motion Synthesis",
+              "03 · Consistency Engine",
+              "04 · Master Export"
+            ];
+            
+            const states = [
+              ["Briefing scene", "Mapping 4 shots", "Setting mood", "Ready"],
+              ["Still frames", "Optical flow", "Gen-3 Motion", "Processing"],
+              ["Anchoring Shot 0", "Tracking Visor", "Refining Skin", "Stable"],
+              ["Stitching MP4", "Applying LUTs", "Encoding H.264", "Finished"]
+            ];
+
+            content.innerHTML = `
+              <div class="space-y-6">
+                <div class="flex items-center justify-between">
+                  <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-[#ffbe70]">${labels[index]}</p>
+                  <span class="h-1.5 w-1.5 rounded-full bg-[#ffbe70] animate-pulse"></span>
+                </div>
+                <div class="grid gap-3">
+                  ${states[index].map((state, i) => `
+                    <div class="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3 px-4">
+                      <span class="text-xs text-white/50">${state}</span>
+                      <span class="font-mono text-[9px] text-white/20">${i === states[index].length - 1 && index < 3 ? "..." : "DONE"}</span>
+                    </div>
+                  `).join("")}
+                </div>
+                <div class="aspect-video w-full rounded-2xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+                   <div class="h-full w-full bg-gradient-to-br from-white/5 to-transparent flex items-center justify-center">
+                      <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-white/10">Simulated Shot ${index + 1}</p>
+                   </div>
+                </div>
+              </div>
+            `;
+
+            gsap.to(visualRef.current, {
+              borderColor: index % 2 === 0 ? "rgba(183, 185, 255, 0.2)" : "rgba(255, 190, 112, 0.2)",
+              duration: 0.5
+            });
+            
+            gsap.to(content, {
+              opacity: 1,
+              scale: 1,
+              duration: 0.4,
+              ease: "power2.out"
+            });
+          }
+        });
+      }
+
     }, containerRef);
 
     return () => ctx.revert();
@@ -367,35 +386,19 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {[
-                  ["Built for", "Creative teams, founders, and directors prototyping short-form video ideas."],
-                  ["Best for", "Pitch films, product reveals, mood-driven explainers, and social teasers."],
-                  ["What you get", "A storyboard, generated clips, and one final MP4 instead of disconnected outputs."],
-                ].map(([title, body]) => (
-                  <div key={title} className="rounded-2xl border border-white/10 bg-black/24 px-4 py-4 backdrop-blur-sm">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/42">{title}</p>
-                    <p className="mt-2 text-sm leading-6 text-white/64">{body}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-10 grid gap-3 sm:grid-cols-3">
-                {[
-                  ["1", "Enter a brief"],
-                  ["2", "Review generated shots"],
-                  ["3", "Export the final MP4"],
-                ].map(([step, label]) => (
-                  <div
-                    key={step}
-                    className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 backdrop-blur-sm"
-                  >
-                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/42">
-                      Step {step}
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-white/88">{label}</p>
-                  </div>
-                ))}
+              <div className="mt-10 flex items-center gap-8 border-t border-white/10 pt-8">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/42">Platform</p>
+                  <p className="mt-1 text-sm text-white/80">Runway Gen-3 Alpha / Gen-4.5</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/42">Output</p>
+                  <p className="mt-1 text-sm text-white/80">4K Stitched MP4</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/42">Speed</p>
+                  <p className="mt-1 text-sm text-white/80">~2min / 30s film</p>
+                </div>
               </div>
             </div>
 
@@ -482,131 +485,116 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="px-6 py-10 md:px-10 lg:px-16">
-          <div className="mx-auto max-w-7xl rounded-[30px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-md md:p-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div className="max-w-2xl">
-                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/38">
-                  Product proof
-                </p>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white md:text-3xl">
-                  More than a prompt box with a video API behind it.
-                </h2>
-              </div>
-              <p className="max-w-xl text-sm leading-7 text-white/62 md:text-right">
-                The platform coordinates planning, generation, consistency, and export so the output feels like a directed sequence rather than isolated clips. It is designed to replace a fragmented workflow of prompts, stills, clip generations, and manual stitching.
-              </p>
-            </div>
-
-            <div className="mt-8 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {PROOF_CARDS.map((card, index) => (
-                <div
-                  key={card.title}
-                  className="rounded-2xl border border-white/10 bg-[#0f1016]/84 p-5"
+        <section className="relative px-6 py-20 md:px-10 lg:px-16">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:gap-20">
+              {/* Sticky Visual Rail */}
+              <div className="lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[48%] lg:items-center order-2 lg:order-1">
+                <div 
+                  ref={visualRef}
+                  className="relative aspect-video w-full overflow-hidden rounded-[32px] border border-white/12 bg-[#111118]/88 shadow-2xl backdrop-blur-xl"
                 >
-                  <p className="text-base font-medium text-white/90">{card.title}</p>
-                  <p className="mt-3 text-sm leading-7 text-white/60">{card.body}</p>
-                  <div
-                    className={`mt-5 h-px w-16 bg-gradient-to-r ${
-                      index % 2 === 0
-                        ? "from-[#b7b9ff]/70 via-white/24 to-transparent"
-                        : "from-[#ffbe70]/70 via-white/24 to-transparent"
-                    }`}
-                  />
+                  <div className="visual-content h-full w-full p-8 flex flex-col justify-center">
+                    <div className="h-full w-full rounded-2xl border border-white/5 bg-white/[0.02] flex items-center justify-center">
+                       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/20 text-center px-6">
+                         Product Preview evolving with scroll...
+                       </p>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#7c84ff]/5 via-transparent to-[#ffbe70]/5 pointer-events-none" />
                 </div>
-              ))}
+              </div>
+
+              {/* Scrolling Beats */}
+              <div className="flex-1 space-y-[45vh] pb-[30vh] pt-[15vh] order-1 lg:order-2">
+                <div className="max-w-xl">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/38">
+                    The Workflow
+                  </p>
+                  <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-4xl">
+                    Coordinated production,
+                    <br />
+                    not just isolated clips.
+                  </h2>
+                </div>
+
+                {SCENES.map((scene, i) => (
+                  <div
+                    key={scene.title}
+                    ref={(el) => {
+                      sceneRefs.current[i] = el;
+                    }}
+                    className="max-w-xl"
+                  >
+                    <p className="scene-num mb-4 font-mono text-[10px] uppercase tracking-[0.4em] text-white/26">
+                      Beat {String(i + 1).padStart(2, "0")}
+                    </p>
+                    <h2 className="text-3xl font-semibold leading-tight tracking-tight text-white md:text-4xl">
+                      {scene.title}
+                    </h2>
+                    <p className="scene-sub mt-5 text-base leading-7 text-[#d4d7ff]/88">
+                      {scene.subtitle}
+                    </p>
+                    <p className="scene-detail mt-4 text-sm leading-7 text-white/58">
+                      {scene.detail}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
-        {SCENES.map((scene, i) => (
-          <section
-            key={scene.title}
-            ref={(el) => {
-              sceneRefs.current[i] = el;
-            }}
-            className="flex min-h-[86vh] items-center px-6 py-16 md:px-10 lg:px-16"
-            style={{ justifyContent: i % 2 === 0 ? "flex-start" : "flex-end" }}
-          >
-            <div
-              className="scene-card max-w-2xl rounded-[32px] border border-white/10 bg-black/28 px-6 py-8 shadow-[0_40px_120px_rgba(0,0,0,0.22)] backdrop-blur-md md:px-8 md:py-10"
-              style={{ textAlign: i % 2 === 0 ? "left" : "right" }}
-            >
-              <p className="scene-number mb-4 font-mono text-[9px] uppercase tracking-[0.4em] text-white/26">
-                {String(i + 1).padStart(2, "0")} / {String(SCENES.length).padStart(2, "0")}
-              </p>
-              <h2 className="scene-title text-[clamp(2.2rem,5vw,4.7rem)] font-semibold leading-[0.95] tracking-[-0.03em] text-white">
-                {scene.title}
-              </h2>
-              <p className="scene-sub mt-4 text-base leading-7 text-[#d4d7ff]/88">
-                {scene.subtitle}
-              </p>
-              <p className="scene-detail mt-4 max-w-xl text-sm leading-7 text-white/58">
-                {scene.detail}
-              </p>
-              <div
-                className={`scene-rule mt-6 h-px bg-gradient-to-r ${scene.accent}`}
-                style={{
-                  width: "clamp(90px, 12vw, 160px)",
-                  marginLeft: i % 2 !== 0 ? "auto" : undefined,
-                }}
-              />
-            </div>
-          </section>
-        ))}
-
-        <section className="px-6 py-20 md:px-10 lg:px-16">
+        <section className="px-6 py-24 md:px-10 lg:px-16 border-t border-white/5">
           <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="grid gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(340px,400px)] lg:items-center">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/30">
-                  Try a prompt
+                  Ready to direct?
                 </p>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white md:text-3xl">
-                  Start from a ready-made scene.
+                <h2 className="mt-6 text-4xl font-semibold tracking-tight text-white md:text-5xl lg:text-6xl">
+                  Start from a brief,
+                  <br />
+                  <span className="text-[#ffbe70]">finish with a film.</span>
                 </h2>
-              </div>
-              <p className="max-w-2xl text-sm leading-7 text-white/60">
-                Pick an example to open the director with a pre-filled brief, or start from scratch in MOCK mode and see the full workflow instantly.
-              </p>
-            </div>
-
-            <div className="mt-8 grid gap-3 bg-white/[0.06] sm:grid-cols-2">
-              {BRIEFS.map(({ label, scene, brief }) => (
-                <Link
-                  key={label}
-                  href={`/director?brief=${encodeURIComponent(brief)}`}
-                  className="group relative bg-[#0d0e13] px-6 py-6 transition-all hover:bg-[#141622]"
-                >
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#8f95ff]/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                  <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#d8dbff]/72 transition-colors group-hover:text-white">
-                    {label}
-                  </p>
-                  <p className="mt-3 text-sm leading-7 text-white/58 transition-colors group-hover:text-white/78">
-                    {scene}
-                  </p>
-                  <span className="absolute right-6 top-1/2 -translate-y-1/2 font-mono text-white/22 transition-all group-hover:right-4 group-hover:text-[#ffcf8f]">
-                    →
-                  </span>
-                </Link>
-              ))}
-            </div>
-
-            <div className="mt-12 flex flex-col items-start gap-4 rounded-[28px] border border-white/10 bg-gradient-to-r from-[#12141f]/95 via-[#12131b]/95 to-[#1a1510]/95 px-6 py-6 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/36">
-                  Ready to try it?
+                <p className="mt-8 max-w-xl text-lg leading-8 text-white/60">
+                  Open the canvas and describe your scene. Use MOCK mode to explore the workflow instantly, or connect your Runway API key for live 4K generation.
                 </p>
-                <p className="mt-2 max-w-2xl text-sm leading-7 text-white/68">
-                  Open the canvas, use mock mode if you just want to explore, or add your Runway key when you&apos;re ready for live generation.
-                </p>
+                
+                <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <Link
+                    href="/director"
+                    className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white px-8 py-4 font-mono text-[12px] uppercase tracking-[0.2em] text-black transition-all hover:bg-white/90"
+                  >
+                    Launch Director
+                  </Link>
+                  <Link
+                    href="/about"
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-8 py-4 font-mono text-[12px] uppercase tracking-[0.2em] text-white transition-all hover:bg-white/[0.1] hover:border-white/20"
+                  >
+                    Read the specs
+                  </Link>
+                </div>
               </div>
-              <Link
-                href="/director"
-                className="inline-flex items-center justify-center rounded-full border border-white/18 bg-white/[0.08] px-6 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-white/86 transition-all hover:border-white/34 hover:bg-white/[0.14] hover:text-white"
-              >
-                Open the canvas
-              </Link>
+
+              <div className="space-y-3">
+                <p className="mb-6 font-mono text-[10px] uppercase tracking-[0.2em] text-white/20">Quick start templates</p>
+                {BRIEFS.map(({ label, scene, brief }) => (
+                  <Link
+                    key={label}
+                    href={`/director?brief=${encodeURIComponent(brief)}`}
+                    className="group block rounded-2xl border border-white/5 bg-white/[0.02] p-5 transition-all hover:border-[#ffbe70]/30 hover:bg-[#ffbe70]/5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40 group-hover:text-[#ffbe70]/80">
+                        {label}
+                      </span>
+                      <span className="opacity-0 transition-opacity group-hover:opacity-100 text-[#ffbe70]">→</span>
+                    </div>
+                    <p className="mt-2 text-sm text-white/60 group-hover:text-white/80 line-clamp-1">{scene}</p>
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         </section>

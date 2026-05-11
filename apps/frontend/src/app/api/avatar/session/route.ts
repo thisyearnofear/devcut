@@ -121,6 +121,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${sessionKey}`,
+        "Content-Type": "application/json",
         "X-Runway-Version": RUNWAY_VERSION,
       },
     },
