@@ -85,7 +85,6 @@
     "@types/react-dom": "^19.1.9",
     "eslint": "^9.39.4",
     "eslint-config-next": "^15.5.18",
-    "patch-package": "^8.0.1",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.9.2"
   }
