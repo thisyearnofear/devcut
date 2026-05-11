@@ -667,10 +667,10 @@ export default function LandingPage() {
               const isEven = i % 2 === 1;
               // Editorial images from bizarro/infinite-webgl-gallery
               const images = [
-                "https://raw.githubusercontent.com/bizarro/infinite-webgl-gallery/main/public/images/1.jpg",
-                "https://raw.githubusercontent.com/bizarro/infinite-webgl-gallery/main/public/images/2.jpg",
-                "https://raw.githubusercontent.com/bizarro/infinite-webgl-gallery/main/public/images/3.jpg",
-                "https://raw.githubusercontent.com/bizarro/infinite-webgl-gallery/main/public/images/4.jpg",
+                "/demo/workflow-1.jpg",
+                "/demo/workflow-2.jpg",
+                "/demo/workflow-3.jpg",
+                "/demo/workflow-4.jpg",
               ];
               const imgSrc = images[i] ?? images[0];
               return (
