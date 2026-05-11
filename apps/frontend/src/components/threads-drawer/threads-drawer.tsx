@@ -103,7 +103,9 @@ export default function ThreadsDrawer({
   storyboard,
 }: ThreadsDrawerProps) {
   const [showArchived, setShowArchived] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(() =>
+    typeof window === "undefined" ? true : window.matchMedia("(min-width: 901px)").matches,
+  );
   const [pendingDelete, setPendingDelete] = useState<{
     id: string;
     title: string;
@@ -111,6 +113,13 @@ export default function ThreadsDrawer({
   const deleteTriggerRef = useRef<HTMLElement | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 901px)");
+    const handleChange = () => setIsOpen(media.matches);
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
+  }, []);
 
   const { resolvedTheme, setTheme } = useTheme();
   const toggleTheme = () => {

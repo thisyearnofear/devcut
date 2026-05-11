@@ -27,6 +27,7 @@ import { StoryboardTimeline } from "@/components/storyboard/StoryboardTimeline";
 import { ShotPreview } from "@/components/storyboard/ShotPreview";
 import { ToolFallbackCard } from "@/components/copilot/ToolFallbackCard";
 import { AvatarShowcase } from "@/components/storyboard/AvatarShowcase";
+import { CanvasLoadingOverlay } from "@/components/storyboard/CanvasLoadingOverlay";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -606,8 +607,17 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
           {showKeyPanel && <ApiKeyPanel onClose={() => setShowKeyPanel(false)} isLive={state.storyboard.runway_mode === "LIVE"} />}
 
           {totalShots === 0 ? (
-            /* Empty state — Runway widget as the hero onboarding */
-            <div className="flex flex-1 flex-col items-center justify-center gap-8 px-3 py-8 text-center sm:px-6 lg:py-0">
+            /* Empty state — hero onboarding with optional avatar */
+            <div className="relative flex flex-1 flex-col items-center justify-center gap-8 px-3 py-8 text-center sm:px-6 lg:py-0">
+              {/* Loading overlay — shown on canvas while agent works */}
+              <CanvasLoadingOverlay
+                isRunning={isRunning}
+                stages={progress.stages}
+                shotCount={progress.total}
+                refsReady={progress.refs}
+                videosReady={progress.videos}
+              />
+
               <div className="max-w-2xl space-y-4">
                 <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/60">
                   One brief → storyboard → clips → final cut
@@ -624,7 +634,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
               </div>
 
               {/* Avatar showcase — live Runway Characters call or branded placeholder */}
-              <AvatarShowcase />
+              <AvatarShowcase progressNarration={isRunning ? (progress.stages.find(s => s.status === "active")?.detail ?? null) : null} />
 
               <div className="grid w-full max-w-3xl gap-3 text-left md:grid-cols-3">
                 {[
@@ -649,7 +659,16 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
               </div>
             </div>
           ) : (
-            <>
+            <div className="relative flex flex-1 flex-col gap-3 overflow-auto">
+              {/* Loading overlay — shown on canvas while agent works */}
+              <CanvasLoadingOverlay
+                isRunning={isRunning}
+                stages={progress.stages}
+                shotCount={progress.total}
+                refsReady={progress.refs}
+                videosReady={progress.videos}
+              />
+
               {/* Pipeline action bar */}
               {readyShots < totalShots && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/12 bg-white/[0.06] px-4 py-3">
@@ -724,7 +743,7 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                   onDownload={handleDownloadFinal}
                 />
               )}
-            </>
+            </div>
           )}
 
           {/* Selected shot detail */}

@@ -22,7 +22,12 @@ const AVATAR_ID = process.env.NEXT_PUBLIC_RUNWAY_AVATAR_ID ?? "";
 
 type ShowcaseState = "idle" | "connecting" | "active" | "ending" | "error";
 
-export function AvatarShowcase() {
+interface AvatarShowcaseProps {
+  /** When non-null, the avatar overlay shows this narration text (e.g. current pipeline stage). */
+  progressNarration?: string | null;
+}
+
+export function AvatarShowcase({ progressNarration = null }: AvatarShowcaseProps) {
   const [state, setState] = useState<ShowcaseState>("idle");
   const [credentials, setCredentials] = useState<SessionCredentials | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -156,7 +161,7 @@ export function AvatarShowcase() {
 
       {/* Active — live avatar call */}
       {state === "active" && credentials && (
-        <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-white/15 bg-black/40 shadow-2xl">
+        <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/15 bg-black/40 shadow-2xl">
           <AvatarCall
             avatarId={AVATAR_ID}
             credentials={credentials}
@@ -175,6 +180,16 @@ export function AvatarShowcase() {
               className="border-t border-white/10 bg-black/30 px-3 py-2"
             />
           </AvatarCall>
+          {/* Progress narration overlay */}
+          {progressNarration && (
+            <div className="absolute bottom-12 left-0 right-0 flex justify-center px-3 pointer-events-none">
+              <div className="rounded-lg bg-black/70 px-3 py-1.5 backdrop-blur-sm">
+                <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/80">
+                  {progressNarration}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
