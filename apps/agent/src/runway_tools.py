@@ -40,9 +40,22 @@ in shot 1.
 from __future__ import annotations
 
 import concurrent.futures as _cf
+import json
+import time
 from datetime import datetime, timezone
 from typing import Annotated, Any, List, Optional
 from uuid import uuid4
+
+
+def _log(level: str, msg: str, **extra: object) -> None:
+    """Emit a structured JSON log line to stdout."""
+    import sys
+    print(
+        json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "level": level, "logger": "runway_tools", "msg": msg, **extra}),
+        flush=True,
+        file=sys.stdout,
+    )
+
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
@@ -98,6 +111,7 @@ def generate_storyboard_plan(
     to the user, and then call `generate_shot_reference` /
     `generate_shot_video` per-shot — usually after a one-line confirmation.
     """
+    _log("INFO", "tool_enter", tool="generate_storyboard_plan", title=title, n_shots=len(shots), aspect_ratio=aspect_ratio)
     out_shots: list[dict] = []
     for i, raw in enumerate(shots):
         beat = (raw.get("beat") or f"Shot {i + 1}").strip()
@@ -137,6 +151,7 @@ def generate_storyboard_plan(
         f"Runway mode: {runway_mode_label()}. "
         "Ready to generate references."
     )
+    _log("INFO", "tool_exit", tool="generate_storyboard_plan", title=title, n_shots=len(out_shots), logline=logline)
 
     return Command(
         update={
@@ -222,10 +237,12 @@ def generate_shot_reference(
     Updates that shot's `ref_image_url` and bumps status to 'image'.
     Status flow: pending → image → (call generate_shot_video) → ready.
     """
+    _log("INFO", "tool_enter", tool="generate_shot_reference", shot_id=shot_id)
     shots: list[dict] = list((state or {}).get("shots") or [])
     storyboard: dict = dict((state or {}).get("storyboard") or {})
     shot = _find_shot(shots, shot_id)
     if not shot:
+        _log("WARN", "shot_not_found", tool="generate_shot_reference", shot_id=shot_id)
         return Command(
             update={
                 "messages": [
@@ -240,10 +257,13 @@ def generate_shot_reference(
     prompt = shot.get("prompt") or ""
     ratio = shot.get("aspect_ratio") or "1280:720"
     prior_refs = _prior_ref_urls(shots, shot, storyboard)
+    _log("INFO", "runway_image_start", shot_id=shot_id, prompt=prompt[:120], ratio=ratio, n_prior_refs=len(prior_refs))
+    t0 = time.monotonic()
 
     try:
         result = generate_reference_image(prompt, ratio=ratio, prior_ref_urls=prior_refs)
     except Exception as e:  # noqa: BLE001 - surface to the agent
+        _log("ERROR", "runway_image_error", shot_id=shot_id, error=str(e), elapsed_s=round(time.monotonic()-t0, 2))
         new_shots = _patch_shot(
             shots, shot_id, {"status": "error", "error": str(e)}
         )
@@ -259,6 +279,7 @@ def generate_shot_reference(
             }
         )
 
+    _log("INFO", "runway_image_done", shot_id=shot_id, url=result.url, mode=result.mode, elapsed_s=round(time.monotonic()-t0, 2))
     new_shots = _patch_shot(
         shots,
         shot_id,
@@ -302,9 +323,11 @@ def generate_shot_video(
     reference image yet, returns an error ToolMessage so the agent
     knows to call `generate_shot_reference` first.
     """
+    _log("INFO", "tool_enter", tool="generate_shot_video", shot_id=shot_id)
     shots: list[dict] = list((state or {}).get("shots") or [])
     shot = _find_shot(shots, shot_id)
     if not shot:
+        _log("WARN", "shot_not_found", tool="generate_shot_video", shot_id=shot_id)
         return Command(
             update={
                 "messages": [
@@ -318,6 +341,7 @@ def generate_shot_video(
 
     image_url = shot.get("ref_image_url")
     if not image_url:
+        _log("WARN", "no_ref_image", tool="generate_shot_video", shot_id=shot_id)
         return Command(
             update={
                 "messages": [
@@ -335,10 +359,13 @@ def generate_shot_video(
     prompt = shot.get("prompt") or ""
     ratio = shot.get("aspect_ratio") or "1280:720"
     duration = int(shot.get("duration") or 5)
+    _log("INFO", "runway_video_start", shot_id=shot_id, prompt=prompt[:120], ratio=ratio, duration=duration)
+    t0 = time.monotonic()
 
     try:
         result = _runway_video(image_url, prompt, duration=duration, ratio=ratio)
     except Exception as e:  # noqa: BLE001
+        _log("ERROR", "runway_video_error", shot_id=shot_id, error=str(e), elapsed_s=round(time.monotonic()-t0, 2))
         new_shots = _patch_shot(
             shots, shot_id, {"status": "error", "error": str(e)}
         )
@@ -354,6 +381,7 @@ def generate_shot_video(
             }
         )
 
+    _log("INFO", "runway_video_done", shot_id=shot_id, url=result.url, elapsed_s=round(time.monotonic()-t0, 2))
     new_shots = _patch_shot(
         shots,
         shot_id,

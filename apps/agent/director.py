@@ -13,7 +13,9 @@ each lives at its own `agentId` on the BFF — `default` for leads,
 
 from __future__ import annotations
 
+import json
 import os
+import time
 
 from dotenv import load_dotenv
 from copilotkit import CopilotKitMiddleware
@@ -36,19 +38,30 @@ if os.getenv("WIPE_ORPHAN_THREADS_ON_BOOT") == "1":
 
 
 _AGENT_RUNTIME = os.getenv("AGENT_RUNTIME", "gemini-flash-react")
-print(f"[director] AGENT_RUNTIME={_AGENT_RUNTIME}", flush=True)
+_LOG_LEVEL = os.getenv("AGENT_LOG_LEVEL", "INFO").upper()
+
+
+def _log(level: str, msg: str, **extra: object) -> None:
+    """Emit a structured JSON log line to stdout."""
+    print(
+        json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "level": level, "logger": "director", "msg": msg, **extra}),
+        flush=True,
+    )
+
+
+_log("INFO", "boot", agent_runtime=_AGENT_RUNTIME, log_level=_LOG_LEVEL)
 
 _gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
 if _AGENT_RUNTIME.startswith("gemini-") and (
     not _gemini_key or _gemini_key.startswith("stub")
 ):
-    print(
-        "\n  [director] GEMINI_API_KEY is unset or a stub.\n"
-        "   The director will boot but chat will fail on the first turn.\n",
-        flush=True,
+    _log(
+        "WARN",
+        "GEMINI_API_KEY is unset or a stub — director will boot but LLM calls will fail",
+        gemini_key_set=bool(_gemini_key),
     )
 
-print(f"[director] {_runway_boot_status()}", flush=True)
+_log("INFO", "runway_status", status=_runway_boot_status())
 
 
 backend_tools = load_runway_tools()
@@ -89,6 +102,7 @@ def _build_director_graph() -> CompiledStateGraph:
             temperature=0,
             api_key=_gemini_key or "stub",
         )
+        _log("INFO", "graph_build", runtime=_AGENT_RUNTIME, tools=[t.name for t in backend_tools])
         return create_deep_agent(
             model=llm,
             tools=backend_tools,
@@ -105,8 +119,14 @@ def _build_director_graph() -> CompiledStateGraph:
             temperature=0,
             api_key=_gemini_key or "stub",
         )
+        # tool_choice="any" forces the model to call a tool on the first turn
+        # instead of emitting a plain-text reply and looping. Without this,
+        # Gemini Flash-Lite sometimes ignores the tool list and the planner
+        # loop stalls at "Planning your storyboard…" indefinitely.
+        llm_with_tools = llm.bind_tools(backend_tools, tool_choice="any")
+        _log("INFO", "graph_build", runtime=_AGENT_RUNTIME, tool_choice="any", tools=[t.name for t in backend_tools])
         return create_agent(
-            model=llm,
+            model=llm_with_tools,
             tools=backend_tools,
             system_prompt=SYSTEM_PROMPT,
             middleware=middleware,
@@ -130,10 +150,7 @@ def _build_director_graph() -> CompiledStateGraph:
         )
 
     # Unknown runtime — degrade to noop with a helpful message.
-    print(
-        f"[director] WARN: unknown AGENT_RUNTIME={_AGENT_RUNTIME!r}; using noop",
-        flush=True,
-    )
+    _log("WARN", "unknown_runtime", agent_runtime=_AGENT_RUNTIME, fallback="noop")
     return _build_noop(NOOP_FALLBACK_MESSAGE)
 
 

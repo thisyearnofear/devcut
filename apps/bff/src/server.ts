@@ -49,7 +49,7 @@ const director = new LangGraphAgent({
   graphId: "director",
   langsmithApiKey: process.env.LANGSMITH_API_KEY ?? "",
   assistantConfig: {
-    recursion_limit: Number(process.env.LANGGRAPH_DIRECTOR_RECURSION_LIMIT ?? 25),
+    recursion_limit: Number(process.env.LANGGRAPH_DIRECTOR_RECURSION_LIMIT ?? 40),
   },
 });
 
