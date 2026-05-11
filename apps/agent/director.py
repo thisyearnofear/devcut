@@ -37,7 +37,7 @@ if os.getenv("WIPE_ORPHAN_THREADS_ON_BOOT") == "1":
     wipe_orphan_threads()
 
 
-_AGENT_RUNTIME = os.getenv("AGENT_RUNTIME", "gemini-flash-react")
+_AGENT_RUNTIME = os.getenv("AGENT_RUNTIME", "aisa-react")
 _LOG_LEVEL = os.getenv("AGENT_LOG_LEVEL", "INFO").upper()
 
 
@@ -52,9 +52,11 @@ def _log(level: str, msg: str, **extra: object) -> None:
 _log("INFO", "boot", agent_runtime=_AGENT_RUNTIME, log_level=_LOG_LEVEL)
 
 _gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
-if _AGENT_RUNTIME.startswith("gemini-") and (
-    not _gemini_key or _gemini_key.startswith("stub")
-):
+_aisa_key = os.getenv("AISA_API_KEY") or ""
+
+if _AGENT_RUNTIME.startswith("aisa-") and (not _aisa_key or _aisa_key.startswith("stub")):
+    _log("WARN", "AISA_API_KEY is unset or a stub — director will boot but LLM calls will fail", aisa_key_set=bool(_aisa_key))
+elif _AGENT_RUNTIME.startswith("gemini-") and (not _gemini_key or _gemini_key.startswith("stub")):
     _log(
         "WARN",
         "GEMINI_API_KEY is unset or a stub — director will boot but LLM calls will fail",
@@ -83,6 +85,8 @@ from src.runtime import _build_noop, NOOP_FALLBACK_MESSAGE  # type: ignore[attr-
 
 def _build_director_graph() -> CompiledStateGraph:
     """Compose the director graph for the active AGENT_RUNTIME."""
+    if _AGENT_RUNTIME.startswith("aisa-") and (not _aisa_key or _aisa_key.startswith("stub")):
+        return _build_noop(NOOP_FALLBACK_MESSAGE)
     if _AGENT_RUNTIME.startswith("gemini-") and (
         not _gemini_key or _gemini_key.startswith("stub")
     ):
@@ -92,6 +96,48 @@ def _build_director_graph() -> CompiledStateGraph:
     storyboard = StoryboardStateMiddleware()
     copilotkit = CopilotKitMiddleware()
     middleware = [timing, storyboard, copilotkit]
+
+    if _AGENT_RUNTIME in ("aisa-react", "aisa-deep"):
+        from langchain.agents import create_agent
+        from langchain_openai import ChatOpenAI
+
+        _aisa_primary = os.getenv("AISA_PRIMARY_MODEL", "gemini-2.5-pro")
+        _aisa_fallback = os.getenv("AISA_FALLBACK_MODEL", "gemini-2.5-flash")
+        _aisa_base = "https://api.aisa.one/v1"
+
+        def _make_aisa_llm(model: str) -> object:
+            return ChatOpenAI(
+                model=model,
+                temperature=0,
+                api_key=_aisa_key,
+                base_url=_aisa_base,
+            )
+
+        primary_llm = _make_aisa_llm(_aisa_primary).bind_tools(backend_tools, tool_choice="any")
+        fallback_llm = _make_aisa_llm(_aisa_fallback).bind_tools(backend_tools, tool_choice="any")
+        llm_with_tools = primary_llm.with_fallbacks([fallback_llm])
+        _log(
+            "INFO", "graph_build",
+            runtime=_AGENT_RUNTIME,
+            primary_model=_aisa_primary,
+            fallback_model=_aisa_fallback,
+            tool_choice="any",
+            tools=[t.name for t in backend_tools],
+        )
+        if _AGENT_RUNTIME == "aisa-deep":
+            from deepagents import create_deep_agent
+            return create_deep_agent(
+                model=llm_with_tools,
+                tools=backend_tools,
+                system_prompt=SYSTEM_PROMPT,
+                middleware=middleware,
+            )
+        return create_agent(
+            model=llm_with_tools,
+            tools=backend_tools,
+            system_prompt=SYSTEM_PROMPT,
+            middleware=middleware,
+        )
 
     if _AGENT_RUNTIME == "gemini-flash-deep":
         from deepagents import create_deep_agent
