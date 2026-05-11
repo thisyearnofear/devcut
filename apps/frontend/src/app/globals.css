@@ -72,6 +72,32 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* ── Cinematic palette tokens ──────────────────────────────────────────
+     Named design tokens for the Director's Canvas cinematic theme.
+     Use these instead of raw hex literals in new components.
+  ──────────────────────────────────────────────────────────────────── */
+
+  /* Canvas base */
+  --color-canvas-bg: #09090d;
+  --color-canvas-surface: #111118;
+  --color-canvas-surface-2: #19191d;
+
+  /* Accent — cool (indigo/periwinkle) */
+  --color-accent-cool: #8f95ff;
+  --color-accent-cool-soft: #b7b9ff;
+  --color-accent-cool-muted: #d6d8ff;
+
+  /* Accent — warm (amber/gold) */
+  --color-accent-warm: #ffbe70;
+  --color-accent-warm-soft: #ffcf8f;
+  --color-accent-warm-muted: #ffe0b4;
+
+  /* Status */
+  --color-status-live: #34d399;   /* emerald-400 */
+  --color-status-mock: #fbbf24;   /* amber-400 */
+  --color-status-error: #f87171;  /* red-400 */
+  --color-status-pending: #94a3b8; /* slate-400 */
 }
 
 @layer base {

@@ -9,34 +9,74 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
+// Respect prefers-reduced-motion at the module level so GSAP skips
+// all scroll-driven animations for users who have opted out.
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 const SCENES = [
   {
     title: "Brief to storyboard.",
     subtitle: "The agent breaks your idea into cinematic beats.",
     detail:
       "Type one sentence. Director's Canvas plans 3–6 shots with subject, framing, lighting, and mood already mapped.",
-    accent: "from-[#b7b9ff]/75 via-white/28 to-transparent",
+    // Visual preview: storyboard planning UI mock
+    previewBg: "from-[#1a1a2e] to-[#16213e]",
+    previewAccent: "#8f95ff",
+    previewLabel: "Storyboard",
+    previewItems: [
+      { label: "01 · Establishing dome city", status: "planned" },
+      { label: "02 · Astronaut exits airlock", status: "planned" },
+      { label: "03 · Reflective visor close-up", status: "planned" },
+      { label: "04 · Walk into golden skyline", status: "planned" },
+    ],
   },
   {
     title: "Still to motion.",
     subtitle: "Runway reference stills become animated clips.",
     detail:
       "Each shot gets its own reference image, then Gen-4.5 turns that frame into motion while preserving visual intent.",
-    accent: "from-[#ffbe70]/75 via-white/28 to-transparent",
+    previewBg: "from-[#1a1200] to-[#1e1600]",
+    previewAccent: "#ffbe70",
+    previewLabel: "Motion synthesis",
+    previewItems: [
+      { label: "Optical flow computed", status: "done" },
+      { label: "Gen-4.5 motion pass", status: "active" },
+      { label: "Temporal consistency", status: "active" },
+      { label: "Clip encoded", status: "waiting" },
+    ],
   },
   {
     title: "Consistent by design.",
     subtitle: "Characters and style stay coherent across scenes.",
     detail:
       "Shot 0 anchors every subsequent still, so the astronaut in shot four still looks like the astronaut in shot one.",
-    accent: "from-[#c5b6ff]/75 via-white/28 to-transparent",
+    previewBg: "from-[#0d1a1a] to-[#0a1520]",
+    previewAccent: "#c5b6ff",
+    previewLabel: "Consistency engine",
+    previewItems: [
+      { label: "Style anchor · Shot 0", status: "done" },
+      { label: "Character tracking", status: "done" },
+      { label: "Visor reflection match", status: "active" },
+      { label: "Cross-shot coherence", status: "active" },
+    ],
   },
   {
     title: "Final cut ready.",
     subtitle: "Export one stitched MP4 in a single flow.",
     detail:
       "No prompt juggling, no timeline assembly, no manual NLE pass just to see the result.",
-    accent: "from-[#ffd08d]/75 via-white/28 to-transparent",
+    previewBg: "from-[#1a0d00] to-[#1a1200]",
+    previewAccent: "#ffd08d",
+    previewLabel: "Master export",
+    previewItems: [
+      { label: "4 clips stitched", status: "done" },
+      { label: "LUT applied", status: "done" },
+      { label: "H.264 encoded", status: "done" },
+      { label: "MP4 ready", status: "done" },
+    ],
   },
 ];
 
@@ -67,57 +107,96 @@ const BRIEFS = [
   },
 ];
 
-const VISUAL_LABELS = [
-  "01 · Storyboard Beat",
-  "02 · Motion Synthesis",
-  "03 · Consistency Engine",
-  "04 · Master Export",
-];
+// Status dot colors for the workflow preview cards
+const STATUS_DOT: Record<string, string> = {
+  done: "bg-emerald-400",
+  active: "bg-amber-400 animate-pulse",
+  waiting: "bg-white/20",
+  planned: "bg-indigo-400",
+};
+const STATUS_TEXT: Record<string, string> = {
+  done: "text-emerald-400/80",
+  active: "text-amber-400/80",
+  waiting: "text-white/35",
+  planned: "text-indigo-300/80",
+};
+const STATUS_LABEL_MAP: Record<string, string> = {
+  done: "Done",
+  active: "Running",
+  waiting: "Queued",
+  planned: "Planned",
+};
 
-const VISUAL_STATES = [
-  ["Briefing scene", "Mapping 4 shots", "Setting mood", "Ready"],
-  ["Still frames", "Optical flow", "Gen-4.5 Motion", "Processing"],
-  ["Anchoring Shot 0", "Tracking visor", "Refining continuity", "Stable"],
-  ["Stitching MP4", "Applying LUTs", "Encoding H.264", "Finished"],
-];
-
+/**
+ * WorkflowVisual — replaces the old "Simulated shot N" placeholder with a
+ * real-looking pipeline UI card that reflects what the Director actually does.
+ * Each scene has its own color accent and status items.
+ */
 function WorkflowVisual({ index }: { index: number }) {
   const scene = SCENES[index];
-  const states = VISUAL_STATES[index];
 
   return (
-    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/12 bg-[#111118]/88 shadow-2xl backdrop-blur-xl sm:aspect-video lg:rounded-[32px]">
-      <div className="h-full w-full p-4 sm:p-6 lg:p-8">
-        <div className="flex h-full flex-col justify-center gap-4 sm:gap-6">
-          <div className="flex items-center justify-between gap-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#ffcf8f] sm:tracking-[0.2em]">
-              {VISUAL_LABELS[index]}
+    <div
+      className={`relative w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${scene.previewBg} shadow-2xl lg:rounded-[28px]`}
+    >
+      {/* Ambient glow matching scene accent */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-20"
+        style={{
+          background: `radial-gradient(ellipse 70% 60% at 50% 0%, ${scene.previewAccent}40, transparent 70%)`,
+        }}
+      />
+
+      <div className="relative p-5 sm:p-6 lg:p-7">
+        {/* Header row */}
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: scene.previewAccent }}
+            />
+            <p
+              className="font-mono text-[11px] uppercase tracking-[0.16em]"
+              style={{ color: scene.previewAccent }}
+            >
+              {scene.previewLabel}
             </p>
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#ffbe70]" />
           </div>
-          <div className="grid gap-2 sm:gap-3">
-            {states.map((state, stateIndex) => (
-              <div
-                key={state}
-                className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2.5 sm:px-4 sm:py-3"
-              >
-                <span className="text-xs text-white/70 sm:text-sm">{state}</span>
-                <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/50">
-                  {stateIndex === states.length - 1 && index < 3 ? "..." : "Done"}
-                </span>
+          <span className="font-mono text-[11px] text-white/40">
+            {String(index + 1).padStart(2, "0")} / 04
+          </span>
+        </div>
+
+        {/* Pipeline items */}
+        <div className="space-y-2.5">
+          {scene.previewItems.map((item) => (
+            <div
+              key={item.label}
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.04] px-3.5 py-2.5"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className={`size-1.5 shrink-0 rounded-full ${STATUS_DOT[item.status]}`} />
+                <span className="truncate text-xs text-white/75">{item.label}</span>
               </div>
-            ))}
-          </div>
-          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/40">
-            <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${scene.accent}`}>
-              <p className="px-4 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-white/60">
-                Simulated shot {index + 1}
-              </p>
+              <span className={`shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] ${STATUS_TEXT[item.status]}`}>
+                {STATUS_LABEL_MAP[item.status]}
+              </span>
             </div>
-          </div>
+          ))}
+        </div>
+
+        {/* Bottom accent bar */}
+        <div className="mt-5 h-px w-full overflow-hidden rounded-full bg-white/[0.06]">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${(scene.previewItems.filter((i) => i.status === "done" || i.status === "planned").length / scene.previewItems.length) * 100}%`,
+              backgroundColor: scene.previewAccent,
+              opacity: 0.6,
+            }}
+          />
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#7c84ff]/5 via-transparent to-[#ffbe70]/5" />
     </div>
   );
 }
@@ -133,7 +212,7 @@ export default function LandingPage() {
   const heroGlowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || prefersReducedMotion()) return;
 
     const ctx = gsap.context(() => {
       // Progress bar
@@ -304,9 +383,9 @@ export default function LandingPage() {
           </a>
           <Link
             href="/director"
-            className="rounded-full border border-white/16 bg-white/[0.06] px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-white/84 transition-all hover:border-white/32 hover:bg-white/[0.12] hover:text-white sm:px-4 sm:tracking-[0.2em]"
+            className="rounded-full border border-white/20 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-black transition-all hover:bg-white/90 sm:px-4"
           >
-            <span className="hidden sm:inline">Open </span>Director
+            <span className="hidden sm:inline">Launch </span>Director
           </Link>
         </div>
       </nav>
@@ -363,19 +442,19 @@ export default function LandingPage() {
               <div className="mt-8 flex flex-col gap-3 md:flex-row md:items-center">
                 <Link
                   href="/director"
-                  className="inline-flex items-center justify-center rounded-full border border-white/18 bg-gradient-to-r from-[#8f95ff]/28 to-[#ffbe70]/22 px-6 py-3 font-mono text-[12px] uppercase tracking-[0.16em] text-white transition-all hover:border-white/34 hover:from-[#8f95ff]/38 hover:to-[#ffbe70]/30"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white px-7 py-3.5 font-mono text-[12px] uppercase tracking-[0.16em] text-black transition-all hover:bg-white/90"
                 >
-                  Open Director
+                  Launch Director
+                  <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-400">
+                    Mock-ready
+                  </span>
                 </Link>
                 <Link
                   href="/about"
-                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/[0.04] px-6 py-3 font-mono text-[12px] uppercase tracking-[0.16em] text-white/78 transition-all hover:border-white/26 hover:bg-white/[0.08] hover:text-white"
+                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/[0.04] px-6 py-3.5 font-mono text-[12px] uppercase tracking-[0.16em] text-white/72 transition-all hover:border-white/26 hover:bg-white/[0.08] hover:text-white"
                 >
                   See how it works
                 </Link>
-                <span className="font-mono text-[12px] uppercase tracking-[0.1em] text-white/58">
-                  No sign-up · MOCK mode available
-                </span>
               </div>
 
               <div className="mt-10 grid gap-5 border-t border-white/10 pt-8 sm:grid-cols-3 sm:gap-6 lg:gap-8">
@@ -506,7 +585,7 @@ export default function LandingPage() {
                     }}
                     className="max-w-xl"
                   >
-                    <p className="scene-num mb-4 font-mono text-[11px] uppercase tracking-[0.22em] text-white/54 md:tracking-[0.4em]">
+                    <p className="scene-num mb-4 font-mono text-[11px] uppercase tracking-[0.18em] text-white/50">
                       Beat {String(i + 1).padStart(2, "0")}
                     </p>
                     <h2 className="text-3xl font-semibold leading-tight tracking-tight text-white md:text-4xl">
@@ -547,13 +626,16 @@ export default function LandingPage() {
                 <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
                   <Link
                     href="/director"
-                    className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white px-8 py-4 font-mono text-[12px] uppercase tracking-[0.16em] text-black transition-all hover:bg-white/90"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white px-8 py-4 font-mono text-[12px] uppercase tracking-[0.16em] text-black transition-all hover:bg-white/90"
                   >
                     Launch Director
+                    <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-400">
+                      Mock-ready
+                    </span>
                   </Link>
                   <Link
                     href="/about"
-                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-8 py-4 font-mono text-[12px] uppercase tracking-[0.16em] text-white transition-all hover:bg-white/[0.1] hover:border-white/20"
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-8 py-4 font-mono text-[12px] uppercase tracking-[0.16em] text-white/72 transition-all hover:bg-white/[0.1] hover:border-white/20"
                   >
                     Read the specs
                   </Link>

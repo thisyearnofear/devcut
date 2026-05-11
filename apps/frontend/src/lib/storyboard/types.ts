@@ -47,8 +47,11 @@ export const initialStoryboardState: StoryboardState = {
     title: "",
     logline: "",
     aspect_ratio: "1280:720",
-    runway_mode: "MOCK",
-    stitch_mode: "MOCK",
+    // Default to LIVE — the agent will downgrade to MOCK if no server key is
+    // available. This ensures users with a key get live generation immediately
+    // without having to toggle anything.
+    runway_mode: "LIVE",
+    stitch_mode: "LIVE",
     style_ref_url: null,
   },
   shots: [],

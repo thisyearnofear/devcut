@@ -103,6 +103,21 @@ export function ShotCard({
         )}
       </div>
 
+      {/* Per-shot progress bar — visible while generating */}
+      {(shot.status === "image" || shot.status === "pending") && (
+        <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label={`Shot ${shot.index + 1} progress`} aria-valuenow={shot.status === "image" ? 50 : 10} aria-valuemin={0} aria-valuemax={100}>
+          <div
+            className={`h-full rounded-full ${shot.status === "image" ? "animate-pulse bg-amber-400/70" : "bg-white/20"}`}
+            style={{ width: shot.status === "image" ? "60%" : "10%" }}
+          />
+        </div>
+      )}
+      {shot.status === "ready" && (
+        <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label={`Shot ${shot.index + 1} complete`} aria-valuenow={100} aria-valuemin={0} aria-valuemax={100}>
+          <div className="h-full w-full rounded-full bg-emerald-400/60" />
+        </div>
+      )}
+
       {/* Prompt + actions */}
       <p
         className="line-clamp-2 text-xs leading-snug text-muted-foreground"

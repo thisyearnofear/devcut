@@ -218,6 +218,12 @@ function DirectorChat({
   const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Auto-focus the chat input when the panel mounts (desktop) or becomes active (mobile)
+  useEffect(() => {
+    const timer = setTimeout(() => inputRef.current?.focus(), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     if (messagesRef.current) {
@@ -430,7 +436,25 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
             : "Agent run failed";
         setLastError(msg);
         toast.error(msg, { duration: 6000 });
-      }).finally(() => setIsRunning(false));
+      }).finally(() => {
+        setIsRunning(false);
+        // Toast on completion — only if shots were generated
+        const finalState = mergeStoryboardState(agent?.state);
+        const readyCount = finalState.shots.filter((s) => s.status === "ready").length;
+        if (readyCount > 0 && finalState.export_status !== "ready") {
+          toast.success(`${readyCount} shot${readyCount > 1 ? "s" : ""} ready`, {
+            description: readyCount === finalState.shots.length
+              ? "All shots complete — ready to export."
+              : `${finalState.shots.length - readyCount} shot${finalState.shots.length - readyCount > 1 ? "s" : ""} still pending.`,
+            duration: 5000,
+          });
+        } else if (finalState.export_status === "ready") {
+          toast.success("Final cut ready", {
+            description: "Your MP4 is ready to download.",
+            duration: 6000,
+          });
+        }
+      });
     },
     [agent, copilotkit, isRunning],
   );
@@ -618,6 +642,13 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                 videosReady={progress.videos}
               />
 
+              {/* Mobile warning */}
+              <div className="w-full max-w-2xl rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-left sm:hidden">
+                <p className="text-xs leading-5 text-amber-300/80">
+                  Director&apos;s Canvas is optimised for desktop. On mobile you can browse and send briefs, but the canvas view works best on a larger screen.
+                </p>
+              </div>
+
               <div className="max-w-2xl space-y-4">
                 <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/60">
                   One brief → storyboard → clips → final cut
@@ -633,12 +664,32 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                 </div>
               </div>
 
+              {/* Quick-start brief chips */}
+              <div className="w-full max-w-2xl">
+                <p className="mb-3 text-left font-mono text-[11px] uppercase tracking-[0.16em] text-white/45">
+                  Quick start
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={isRunning}
+                      onClick={() => injectPrompt(s)}
+                      className="group rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-left text-xs leading-relaxed text-white/65 transition-all hover:border-white/18 hover:bg-white/[0.06] hover:text-white/85 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Avatar showcase — live Runway Characters call or branded placeholder */}
               <AvatarShowcase progressNarration={isRunning ? (progress.stages.find(s => s.status === "active")?.detail ?? null) : null} />
 
               <div className="grid w-full max-w-3xl gap-3 text-left md:grid-cols-3">
                 {[
-                  ["1", "Enter a brief", "Use a suggestion or describe a scene in one sentence."],
+                  ["1", "Enter a brief", "Use a suggestion above or describe a scene in one sentence."],
                   ["2", "Review shots", "Select a shot to inspect prompts, stills, and generated clips."],
                   ["3", "Export final cut", "When every shot is ready, stitch everything into one MP4."],
                 ].map(([step, title, body]) => (
@@ -650,12 +701,6 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
                     <p className="mt-1 text-sm leading-6 text-white/68">{body}</p>
                   </div>
                 ))}
-              </div>
-
-              <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
-                <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/58">
-                  Start in the Chat tab
-                </p>
               </div>
             </div>
           ) : (
