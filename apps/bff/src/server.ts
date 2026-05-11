@@ -149,16 +149,21 @@ async function handleRequest(req: Request): Promise<Response> {
   // Used by deploy.sh, uptime monitors, and manual debugging.
   if (url.pathname === "/health") {
     const checks: Record<string, string> = {};
-    const probe = async (name: string, target: string) => {
+    const probe = async (name: string, target: string, headers?: Record<string, string>) => {
       try {
-        const r = await fetch(target, { signal: AbortSignal.timeout(3000) });
+        const r = await fetch(target, { signal: AbortSignal.timeout(3000), headers });
         checks[name] = `ok (${r.status})`;
       } catch (e: unknown) {
         checks[name] = `fail (${e instanceof Error ? e.message : "unknown"})`;
       }
     };
+    const intelKey = process.env.INTELLIGENCE_API_KEY ?? "";
     await Promise.all([
-      probe("intelligence", `${process.env.INTELLIGENCE_API_URL ?? "http://localhost:4203"}/api/threads`),
+      probe(
+        "intelligence",
+        `${process.env.INTELLIGENCE_API_URL ?? "http://localhost:4203"}/api/threads`,
+        intelKey ? { Authorization: `Bearer ${intelKey}` } : undefined,
+      ),
       probe("agent", `${process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123"}/`),
       probe("mcp", `${process.env.MCP_SERVER_URL ?? "http://localhost:3001/mcp"}`),
     ]);
