@@ -57,7 +57,15 @@ for d in "$ROOT" "$ROOT/apps/frontend" "$ROOT/apps/bff"; do
   fi
 done
 
-# ── 4. Build frontend ─────────────────────────────────────────────────────
+# ── 4. Sync NEXT_PUBLIC_* vars into apps/frontend/.env.local ─────────────
+# Next.js only bakes NEXT_PUBLIC_* vars into the client bundle when they are
+# present in the process environment at build time. Extracting them from the
+# root .env into apps/frontend/.env.local ensures every build picks them up
+# without duplicating secrets in git.
+info "Syncing NEXT_PUBLIC_* vars to apps/frontend/.env.local…"
+grep '^NEXT_PUBLIC_' "$ROOT/.env" > "$ROOT/apps/frontend/.env.local" || true
+
+# ── 4b. Build frontend ────────────────────────────────────────────────────
 # Clear Next.js build cache so the patched node_modules code is actually
 # bundled into the output. Without this, Next.js reuses cached chunks
 # from before the patches were applied.
