@@ -136,6 +136,30 @@ const SUGGESTIONS = [
   "TikTok teaser: indie band 'Static Garden', neon, vertical. 3 shots, 720:1280.",
 ];
 
+// ---------------------------------------------------------------------------
+// Production settings
+// ---------------------------------------------------------------------------
+
+interface ProductionSettings {
+  orientation: "landscape" | "portrait";
+  shotCount: number;
+  shotDuration: number;
+}
+
+const DEFAULT_SETTINGS: ProductionSettings = {
+  orientation: "landscape",
+  shotCount: 4,
+  shotDuration: 5,
+};
+
+function settingsSuffix(s: ProductionSettings): string {
+  const ar = s.orientation === "portrait" ? "720:1280" : "1280:720";
+  return ` [Settings: ${s.shotCount} shots, ${s.shotDuration}s each, ${ar}]`;
+}
+
+const MODEL_LABEL =
+  process.env.NEXT_PUBLIC_AGENT_MODEL ?? "gemini-2.5-pro · AISA";
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -259,6 +283,8 @@ function DirectorChat({
   shots: Shot[];
   storyboard: Storyboard;
 }) {
+  const [settings, setSettings] = useState<ProductionSettings>(DEFAULT_SETTINGS);
+  const [showSettings, setShowSettings] = useState(false);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -281,11 +307,13 @@ function DirectorChat({
     const trimmed = text.trim();
     if (!trimmed || isRunning) return;
     setDraft("");
+    // Append production settings as structured hint for the agent
+    const withSettings = trimmed + settingsSuffix(settings);
     setMessages((prev) => [
       ...prev,
       { id: `u-${Date.now()}`, role: "user", content: trimmed },
     ]);
-    onSend(trimmed);
+    onSend(withSettings);
     inputRef.current?.focus();
   };
 
@@ -464,6 +492,79 @@ function DirectorChat({
         </div>
       )}
 
+      {/* Production settings panel */}
+      {showSettings && !isRunning && (
+        <div className="border-t border-white/10 bg-white/[0.03] px-3 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/50">Production settings</p>
+            <span className="rounded-full border border-white/10 px-2 py-0.5 font-mono text-[10px] text-white/35">{MODEL_LABEL}</span>
+          </div>
+          {/* Orientation */}
+          <div className="space-y-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/40">Orientation</p>
+            <div className="flex gap-1.5">
+              {(["landscape", "portrait"] as const).map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => setSettings((s) => ({ ...s, orientation: o }))}
+                  className={`flex-1 rounded-md border px-2 py-1.5 font-mono text-[11px] transition-colors ${
+                    settings.orientation === o
+                      ? "border-white/35 bg-white/10 text-white/90"
+                      : "border-white/10 text-white/45 hover:border-white/20 hover:text-white/65"
+                  }`}
+                >
+                  {o === "landscape" ? "⬛ Landscape 16:9" : "▮ Portrait 9:16"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Shot count */}
+          <div className="space-y-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/40">Shots</p>
+            <div className="flex gap-1.5">
+              {[3, 4, 5, 6].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setSettings((s) => ({ ...s, shotCount: n }))}
+                  className={`flex-1 rounded-md border py-1.5 font-mono text-[11px] transition-colors ${
+                    settings.shotCount === n
+                      ? "border-white/35 bg-white/10 text-white/90"
+                      : "border-white/10 text-white/45 hover:border-white/20 hover:text-white/65"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Shot duration */}
+          <div className="space-y-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/40">Duration per shot</p>
+            <div className="flex gap-1.5">
+              {[3, 5, 8, 10].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setSettings((s) => ({ ...s, shotDuration: d }))}
+                  className={`flex-1 rounded-md border py-1.5 font-mono text-[11px] transition-colors ${
+                    settings.shotDuration === d
+                      ? "border-white/35 bg-white/10 text-white/90"
+                      : "border-white/10 text-white/45 hover:border-white/20 hover:text-white/65"
+                  }`}
+                >
+                  {d}s
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="font-mono text-[10px] text-white/28 leading-4">
+            Settings are applied to your next brief. Longer shots and more clips increase Runway credit usage.
+          </p>
+        </div>
+      )}
+
       {/* Input */}
       <div className="border-t border-white/10 p-3">
         <div className="flex items-end gap-2">
@@ -490,9 +591,21 @@ function DirectorChat({
             Cut
           </button>
         </div>
-        <p className="mt-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-white/45">
-          ↵ send · shift+↵ newline
-        </p>
+        <div className="mt-1.5 flex items-center justify-between">
+          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/45">
+            ↵ send · shift+↵ newline
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowSettings((v) => !v)}
+            disabled={isRunning}
+            className={`font-mono text-[11px] uppercase tracking-[0.12em] transition-colors disabled:opacity-30 ${
+              showSettings ? "text-white/70" : "text-white/35 hover:text-white/55"
+            }`}
+          >
+            {showSettings ? "✕ settings" : "⚙ settings"}
+          </button>
+        </div>
       </div>
     </div>
   );
