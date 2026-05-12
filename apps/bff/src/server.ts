@@ -15,9 +15,6 @@ import {
   acquireSlot,
   releaseSlot,
   inflightCount,
-  dedupKey,
-  dedupGet,
-  dedupSet,
   MAX_QUEUE_WAITERS,
   QUEUE_TIMEOUT_MS,
   EST_RUN_SECONDS,
@@ -271,17 +268,6 @@ async function handleRequest(req: Request): Promise<Response> {
       (body.agent_id as string | undefined) ??
       "";
 
-    // ---- Request deduplication ----
-    const dk = dedupKey(threadId, body);
-    const cached = dedupGet(dk);
-    if (cached) {
-      console.log(JSON.stringify({
-        request_id: requestId, thread_id: threadId, agent_id: agentId,
-        status: cached.status, duration_ms: 0, dedup: true,
-      }));
-      return cached;
-    }
-
     // ---- Per-thread circuit breaker ----
     const cb = breakerCheck(threadId);
     if (cb.open) {
@@ -364,7 +350,6 @@ async function handleRequest(req: Request): Promise<Response> {
         breakerRecordFailure(threadId);
       } else if (res.status >= 200 && res.status < 400) {
         breakerRecordSuccess(threadId);
-        dedupSet(dk, res);
       }
       const durationMs = Date.now() - requestStart;
       console.log(JSON.stringify({
