@@ -38,6 +38,10 @@ const nextConfig: NextConfig = {
         source: "/api/copilotkit",
         destination: `${BFF_URL}/api/copilotkit`,
       },
+      {
+        source: "/api/thread-state/:path*",
+        destination: `${BFF_URL}/api/thread-state/:path*`,
+      },
     ];
   },
 };
