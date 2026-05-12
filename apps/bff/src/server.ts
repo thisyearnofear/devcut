@@ -194,6 +194,10 @@ async function handleRequest(req: Request): Promise<Response> {
     return handleReadyz();
   }
 
+  // ---- Thread-state proxy (frontend canvas restore on thread switch) ----
+  const threadStateMatch = url.pathname.match(/^\/api\/thread-state\/([^/]+)$/);
+  if (threadStateMatch) return handleThreadState(decodeURIComponent(threadStateMatch[1]));
+
   // ---- Budget increment endpoint (called by Python agent) ----
   if (url.pathname === "/api/runway-call-used" && req.method === "POST") {
     let body: Record<string, unknown> = {};
@@ -392,6 +396,29 @@ async function handleRequest(req: Request): Promise<Response> {
 
   // GETs (info polling, etc.) pass through without slot tracking.
   return rewriteWsUrl(rewriteErrors(await copilotApp.fetch(proxiedReq)));
+}
+
+// ---- Thread-state proxy ----
+// Fetches persisted LangGraph checkpoint for a thread so the frontend can
+// restore the canvas when the user switches to a previous thread.
+const LANGGRAPH_URL = process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123";
+
+async function handleThreadState(threadId: string): Promise<Response> {
+  try {
+    const upstream = await fetch(`${LANGGRAPH_URL}/threads/${encodeURIComponent(threadId)}/state`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    const body = await upstream.text();
+    return new Response(body, {
+      status: upstream.status,
+      headers: { "content-type": "application/json" },
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "upstream_timeout" }), {
+      status: 504,
+      headers: { "content-type": "application/json" },
+    });
+  }
 }
 
 const app = { fetch: handleRequest };

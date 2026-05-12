@@ -503,7 +503,7 @@ function DirectorChat({
 // ---------------------------------------------------------------------------
 
 
-function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Storyboard) => void }) {
+function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?: (s: Storyboard) => void; threadId?: string }) {
   // Must pass agentId: "director" — see useLiveStoryboardState above.
   const { agent } = useAgent({ agentId: "director" });
   const { copilotkit } = useCopilotKit();
@@ -514,6 +514,21 @@ function DirectorCanvas({ onStoryboardChange }: { onStoryboardChange?: (s: Story
   const [queuePosition, setQueuePosition] = useState(0);
   const [estimatedWaitSec, setEstimatedWaitSec] = useState(0);
   const { key: runwayKey } = useRunwayApiKey();
+
+  // Restore persisted thread state from LangGraph on thread switch
+  const restoredThreadRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!agent || !threadId) return;
+    if (restoredThreadRef.current === threadId) return;
+    restoredThreadRef.current = threadId;
+    fetch(`/api/thread-state/${encodeURIComponent(threadId)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.values) return;
+        agent.setState(mergeStoryboardState(data.values));
+      })
+      .catch(() => { /* silently ignore — agent state stays empty */ });
+  }, [agent, threadId]);
 
   // Auto-inject ?brief= from landing page
   const briefInjectedRef = useRef(false);
@@ -1055,7 +1070,7 @@ function DirectorPage() {
       />
       <div className={drawerStyles.mainPanel}>
         <CopilotChatConfigurationProvider key={threadId ?? "new"} agentId="director" threadId={threadId}>
-          <DirectorCanvas onStoryboardChange={handleStoryboardChange} />
+          <DirectorCanvas onStoryboardChange={handleStoryboardChange} threadId={threadId} />
         </CopilotChatConfigurationProvider>
       </div>
     </div>
