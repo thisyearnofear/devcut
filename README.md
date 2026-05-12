@@ -11,8 +11,6 @@ No chat-wrapper: the agent's output **is** the interface.
 
 Built for the **[Runway API Hackathon](https://runwayml.com/api-hackathon)**.
 
-![Hackathon Banner](apps/frontend/public/banner.jpg)
-
 ## What's here
 
 | Route | What it is |
