@@ -117,6 +117,9 @@ check_svc "MCP"      "http://localhost:3011/mcp"                 "director-mcp"
 
 if [ "$FAIL" = "0" ]; then
   info "Deploy complete — all services healthy ✓"
+  # Run smoke test (non-blocking — deploy succeeds even if smoke fails)
+  info "Running post-deploy smoke test…"
+  bash "$ROOT/scripts/smoke-test.sh" "http://localhost:4010" || warn "Smoke test had failures (see above)"
 else
   warn "Deploy complete — some services need attention (see above)"
 fi
