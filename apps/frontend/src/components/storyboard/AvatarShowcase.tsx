@@ -81,6 +81,11 @@ export function AvatarShowcase({ progressNarration = null }: AvatarShowcaseProps
     setErrorMsg("");
   }, []);
 
+  // Auto-connect on mount so the avatar is live without a click.
+  useEffect(() => {
+    if (AVATAR_ID) connect();
+  }, [connect]);
+
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
@@ -111,28 +116,21 @@ export function AvatarShowcase({ progressNarration = null }: AvatarShowcaseProps
 
   return (
     <div className="flex w-full max-w-md flex-col items-center gap-3">
-      {/* Idle — call-to-action */}
+      {/* Idle — show a subtle placeholder while auto-connect fires */}
       {state === "idle" && (
-        <button
-          type="button"
-          onClick={connect}
-          className="group flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-8 transition-colors hover:border-white/20 hover:bg-white/[0.07]"
-        >
-          <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/30 to-fuchsia-500/30 transition-transform group-hover:scale-105">
+        <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-8">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/30 to-fuchsia-500/30">
             <span className="text-5xl">🎬</span>
-            <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/90 text-xs text-white shadow-lg">
-              ▶
-            </span>
           </div>
           <div className="space-y-1 text-center">
-            <p className="text-sm font-medium text-white/82">
-              Talk to the Director
-            </p>
-            <p className="text-xs text-white/45">
-              Live video call · powered by Runway Characters
-            </p>
+            <p className="text-sm font-medium text-white/82">Talk to the Director</p>
+            <p className="text-xs text-white/45">Live video call · powered by Runway Characters</p>
           </div>
-        </button>
+          <button type="button" onClick={connect}
+            className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-white/60 hover:text-white/85 transition-colors">
+            Connect
+          </button>
+        </div>
       )}
 
       {/* Connecting */}

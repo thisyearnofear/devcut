@@ -160,6 +160,9 @@ function settingsSuffix(s: ProductionSettings): string {
 const MODEL_LABEL =
   process.env.NEXT_PUBLIC_AGENT_MODEL ?? "gemini-2.5-pro · AISA";
 
+// True when the Runway avatar is configured — baked in at build time.
+const AVATAR_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_RUNWAY_AVATAR_ID);
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -195,7 +198,7 @@ function getAgentProgress(state: StoryboardState, isRunning: boolean): AgentProg
     stages: [
       {
         label: "Storyboard",
-        detail: total > 0 ? `${total} shots planned` : isRunning ? "Planning your storyboard…" : "Waiting for a brief",
+        detail: total > 0 ? `${total} shots planned` : isRunning ? "__planning__" : "Waiting for a brief",
         status: total > 0 ? "done" : isRunning ? "active" : "waiting",
       },
       {
@@ -238,6 +241,39 @@ const STAGE_ESTIMATES: Record<string, number> = {
   "Motion clips": 180,
   "Final cut": 30,
 };
+
+// Animated cycling text shown during the planning stage
+const PLANNING_PHRASES = [
+  "Planning your storyboard…",
+  "Analysing your brief…",
+  "Composing shot list…",
+  "Mapping cinematic beats…",
+  "Structuring the narrative…",
+  "Designing the visual arc…",
+];
+
+function PlanningText() {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const cycle = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx((i) => (i + 1) % PLANNING_PHRASES.length);
+        setVisible(true);
+      }, 400);
+    }, 2800);
+    return () => clearInterval(cycle);
+  }, []);
+  return (
+    <span
+      className="transition-opacity duration-400"
+      style={{ opacity: visible ? 1 : 0 }}
+    >
+      {PLANNING_PHRASES[idx]}
+    </span>
+  );
+}
 
 function ElapsedTimer({ isRunning }: { isRunning: boolean }) {
   const [elapsed, setElapsed] = useState(0);
@@ -418,7 +454,7 @@ function DirectorChat({
                           )}
                         </div>
                         <p className="truncate text-[11px] text-white/55">
-                          {activeShot?.progress_label ?? stage.detail}
+                          {stage.detail === "__planning__" ? <PlanningText /> : (activeShot?.progress_label ?? stage.detail)}
                         </p>
                       </div>
                     </div>
@@ -485,8 +521,8 @@ function DirectorChat({
         )}
       </div>
 
-      {/* Avatar — pinned above input, collapsed by default (only when configured) */}
-      {process.env.NEXT_PUBLIC_RUNWAY_AVATAR_ID && (
+      {/* Avatar — pinned above input (only when configured) */}
+      {AVATAR_CONFIGURED && (
         <div className="border-t border-white/10">
           <AvatarPanel storyboard={storyboard} />
         </div>
@@ -953,8 +989,10 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                 </div>
               </div>
 
-              {/* Avatar showcase — live Runway Characters call or branded placeholder */}
-              <AvatarShowcase progressNarration={isRunning ? (progress.stages.find(s => s.status === "active")?.detail ?? null) : null} />
+              {/* Avatar showcase — only shown when avatar is NOT configured in chat panel */}
+              {!AVATAR_CONFIGURED && (
+                <AvatarShowcase progressNarration={null} />
+              )}
 
               <div className="grid w-full max-w-3xl gap-3 text-left md:grid-cols-3">
                 {[
