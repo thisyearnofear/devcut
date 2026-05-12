@@ -30,7 +30,17 @@ STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$BASE/health" 2>/
 
 # 3. /info returns agents
 BODY=$(curl -s --max-time 10 "$BASE/api/copilotkit/info" 2>/dev/null || echo "{}")
-if echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); names=[a['name'] for a in d.get('agents',[])]; assert 'director' in names" 2>/dev/null; then
+if echo "$BODY" | python3 -c "
+import sys,json; d=json.load(sys.stdin)
+agents=d.get('agents',[])
+if isinstance(agents, list):
+    names=[a.get('name','') for a in agents]
+elif isinstance(agents, dict):
+    names=list(agents.keys())
+else:
+    names=[]
+assert 'director' in names
+" 2>/dev/null; then
   pass "/api/copilotkit/info lists 'director' agent"
 else
   fail "/api/copilotkit/info missing 'director' agent"
