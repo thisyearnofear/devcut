@@ -1054,7 +1054,7 @@ function DirectorPage() {
         storyboard={storyboard}
       />
       <div className={drawerStyles.mainPanel}>
-        <CopilotChatConfigurationProvider agentId="director" threadId={threadId}>
+        <CopilotChatConfigurationProvider key={threadId ?? "new"} agentId="director" threadId={threadId}>
           <DirectorCanvas onStoryboardChange={handleStoryboardChange} />
         </CopilotChatConfigurationProvider>
       </div>

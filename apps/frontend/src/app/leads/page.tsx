@@ -684,7 +684,7 @@ function HomePage() {
         onThreadChange={setThreadId}
       />
       <div className={drawerStyles.mainPanel}>
-        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+        <CopilotChatConfigurationProvider key={threadId ?? "new"} agentId="default" threadId={threadId}>
           <CanvasInner />
         </CopilotChatConfigurationProvider>
       </div>
