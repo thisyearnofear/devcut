@@ -515,20 +515,23 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   const [estimatedWaitSec, setEstimatedWaitSec] = useState(0);
   const { key: runwayKey } = useRunwayApiKey();
 
-  // Restore persisted thread state from LangGraph on thread switch
+  // Persisted checkpoint fetched from LangGraph on thread switch.
+  // Stored locally because agent.setState() only works during an active run.
+  const [restoredState, setRestoredState] = useState<StoryboardState | null>(null);
   const restoredThreadRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!agent || !threadId) return;
+    if (!threadId) return;
     if (restoredThreadRef.current === threadId) return;
     restoredThreadRef.current = threadId;
+    setRestoredState(null);
     fetch(`/api/thread-state/${encodeURIComponent(threadId)}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (!data?.values) return;
-        agent.setState(mergeStoryboardState(data.values));
+        setRestoredState(mergeStoryboardState(data.values));
       })
-      .catch(() => { /* silently ignore — agent state stays empty */ });
-  }, [agent, threadId]);
+      .catch(() => { /* silently ignore */ });
+  }, [threadId]);
 
   // Auto-inject ?brief= from landing page
   const briefInjectedRef = useRef(false);
@@ -618,7 +621,10 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
     [agent, copilotkit, isRunning],
   );
 
-  const state = mergeStoryboardState(agent?.state);
+  // Use live agent state when a run is active, otherwise fall back to the
+  // locally-stored checkpoint so previous threads render without needing a run.
+  const liveState = mergeStoryboardState(agent?.state);
+  const state = (liveState.shots.length > 0 || isRunning) ? liveState : (restoredState ?? liveState);
   const progress = useMemo(() => getAgentProgress(state, isRunning), [state, isRunning]);
 
   useEffect(() => {
