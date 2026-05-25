@@ -42,6 +42,7 @@ git pull --ff-only || { warn "git pull failed — continuing with current code";
 # ── 2. Install dependencies ───────────────────────────────────────────────
 info "Installing dependencies…"
 npm ci 2>&1 | tail -3
+npm cache clean --force 2>&1 | tail -1
 
 # ── 3. Apply patches ───────────────────────────────────────────────────────
 # MUST run BEFORE the frontend/BFF builds so Next.js bundles the patched
@@ -80,6 +81,10 @@ if [ -d apps/frontend/.next/standalone ]; then
   cp -r apps/frontend/.next/static apps/frontend/.next/standalone/apps/frontend/.next/static 2>/dev/null || true
   cp -r apps/frontend/public apps/frontend/.next/standalone/apps/frontend/public 2>/dev/null || true
 fi
+
+# Build cache is not needed at runtime — saves ~720M
+info "Removing build cache…"
+rm -rf apps/frontend/.next/cache
 
 # ── 5. Build BFF ───────────────────────────────────────────────────────────
 info "Building BFF…"
