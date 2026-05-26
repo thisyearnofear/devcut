@@ -24,7 +24,8 @@
     "license": "npx copilotkit license -n hackathon-kit",
     "build": "npm run build --workspace frontend",
     "start": "npm run start --workspace frontend",
-    "lint": "npm run lint --workspace frontend"
+    "lint": "npm run lint --workspace frontend",
+    "prepare": "husky"
   },
   "dependencies": {
     "dompurify": "^3.3.0",
@@ -33,6 +34,7 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "husky": "^9.1.7"
   }
 }

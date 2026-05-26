@@ -1,0 +1,76 @@
+#!/usr/bin/env sh
+set -e
+
+echo "🔍 Checking for secrets in staged files..."
+
+# Patterns for common secrets
+PATTERNS=(
+  "AKIA[0-9A-Z]{16}"                    # AWS Access Key ID
+  "[A-Za-z0-9/+=]{40}"                  # AWS Secret Access Key (40 chars)
+  "xox[baprs]-[0-9a-zA-Z]{10,48}"       # Slack tokens
+  "sk-[0-9a-zA-Z]{32,48}"               # OpenAI API keys
+  "ghp_[0-9a-zA-Z]{36}"                 # GitHub Personal Access Tokens
+  "ghu_[0-9a-zA-Z]{36}"                 # GitHub User-to-Server tokens
+  "gho_[0-9a-zA-Z]{36}"                 # GitHub OAuth
+  "ghs_[0-9a-zA-Z]{36}"                 # GitHub Server OAuth
+  "ghr_[0-9a-zA-Z]{36}"                 # GitHub Refresh tokens
+  "sk_live_[0-9a-zA-Z]{24,}"            # Stripe live keys
+  "sk_test_[0-9a-zA-Z]{24,}"            # Stripe test keys
+  "pk_live_[0-9a-zA-Z]{24,}"            # Stripe live public keys
+  "pk_test_[0-9a-zA-Z]{24,}"            # Stripe test public keys
+  "sq0csp-[0-9A-Za-z_-]{43}"            # Square OAuth
+  "sq0atp-[0-9A-Za-z_-]{22}"            # Square access token
+  "-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"  # Private keys
+  "password\s*=\s*['\"][^'\"]{6,}['\"]"  # password=
+  "api[_-]?key\s*=\s*['\"][^'\"]{10,}['\"]"  # api_key=
+  "apikey\s*=\s*['\"][^'\"]{10,}['\"]"  # apikey=
+  "secret\s*=\s*['\"][^'\"]{10,}['\"]"   # secret=
+  "token\s*=\s*['\"][^'\"]{10,}['\"]"    # token=
+)
+
+# Get staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED_FILES" ]; then
+  echo "✅ No files staged"
+  exit 0
+fi
+
+# Check each staged file
+FOUND_SECRETS=0
+for file in $STAGED_FILES; do
+  # Skip binary files and ignored patterns
+  if echo "$file" | grep -qE "\.(lock|min\.js|min\.css|map)$"; then
+    continue
+  fi
+  
+  if echo "$file" | grep -qE "node_modules/|.husky/"; then
+    continue
+  fi
+  
+  # Check if file exists and is readable
+  if [ -f "$file" ]; then
+    # Use git show to get staged content
+    CONTENT=$(git show ":$file" 2>/dev/null)
+    if [ $? -eq 0 ]; then
+      # Build combined pattern
+      COMBINED_PATTERN=$(printf "|%s" "${PATTERNS[@]}" | cut -c2-)
+      MATCHES=$(echo "$CONTENT" | grep -E "$COMBINED_PATTERN" 2>/dev/null || true)
+      if [ -n "$MATCHES" ]; then
+        echo "❌ Secrets detected in $file:"
+        echo "$MATCHES" | head -5
+        FOUND_SECRETS=1
+      fi
+    fi
+  fi
+done
+
+if [ $FOUND_SECRETS -eq 1 ]; then
+  echo ""
+  echo "💡 Tip: Use environment variables or a secrets manager for sensitive values."
+  echo "💡 Add false positives to .gitignore or use a secrets scanner like git-secrets."
+  exit 1
+fi
+
+echo "✅ No secrets detected"
+exit 0
