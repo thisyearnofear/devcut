@@ -200,6 +200,9 @@ rsync -az --info=progress2 --delete \
   --exclude='Thumbs.db' \
   "$LOCAL_RELEASE/" "$REMOTE:$REMOTE_RELEASE/"
 
+# Fix permissions so nginx (www-data) can traverse the release tree
+ssh "$REMOTE" "chmod o+rx $REMOTE_RELEASE"
+
 # ── 6. SERVER-SIDE SETUP ────────────────────────────────────────────────────
 info "Server-side setup..."
 ssh "$REMOTE" "
