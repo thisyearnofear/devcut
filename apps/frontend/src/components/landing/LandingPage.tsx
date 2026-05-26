@@ -665,7 +665,6 @@ export default function LandingPage() {
           <div className="space-y-0">
             {SCENES.map((scene, i) => {
               const isEven = i % 2 === 1;
-              // Editorial images from bizarro/infinite-webgl-gallery
               const images = [
                 "/demo/workflow-1.jpg",
                 "/demo/workflow-2.jpg",
@@ -680,15 +679,22 @@ export default function LandingPage() {
                   className={`flex flex-col ${isEven ? "lg:flex-row-reverse" : "lg:flex-row"} min-h-[60vh] lg:min-h-[70vh]`}
                 >
                   {/* Media panel */}
-                  <div className="relative w-full overflow-hidden lg:w-1/2">
+                  <div className="relative w-full overflow-hidden lg:w-1/2" style={{ minHeight: "400px" }}>
                     <img
                       src={imgSrc}
                       alt={scene.title}
                       className="absolute inset-0 h-full w-full object-cover"
-                      loading="lazy"
+                      style={{ minHeight: "400px" }}
                     />
-                    {/* Gradient overlay */}
-                    <div className={`absolute inset-0 bg-gradient-to-${isEven ? "l" : "r"} from-transparent via-black/20 to-black/60`} />
+                    {/* Gradient overlay — static classes for Tailwind JIT */}
+                    <div
+                      className="absolute inset-0 from-transparent via-black/20 to-black/60"
+                      style={{
+                        background: isEven
+                          ? "linear-gradient(to left, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.6) 100%)"
+                          : "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.6) 100%)",
+                      }}
+                    />
                     {/* WorkflowVisual badge inset */}
                     <div className="absolute bottom-6 left-6 right-6 lg:bottom-8 lg:left-8 lg:right-8">
                       <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/70 p-4 backdrop-blur-md">
