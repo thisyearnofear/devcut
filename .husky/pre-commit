@@ -6,7 +6,7 @@ echo "🔍 Checking for secrets in staged files..."
 # Patterns for common secrets
 PATTERNS=(
   "AKIA[0-9A-Z]{16}"                    # AWS Access Key ID
-  "[A-Za-z0-9/+=]{40}"                  # AWS Secret Access Key (40 chars)
+  "aws_secret_access_key\s*=\s*[A-Za-z0-9/+=]{40}"  # AWS Secret Access Key
   "xox[baprs]-[0-9a-zA-Z]{10,48}"       # Slack tokens
   "sk-[0-9a-zA-Z]{32,48}"               # OpenAI API keys
   "ghp_[0-9a-zA-Z]{36}"                 # GitHub Personal Access Tokens

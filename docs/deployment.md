@@ -1,88 +1,120 @@
 # Deploying to Hetzner (or any Linux VPS)
 
-Everything runs in Docker. One `docker compose up` starts all services
-and Caddy handles TLS automatically via Let's Encrypt.
+Build locally, deploy lightweight artifacts to the server via rsync. No
+Docker required — services run via PM2.
+
+## Architecture
+
+```
+Local machine                  Hetzner server (snel-bot)
+┌─────────────┐   rsync       /opt/gen-ui/
+│ npm run build├──────────▶   ├── .env              (real file)
+│ BFF tsc      │              ├── current -> releases/<ts>/
+│ mcp-use build│              │   ├── apps/frontend  (Next.js standalone)
+│              │              │   ├── apps/bff        (Hono + 5 prod deps)
+│              │              │   ├── apps/mcp        (mcp-use widgets + node_modules)
+│              │              │   └── apps/agent      (src + .venv via uv sync)
+│              │              ├── releases/           (keep last 3)
+│              │              └── logs/               (PM2 logs, shared)
+└─────────────┘               PM2: frontend :3100, BFF :4010, agent :8123, MCP :3011
+```
 
 ## Prerequisites on the server
 
 ```bash
-# Docker + Compose plugin (Debian/Ubuntu)
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER   # log out and back in after this
+# Node.js 22+ (for PM2 and services)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
+sudo apt install -y nodejs
 
-# Verify
-docker compose version   # needs 2.x
+# PM2
+npm install -g pm2
+pm2 startup   # follow the printed instructions
+
+# uv (Python package manager, for the agent)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# rsync (usually pre-installed)
+sudo apt install -y rsync
 ```
 
-## 1. Point your domain at the server
-
-Create an A record for your domain (e.g. `director.yourdomain.com`) pointing
-to the server's IPv4 address. Caddy won't issue a certificate until DNS
-resolves correctly.
-
-## 2. Clone the repo on the server
+## 1. Set up SSH access
 
 ```bash
-git clone https://github.com/thisyearnofear/gen-ui.git
-cd gen-ui
+# On your local machine — add to ~/.ssh/config
+Host snel-bot
+    HostName <server-ip>
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519
+
+# Copy the .env to the server (one-time)
+scp .env snel-bot:/opt/gen-ui/.env
 ```
 
-## 3. Create the production `.env`
+The `.env` file lives at `/opt/gen-ui/.env` on the server. Each release
+symlinks to it — never shipped in the artifact.
+
+## 2. Deploy
 
 ```bash
-cp .env.production.example .env
+# From the project root on your local machine
+bash scripts/deploy-local.sh
 ```
 
-Fill in every value. The minimum required set:
+This single command:
+
+1. **Builds** frontend (.next), BFF (tsc), and MCP (mcp-use build) locally
+2. **Creates a release** with only runtime artifacts (~570 MB)
+3. **Rsyncs** to the server (`/opt/gen-ui/releases/<timestamp>/`)
+4. **Installs** BFF production deps (5 packages, ~5 MB), agent Python deps (uv sync)
+5. **Symlinks** `.env` at both `release/.env` and `release/apps/agent/.env`
+6. **Flips** `current/` symlink to the new release
+7. **Reloads** PM2 (`pm2 startOrReload ecosystem.config.js --update-env`)
+8. **Health checks** all 4 services (Frontend, BFF, Agent, MCP) with retries
+9. **Rolls back** automatically if any health check fails
+10. **Prunes** old releases (keeps 3)
+11. **Cleans** old monorepo artifacts on first deploy
+
+## 3. Verify
+
+```bash
+# SSH to the server
+ssh snel-bot
+
+# Check all services are up
+pm2 list
+
+# Check health endpoints
+curl http://localhost:3100/      # Frontend
+curl http://localhost:4010/health # BFF (returns service status JSON)
+curl http://localhost:8123/ok    # Agent (LangGraph)
+curl http://localhost:3011/mcp   # MCP server
+
+# Check disk usage
+df -h /opt/gen-ui
+```
+
+## Production ports
+
+| Service | Port | Notes |
+| --- | --- | --- |
+| Frontend (Next.js standalone) | 3100 | Proxied via Nginx/Caddy to 443 |
+| BFF (CopilotKit runtime) | 4010 | Internal only — frontend proxies to it |
+| Agent (LangGraph) | 8123 | Internal only — BFF connects to it |
+| MCP (mcp-use widgets) | 3011 | Internal only — BFF connects to it |
+
+## Environment variables
+
+The server reads all secrets from `/opt/gen-ui/.env`. Key variables:
 
 | Variable | Where to get it |
 | --- | --- |
 | `DOMAIN` | Your domain, e.g. `director.yourdomain.com` |
 | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com) → Get API key |
-| `RUNWAY_API_KEY` | [dev.runwayml.com](https://dev.runwayml.com) → API keys (leave blank for MOCK mode) |
+| `RUNWAY_API_KEY` | [dev.runwayml.com](https://dev.runwayml.com) → leave blank for MOCK mode |
 | `COPILOTKIT_LICENSE_TOKEN` | Run `npm run license` locally, copy the token |
 | `INTELLIGENCE_AUTH_SECRET` | `openssl rand -base64 32` |
 | `INTELLIGENCE_RUNNER_AUTH_SECRET` | `openssl rand -base64 32` |
 | `INTELLIGENCE_SECRET_KEY_BASE` | `openssl rand -base64 64` |
-
-## 4. Deploy
-
-```bash
-docker compose -f deployment/docker-compose.prod.yml up -d --wait
-```
-
-This builds all images, starts all services, and waits for health checks.
-First build takes 3–5 minutes (Python deps + Next.js build). Subsequent
-deploys are fast because Docker caches layers.
-
-Caddy will automatically obtain a TLS certificate on first request. Make
-sure port 80 and 443 are open in your Hetzner firewall rules.
-
-## 5. Verify
-
-```bash
-# All containers should be Up
-docker compose -f deployment/docker-compose.prod.yml ps
-
-# Check logs for any startup errors
-docker compose -f deployment/docker-compose.prod.yml logs --tail=50
-
-# Hit the app
-curl -I https://director.yourdomain.com
-```
-
-Open `https://director.yourdomain.com` in a browser. You should land on
-the `/director` canvas.
-
-## Updating
-
-```bash
-git pull
-docker compose -f deployment/docker-compose.prod.yml up -d --build --wait
-```
-
-The `--build` flag rebuilds only the images whose source changed. The
-`--wait` flag waits for health checks before returning.
 
 ## Hetzner firewall rules
 
@@ -91,12 +123,11 @@ In the Hetzner Cloud console → Firewalls, allow inbound:
 | Protocol | Port | Source |
 | --- | --- | --- |
 | TCP | 22 | Your IP (SSH) |
-| TCP | 80 | Any (Caddy HTTP→HTTPS redirect + ACME challenge) |
+| TCP | 80 | Any (HTTP→HTTPS redirect) |
 | TCP | 443 | Any (HTTPS) |
-| UDP | 443 | Any (HTTP/3) |
 
-No other ports need to be public — all internal service communication
-happens on the `internal` Docker network.
+Internal service ports (3100, 4010, 8123, 3011) are NOT exposed publicly —
+Nginx or Caddy proxies external traffic to them.
 
 ## Recommended server size
 
@@ -106,44 +137,60 @@ happens on the `internal` Docker network.
 | Live Runway generation | CX32 (4 vCPU, 8 GB RAM) |
 | High traffic | CX42 + separate Postgres |
 
-The agent (Python + LangGraph) is the memory-hungry service. The
-Intelligence composite container needs ~512 MB. Budget ~2 GB total for
-the full stack at idle.
+Budget ~2 GB for the full stack at idle. The agent (Python + LangGraph)
+is the most memory-hungry service (~512 MB).
 
-## Persistent data
+## Updating
 
-All stateful data lives in named Docker volumes:
-
-| Volume | Contents |
-| --- | --- |
-| `postgres-data` | Intelligence threads (Postgres) |
-| `redis-data` | Budget counters + Intelligence cache |
-| `exports` | Stitched MP4 exports |
-| `caddy-data` | TLS certificates |
-
-To back up threads:
 ```bash
-docker exec directors-canvas-prod-postgres-1 \
-  pg_dump -U intelligence intelligence_app | gzip > threads-backup.sql.gz
+bash scripts/deploy-local.sh
+```
+
+Same command every time. The deploy script handles build, rsync, health
+check, rollback, and cleanup automatically.
+
+## Rollback
+
+If a deploy fails the health check, the script automatically rolls back
+to the previous release. To manually roll back:
+
+```bash
+ssh snel-bot
+cd /opt/gen-ui/releases
+ls -t                          # see available releases
+ln -snf releases/<timestamp> /opt/gen-ui/current
+pm2 startOrReload /opt/gen-ui/ecosystem.config.js --update-env
+```
+
+## Disk management
+
+The deploy script keeps 3 releases (~1.7 GB). Old monorepo artifacts
+(`node_modules`, `.git`, `.next`, agent `.venv`) are cleaned automatically
+after the first deploy.
+
+To check disk usage:
+```bash
+ssh snel-bot 'du -sh /opt/gen-ui/* | sort -rh'
+ssh snel-bot 'df -h /opt/gen-ui'
 ```
 
 ## Troubleshooting
 
-**Caddy can't get a certificate**
-- Check DNS: `dig director.yourdomain.com` should return your server IP.
-- Check ports 80/443 are open in Hetzner firewall.
-- Check Caddy logs: `docker compose -f deployment/docker-compose.prod.yml logs caddy`
-
 **Agent fails to start**
 - Check `GEMINI_API_KEY` is set and not a stub value.
-- Check agent logs: `docker compose -f deployment/docker-compose.prod.yml logs agent`
+- Check agent logs: `pm2 logs director-agent --lines 50`
+
+**MCP crash-loops**
+- Check MCP logs: `pm2 logs director-mcp --lines 50`
+- Ensure `PORT=3011` is set in the ecosystem config env block.
+
+**BFF returns 503**
+- BFF's `/health` endpoint checks downstream services (Agent, MCP).
+- If Agent or MCP are down, BFF returns degraded. Check those first.
 
 **"Thread locked" errors in chat**
 - A previous turn errored mid-stream. Start a new conversation (sidebar → +).
 
-**Exports not serving**
-- The `exports` volume must be mounted in both `agent` and `frontend` containers.
-- Check: `docker compose -f deployment/docker-compose.prod.yml exec frontend ls /app/apps/frontend/public/exports`
-
-**Budget counter not persisting**
-- Redis must be healthy. Check: `docker compose -f deployment/docker-compose.prod.yml exec redis redis-cli ping`
+**Build fails locally**
+- Ensure all deps are installed: `npm install --ignore-scripts`
+- Rebuild MCP: `cd apps/mcp && npm install --ignore-scripts && npm run build`

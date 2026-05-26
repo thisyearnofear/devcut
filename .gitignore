@@ -41,7 +41,11 @@ apps/agent/data/leads.local.json
 # VS Code workspace settings — personal, not project config
 .vscode/
 
+# Local release builds (created by scripts/deploy-local.sh)
+releases/
+
 # Internal: starter-kit authoring docs, not for downstream hackathon teams
 COMPLIANCE.md
 PLAN.md
 .output.txt
+.blackboxcli/

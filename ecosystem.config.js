@@ -12,7 +12,8 @@ const fs   = require('fs');
 // ---------------------------------------------------------------------------
 // Load .env from the project root (works both locally and on the server)
 // ---------------------------------------------------------------------------
-const ROOT = __dirname;                       // repo root
+const ROOT = __dirname;                       // repo root (/opt/gen-ui)
+const CURRENT = path.join(ROOT, 'current');  // -> releases/<ts>/
 const ENV_PATH = path.join(ROOT, '.env');
 
 function loadEnv(filePath) {
@@ -53,7 +54,7 @@ module.exports = {
     // ── Frontend (Next.js standalone) ──────────────────────────────────
     {
       name: 'director-frontend',
-      script: path.join(ROOT, 'apps/frontend/.next/standalone/apps/frontend/server.js'),
+      script: path.join(CURRENT, 'apps/frontend/.next/standalone/apps/frontend/server.js'),
       env: serviceEnv({
         PORT: '3100',
         NODE_ENV: 'production',
@@ -70,7 +71,7 @@ module.exports = {
     // ── BFF (CopilotKit runtime) ───────────────────────────────────────
     {
       name: 'director-bff',
-      script: path.join(ROOT, 'apps/bff/dist/server.js'),
+      script: path.join(CURRENT, 'apps/bff/dist/server.js'),
       env: serviceEnv({
         PORT: '4010',
         NODE_ENV: 'production',
@@ -85,30 +86,41 @@ module.exports = {
     },
 
     // ── Agent (LangGraph via uv) ───────────────────────────────────────
-    // DISABLED: Docker now owns the agent process (langgraph up).
-    // Kept commented out for reference / rollback.
-    // {
-    //   name: 'director-agent',
-    //   script: '/home/deploy/.local/bin/uv',
-    //   args: 'run langgraph dev --port 8123 --no-browser --no-reload',
-    //   cwd: path.join(ROOT, 'apps/agent'),
-    //   env: serviceEnv({
-    //     PATH: '/home/deploy/.local/bin:/usr/local/bin:/usr/bin:/bin',
-    //   }),
-    //   error_file: path.join(ROOT, 'logs/agent-error.log'),
-    //   out_file:   path.join(ROOT, 'logs/agent-out.log'),
-    // },
+    {
+      name: 'director-agent',
+      script: path.join(CURRENT, 'apps/agent/.venv/bin/langgraph'),
+      args: 'dev --host 0.0.0.0 --port 8123 --no-browser',
+      cwd: path.join(CURRENT, 'apps/agent'),
+      env: serviceEnv({
+        PATH: path.join(CURRENT, 'apps/agent/.venv/bin') + ':/home/deploy/.local/bin:/usr/local/bin:/usr/bin:/bin',
+        VIRTUAL_ENV: path.join(CURRENT, 'apps/agent/.venv'),
+        LANGCHAIN_TRACING_V2: 'false',
+      }),
+      exec_interpreter: 'none',
+      restart_delay: 3000,
+      exp_backoff_restart_delay: 100,
+      max_memory_restart: '512M',
+      kill_timeout: 8000,
+      error_file: path.join(ROOT, 'logs/agent-error.log'),
+      out_file:   path.join(ROOT, 'logs/agent-out.log'),
+    },
 
     // ── MCP Server (mcp-use widgets) ──────────────────────────────────
     {
       name: 'director-mcp',
-      script: 'npm',
-      args: 'run start',
-      cwd: path.join(ROOT, 'apps/mcp'),
+      script: 'node',
+      args: path.join(CURRENT, 'apps/mcp/dist/index.js'),
+      cwd: path.join(CURRENT, 'apps/mcp'),
       env: serviceEnv({
+        PORT: '3011',
         MCP_PORT: '3011',
+        MCP_URL: 'http://localhost:3011',
         NODE_ENV: 'production',
+        PATH: '/usr/bin:/bin:/usr/local/bin',
       }),
+      restart_delay: 3000,
+      exp_backoff_restart_delay: 100,
+      kill_timeout: 8000,
       error_file: path.join(ROOT, 'logs/mcp-error.log'),
       out_file:   path.join(ROOT, 'logs/mcp-out.log'),
     },
