@@ -12,12 +12,12 @@
 set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────────────
-REMOTE="snel-bot"
+REMOTE="nuncio-vultr"
 REMOTE_PATH="/opt/gen-ui"
-KEEP_RELEASES=3
+KEEP_RELEASES=2
 GROWTH_WARN=1.2
 GROWTH_FAIL=1.5
-UV_BIN="/home/deploy/.local/bin/uv"
+UV_BIN="/home/linuxuser/.local/bin/uv"
 
 # ── Colours ─────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
@@ -74,7 +74,7 @@ if [ "$NEED_BUILD" -eq 1 ] || [ "${FORCE_BUILD:-0}" = "1" ]; then
   (cd apps/bff && npx tsc) 2>&1 | tail -3
 
   info "Building MCP..."
-  (cd apps/mcp && npm run build) 2>&1 | tail -5
+  (cd apps/mcp && npx mcp-use build --no-typecheck) 2>&1 | tail -5
 else
   info "Using existing build artifacts"
 fi
@@ -92,21 +92,24 @@ done
 # ── 2. CREATE RELEASE ───────────────────────────────────────────────────────
 info "Creating release structure..."
 
-# Frontend
-mkdir -p "$LOCAL_RELEASE/apps/frontend"
-cp -r apps/frontend/.next   "$LOCAL_RELEASE/apps/frontend/.next"
-cp -r apps/frontend/public  "$LOCAL_RELEASE/apps/frontend/public"
+# Frontend — ship ONLY .next/standalone (the runtime tree).
+# ecosystem.config.js launches .next/standalone/apps/frontend/server.js, so
+# the outer .next/server, .next/build, .next/cache, type files etc. are not
+# needed at runtime. We fold static/ and public/ into the standalone tree
+# (Next.js standalone quirk) and skip the rest. Saves ~60M per release.
+mkdir -p "$LOCAL_RELEASE/apps/frontend/.next/standalone"
 cp apps/frontend/package.json "$LOCAL_RELEASE/apps/frontend/package.json"
-rm -rf "$LOCAL_RELEASE/apps/frontend/.next/cache"
 
-# Next.js standalone quirk — copy static + public into standalone dir
-if [ -d "$LOCAL_RELEASE/apps/frontend/.next/standalone" ]; then
-  mkdir -p "$LOCAL_RELEASE/apps/frontend/.next/standalone/apps/frontend"
-  cp -r "$LOCAL_RELEASE/apps/frontend/.next/static" \
-        "$LOCAL_RELEASE/apps/frontend/.next/standalone/apps/frontend/.next/static" 2>/dev/null || true
-  cp -r "$LOCAL_RELEASE/apps/frontend/public" \
-        "$LOCAL_RELEASE/apps/frontend/.next/standalone/apps/frontend/public" 2>/dev/null || true
+if [ ! -d "apps/frontend/.next/standalone" ]; then
+  fail "apps/frontend/.next/standalone missing — frontend not built (or 'output: standalone' disabled in next.config)"
 fi
+
+cp -r apps/frontend/.next/standalone/. "$LOCAL_RELEASE/apps/frontend/.next/standalone/"
+mkdir -p "$LOCAL_RELEASE/apps/frontend/.next/standalone/apps/frontend/.next"
+cp -r apps/frontend/.next/static \
+      "$LOCAL_RELEASE/apps/frontend/.next/standalone/apps/frontend/.next/static"
+cp -r apps/frontend/public \
+      "$LOCAL_RELEASE/apps/frontend/.next/standalone/apps/frontend/public"
 
 # BFF
 mkdir -p "$LOCAL_RELEASE/apps/bff"
@@ -130,6 +133,33 @@ for dep in "@mcp-ui/server" "dotenv"; do
   fi
 done
 
+# Strip MCP widget-only deps from the release tree. Widgets are pre-bundled
+# into apps/mcp/dist/ at build time and aren't imported by the running server
+# (dist/index.js only imports `mcp-use/server` + `zod`).
+#
+# NOTE: We deliberately do NOT use `npm prune --omit=dev` here — in a monorepo
+# with peer-dep-heavy packages (mcp-use peer-deps include the langchain stack),
+# npm "prune" decides to *install* missing peers from the registry, ballooning
+# the tree instead of shrinking it. Plain `rm -rf` of the known-unneeded dirs
+# is deterministic, fast, and avoids the peer-dep resolution rabbit hole.
+info "Stripping MCP widget-only deps..."
+MCP_BEFORE=$(du_bytes "$LOCAL_RELEASE/apps/mcp/node_modules")
+MCP_NM="$LOCAL_RELEASE/apps/mcp/node_modules"
+# Heavy widget/build-time deps (some pulled in transitively via @openai/apps-sdk-ui)
+for d in \
+  "@openai" "@radix-ui" "@mcp-ui/client" "@mcp-ui/shared" "@mcp-ui/react" \
+  "lucide-react" "framer-motion" "react-syntax-highlighter" \
+  "tailwindcss" "vite" "vite-plugin-singlefile" \
+  "typescript" "tsx" "@types" \
+  "rollup" "esbuild" "@esbuild" "@rollup" "postcss" "autoprefixer" \
+  ; do
+  rm -rf "$MCP_NM/$d" 2>/dev/null || true
+done
+# Also clear .cache and any nested node_modules left orphaned
+find "$MCP_NM" -name '.cache' -type d -prune -exec rm -rf {} + 2>/dev/null || true
+MCP_AFTER=$(du_bytes "$LOCAL_RELEASE/apps/mcp/node_modules")
+info "MCP node_modules: $(hr $MCP_BEFORE) → $(hr $MCP_AFTER)"
+
 # Agent — source + pyproject (uv sync creates .venv on server)
 mkdir -p "$LOCAL_RELEASE/apps/agent/src"
 cp -r apps/agent/src/*.py    "$LOCAL_RELEASE/apps/agent/src/" 2>/dev/null || true
@@ -146,6 +176,10 @@ if [ -d apps/agent/data ]; then
   cp -r apps/agent/data      "$LOCAL_RELEASE/apps/agent/data"
 fi
 
+# Server-side helpers (smoke-test.sh runs from current/scripts/ post-deploy,
+# plus intelligence-watchdog.sh and other ops scripts kept alongside the app)
+cp -r scripts "$LOCAL_RELEASE/scripts"
+
 # ── 3. INSTALL BFF DEPS INTO RELEASE ────────────────────────────────────────
 info "Installing BFF production deps..."
 cd "$ROOT"
@@ -153,6 +187,7 @@ cd "$ROOT"
 BFF_DEPS=("hono" "@hono/node-server" "ioredis" "@copilotkit/runtime" "zod")
 SPECS=()
 for dep in "${BFF_DEPS[@]}"; do
+  VER=""   # MUST reset — otherwise a missing dep inherits the previous one's version
   # Check root hoisted first, then workspace-local
   for p in "node_modules/$dep/package.json" "apps/bff/node_modules/$dep/package.json"; do
     if [ -f "$p" ]; then
@@ -160,6 +195,9 @@ for dep in "${BFF_DEPS[@]}"; do
       break
     fi
   done
+  if [ -z "$VER" ]; then
+    fail "BFF dep '$dep' not found in node_modules — run 'npm install --ignore-scripts' first"
+  fi
   SPECS+=("${dep}@${VER}")
 done
 

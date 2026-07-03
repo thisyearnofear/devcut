@@ -17,7 +17,7 @@ def env_to_js(d):
 
 frontend_env = {**env, 'PORT': '3100', 'NODE_ENV': 'production', 'HOSTNAME': '0.0.0.0'}
 bff_env = {**env, 'PORT': '4010', 'NODE_ENV': 'production'}
-agent_env = {**env, 'PATH': '/home/deploy/.local/bin:/usr/local/bin:/usr/bin:/bin'}
+agent_env = {**env, 'PATH': '/home/linuxuser/.local/bin:/usr/local/bin:/usr/bin:/bin'}
 
 config = """module.exports = {
   apps: [
@@ -41,7 +41,7 @@ config = """module.exports = {
     },
     {
       name: 'director-agent',
-      script: '/home/deploy/.local/bin/uv',
+      script: '/home/linuxuser/.local/bin/uv',
       args: 'run langgraph dev --port 8123 --no-browser',
       cwd: '/opt/gen-ui/apps/agent',
       env: {

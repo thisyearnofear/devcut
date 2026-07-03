@@ -92,7 +92,7 @@ module.exports = {
       args: 'dev --host 0.0.0.0 --port 8123 --no-browser',
       cwd: path.join(CURRENT, 'apps/agent'),
       env: serviceEnv({
-        PATH: path.join(CURRENT, 'apps/agent/.venv/bin') + ':/home/deploy/.local/bin:/usr/local/bin:/usr/bin:/bin',
+        PATH: path.join(CURRENT, 'apps/agent/.venv/bin') + ':/home/linuxuser/.local/bin:/usr/local/bin:/usr/bin:/bin',
         VIRTUAL_ENV: path.join(CURRENT, 'apps/agent/.venv'),
         LANGCHAIN_TRACING_V2: 'false',
       }),

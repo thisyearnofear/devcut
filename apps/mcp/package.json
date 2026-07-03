@@ -29,21 +29,21 @@
   },
   "dependencies": {
     "@mcp-ui/server": "^6.1.0",
-    "@openai/apps-sdk-ui": "^0.2.1",
     "dotenv": "^16.6.1",
     "mcp-use": "latest",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router": "^7.13.0",
-    "tailwindcss": "^4.2.0",
-    "vite-plugin-singlefile": "^2.3.3",
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@openai/apps-sdk-ui": "^0.2.1",
     "@types/node": "^25.3.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.2.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite-plugin-singlefile": "^2.3.3"
   }
 }
