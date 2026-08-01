@@ -61,7 +61,7 @@ Spine we keep:
 | Chat / ledger | Process (unlock → plan → stills → clips → stitch) |
 | Tool cards | One-line human status; payload collapsed |
 
-Implemented: `apps/frontend/src/lib/devcut-ledger.ts` + director chat (`variant="devcut"` tool cards, DevCut stage labels). Prefer controlled generative UI over open-ended HTML dumps.
+Implemented: run ledger (`devcut-ledger.ts`) + **JobOutcomePanel** (Watch / HyperFrames / Share + kit.zip). Prefer controlled generative UI over open-ended HTML dumps. See [`hyperframes.md`](./hyperframes.md).
 
 ## Non-goals
 
