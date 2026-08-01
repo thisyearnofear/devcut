@@ -6,7 +6,9 @@
 Organizers commission Challenge Cuts; builders run Submit Ready (HyperFrames / repo / URL → Devpost MP4).
 Engine: LangGraph storyboard → Runway stills → **Genblaze Pipeline** clips → stitch → **B2 durable objects + job manifest** → HyperFrames kit.
 
-- Live app: https://director.thisyearnofear.com/director
+- Live app (primary): https://devcut.thisyearnofear.com/director  
+  Legacy during cutover: https://director.thisyearnofear.com/director  
+  Ops checklist: [`ops-cutover.md`](./ops-cutover.md)
 - Repo: https://github.com/thisyearnofear/gen-ui
 
 ## AI providers and models
@@ -38,7 +40,7 @@ Toggle (demo): `GENBLAZE_ENABLED=1` + `B2_*` + `B2_REQUIRE_DURABLE=1` + `B2_PUBL
 
 - **Public bucket** + `B2_PUBLIC_URL_BASE` for credential-free `<video src>` / Vault.
 - **Application key** (S3-compatible), not master key.
-- **CORS** via [`scripts/setup-b2-cors.sh`](../scripts/setup-b2-cors.sh) for `director.thisyearnofear.com` + localhost.
+- **CORS** via [`scripts/setup-b2-cors.sh`](../scripts/setup-b2-cors.sh) for `devcut…` + legacy `director…` + localhost.
 - **Lifecycle** via `auto_lifecycle=True` (orphaned multipart + noncurrent versions).
 - **Object Lock (GOVERNANCE)** on Genblaze manifests when `B2_MANIFEST_LOCK_DAYS>0`.
 - **Event Notifications** → `POST /api/b2-events` → Discord (`DISCORD_WEBHOOK_URL`) for “cut ready” alerts.

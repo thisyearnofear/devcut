@@ -6,6 +6,7 @@ import { downloadBuilderKitZip } from "@/lib/builder-kit-download";
 import { HyperFramesHandoffPanel } from "@/components/devcut/HyperFramesHandoffPanel";
 import { ProvenanceVaultPanel } from "@/components/devcut/ProvenanceVaultPanel";
 import type { StoryboardState } from "@/lib/storyboard/types";
+import { publicAppOrigin } from "@/lib/public-url";
 
 type OutcomeTab = "watch" | "handoff" | "vault" | "share";
 
@@ -337,11 +338,7 @@ function SharePack({
   onDownloadKit?: () => void;
   onDownloadMp4: () => void;
 }) {
-  const resolved =
-    shareUrl ||
-    (typeof window !== "undefined"
-      ? window.location.href
-      : "https://director.thisyearnofear.com");
+  const resolved = shareUrl || `${publicAppOrigin()}/director`;
 
   const inviteBlurb = useMemo(() => {
     if (mode === "challenge") {

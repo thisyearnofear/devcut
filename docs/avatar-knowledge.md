@@ -45,4 +45,4 @@ There is no chat-wrapper. The agent's output IS the interface — shot cards wit
 - The agent uses Runway gen4_image for shot 0, gen4_image_turbo for shots 1+, and gen4.5 for image-to-video.
 - The pipeline is chained: shot 0 runs first so its reference can anchor subsequent shots.
 - FFmpeg concatenates all clips into the final MP4.
-- The app is live at https://director.thisyearnofear.com
+- The app is live at https://devcut.thisyearnofear.com (legacy: https://director.thisyearnofear.com during cutover)

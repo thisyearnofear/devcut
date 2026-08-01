@@ -25,7 +25,7 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - **Docker infra**: `docker-compose.infra.yml` runs postgres (5433), redis (6381), intelligence (4203/4403)
 - **Python agent venv**: `/opt/gen-ui/current/apps/agent/.venv/` (managed by `uv`, Python 3.12)
 - **uv binary**: `/home/linuxuser/.local/bin/uv`
-- **TLS/proxy**: Coolify Traefik routes `director.thisyearnofear.com` → `host.docker.internal:3100` (dynamic config at `/data/coolify/proxy/dynamic/director.yaml`)
+- **TLS/proxy**: Coolify Traefik — **primary** `devcut.thisyearnofear.com`, **legacy** `director.thisyearnofear.com` during cutover → `host.docker.internal:3100` (dynamic config under `/data/coolify/proxy/dynamic/`). Cutover checklist: `docs/ops-cutover.md`
 - **UFW**: Docker subnet `10.0.0.0/8` allowed to ports 3100, 4010, 8123, 3011
 
 ## Commands

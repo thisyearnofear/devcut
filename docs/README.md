@@ -17,6 +17,7 @@ Start with the root [README](../README.md) for the project overview and quicksta
 | [Concept](concept.md) | Longer product narrative |
 | [Hackathons](hackathons.md) | Submission notes |
 | [Hackathon / B2](hackathon-backblaze.md) | Genblaze + B2 notes |
+| [Ops cutover](ops-cutover.md) | Hostname + B2 checklist (no secrets) |
 | [Genblaze feedback issue](genblaze-feedback-issue.md) | Draft issue to file upstream |
 
 ## Developer

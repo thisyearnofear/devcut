@@ -2,6 +2,8 @@
 # Apply CORS rules to a Backblaze B2 bucket (S3-compatible API) so the
 # DevCut canvas can play durable <video> / fetch manifests from the browser.
 #
+# Dual-host cutover: allow both primary and legacy prod origins.
+#
 # Prerequisites: AWS CLI v2 configured with B2 keys, e.g.:
 #   export AWS_ACCESS_KEY_ID="$B2_KEY_ID"
 #   export AWS_SECRET_ACCESS_KEY="$B2_APP_KEY"
@@ -24,6 +26,7 @@ cat >"$TMP" <<'EOF'
   "CORSRules": [
     {
       "AllowedOrigins": [
+        "https://devcut.thisyearnofear.com",
         "https://director.thisyearnofear.com",
         "http://localhost:3010",
         "http://localhost:3000",

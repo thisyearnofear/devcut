@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ExportStatus } from "@/lib/storyboard/types";
+import { publicAppOrigin } from "@/lib/public-url";
 
 interface ExportPanelProps {
   exportStatus: ExportStatus;
@@ -184,11 +185,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function ShareButton({ title, shareUrl }: { title: string; shareUrl: string | null }) {
-  const resolved =
-    shareUrl ||
-    (typeof window !== "undefined"
-      ? window.location.origin
-      : "https://director.thisyearnofear.com");
+  const resolved = shareUrl || publicAppOrigin();
 
   const shareText = title
     ? `I just shipped "${title}" with DevCut — challenge films + Submit Ready cuts for hackathons. Try it:`
