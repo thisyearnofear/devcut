@@ -20,12 +20,13 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 - [x] Run ledger UX — DevCut-shaped stages + human tool cards (AG-UI)
 - [x] HyperFrames handoff — BRIEF.md seed + asset drop on stitch ([`hyperframes.md`](./hyperframes.md))
 - [x] Outcome UX — Watch / HyperFrames / Share + downloadable kit.zip + HF demo CTA + mode chrome + agent Start job
-- [ ] First golden Challenge Cut (live hackathon brief) that demos the HF kit
+- [x] Golden Challenge Cut **brief + demo script** ([`demos/golden-challenge-cut.md`](./demos/golden-challenge-cut.md), [`demo-script.md`](./demo-script.md))
+- [ ] Film the golden cut LIVE (fill fixture table) + pin kit for partners
 - [ ] `X402_MODE=live` facilitator settle in production
 
 ## Next
 
-- Golden Challenge Cut with real organizer logo → builders paste BRIEF into HF
+- Film golden Challenge Cut with real keys → record film URL / kit in fixture table
 - Hero shot pack SKU → `assets/devcut/` only (no stitch) for existing compositions
 - Agent OpenAPI surface documented for Cursor/Claude skills
 - Optional: Venice x402 for inference metering (agent wallets) — after job SKUs are live

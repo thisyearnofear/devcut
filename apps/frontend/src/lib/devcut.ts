@@ -73,13 +73,36 @@ export const DEVCUT_HF_DEMO = {
     "Submit Ready for a HyperFrames product-launch project: generative hero shots around a problem → product → proof arc. Product: HTML→video for agents (HyperFrames). After stitch, builders paste BRIEF.md and stage assets/devcut/ — HyperFrames keeps composition ownership. DevCut only supplies Runway heroes + packaging.",
 } as const;
 
+/**
+ * Golden Challenge Cut — Genblaze + B2 visual judging spec.
+ * Full notes: docs/demos/golden-challenge-cut.md
+ */
+export const DEVCUT_GOLDEN_CHALLENGE = {
+  label: "Golden · Genblaze+B2",
+  scene: "Durable media · HF builder kit",
+  mode: "challenge" as const,
+  titleHint: "Genblaze + B2 Challenge Cut",
+  brief: [
+    "Hackathon: Backblaze Generative Media (Genblaze + B2 track).",
+    "Audience: builders shipping creator/agent video tools under time pressure.",
+    "Judging: must use Genblaze (or equivalent) + Backblaze B2 for durable storage and provenance.",
+    "HyperFrames (or HTML→video) is the preferred composition path for the final Devpost cut.",
+    "Show what winning looks like in ~45s:",
+    "1) Problem — gorgeous local demo; judges can't open assets Monday; links 404; no provenance.",
+    "2) Constraint — Runway-class generate + persist stills/clips/finals to B2 with a verifiable manifest.",
+    "3) Winning artifact — public durable MP4 + manifest JSON + HyperFrames BRIEF/assets drop.",
+    "4) Anti-pattern — BYOK chaos, laptop-only files, fake NLE competing with HyperFrames.",
+    "5) CTA — fork the builder kit; pin this Challenge Cut in Discord.",
+    'Title the piece "Genblaze + B2 Challenge Cut".',
+  ].join(" "),
+} as const;
+
 /** Example briefs that reinforce the wedge (not generic cinema). */
 export const DEVCUT_CHALLENGE_EXAMPLES = [
   {
-    label: "Storage hackathon",
-    scene: "B2 + Genblaze · Durable media pipeline",
-    brief:
-      "Backblaze Generative Media Hackathon: builders must use Genblaze + B2. Show a winning app that generates video, stores assets + provenance on B2, and ships a usable creator workflow.",
+    label: DEVCUT_GOLDEN_CHALLENGE.label,
+    scene: DEVCUT_GOLDEN_CHALLENGE.scene,
+    brief: DEVCUT_GOLDEN_CHALLENGE.brief,
   },
   {
     label: "HyperFrames track",

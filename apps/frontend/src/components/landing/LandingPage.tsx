@@ -6,6 +6,7 @@ import {
   DEVCUT,
   DEVCUT_CHALLENGE_EXAMPLES,
   DEVCUT_DOORS,
+  DEVCUT_GOLDEN_CHALLENGE,
   DEVCUT_HF_DEMO,
   DEVCUT_SUBMIT_EXAMPLES,
   type DevCutDoorId,
@@ -18,7 +19,7 @@ import { AgentPaymentsPanel } from "@/components/devcut/AgentPaymentsPanel";
  */
 export function LandingPage() {
   const [door, setDoor] = useState<DevCutDoorId>("challenge");
-  const [brief, setBrief] = useState(DEVCUT_CHALLENGE_EXAMPLES[0].brief);
+  const [brief, setBrief] = useState(DEVCUT_GOLDEN_CHALLENGE.brief);
 
   const examples = useMemo(
     () => (door === "submit" ? DEVCUT_SUBMIT_EXAMPLES : DEVCUT_CHALLENGE_EXAMPLES),
@@ -32,6 +33,12 @@ export function LandingPage() {
     const payload = `${activeDoor.prompt} ${brief}`.trim();
     return `/director?mode=${door}&brief=${encodeURIComponent(payload)}`;
   }, [door, brief, activeDoor.prompt]);
+
+  const goldenHref = useMemo(() => {
+    const challengeDoor = DEVCUT_DOORS.find((d) => d.id === "challenge")!;
+    const payload = `${challengeDoor.prompt} ${DEVCUT_GOLDEN_CHALLENGE.brief}`.trim();
+    return `/director?mode=challenge&demo=golden&brief=${encodeURIComponent(payload)}`;
+  }, []);
 
   const hfDemoHref = useMemo(() => {
     const submitDoor = DEVCUT_DOORS.find((d) => d.id === "submit")!;
@@ -60,6 +67,9 @@ export function LandingPage() {
             <Link href="/about" className="hover:text-white/80">
               About
             </Link>
+            <Link href={goldenHref} className="hover:text-white/80">
+              Golden cut
+            </Link>
             <Link href={hfDemoHref} className="hover:text-white/80">
               HF demo
             </Link>
@@ -78,13 +88,19 @@ export function LandingPage() {
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
+                href={goldenHref}
+                className="inline-flex items-center rounded-full bg-[#c5d4c8] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white"
+              >
+                Run golden Challenge Cut
+              </Link>
+              <Link
                 href={hfDemoHref}
                 className="inline-flex items-center rounded-full border border-[#7a9e88]/50 bg-[#7a9e88]/15 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/25"
               >
-                Run HyperFrames demo
+                HyperFrames demo
               </Link>
               <p className="max-w-xs text-xs leading-5 text-white/40">
-                Fixed brief · Runway heroes → BRIEF kit → finish in HF. Best partner walkthrough.
+                Partner paths — Genblaze+B2 judging spec, or Submit Ready → HF kit.
               </p>
             </div>
           </div>

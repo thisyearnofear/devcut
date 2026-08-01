@@ -20,7 +20,7 @@ After stitch, the canvas **Job outcome** panel co-primaries:
 2. **HyperFrames** — copy BRIEF / download `*-hyperframes-kit.zip` (BRIEF.md + assets.json + README)  
 3. **Share** — invite blurb + still strip + film URL (organizer pin pack)
 
-Landing + empty canvas: **Run HyperFrames demo** (fixed Submit Ready brief).
+Landing + empty canvas: **Run golden Challenge Cut** · **HyperFrames demo** (fixed briefs).
 
 Canonical BRIEF shape: HyperFrames core `brief-format.md` (frontmatter + Intent / Assets / Customizations / Notes).
 

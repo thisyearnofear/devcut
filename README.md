@@ -49,6 +49,8 @@ After stitch: **Watch · HyperFrames · Share** — download the HF kit.zip for 
 | | |
 | --- | --- |
 | [**DevCut thesis**](./docs/devcut-thesis.md) | North star |
+| [Demo script](./docs/demo-script.md) | Partner walkthrough |
+| [Golden Challenge Cut](./docs/demos/golden-challenge-cut.md) | Genblaze+B2 brief |
 | [Providers](./docs/providers.md) | Inference + AG-UI foundation |
 | [DevCut × HyperFrames](./docs/hyperframes.md) | How we feed HF (BRIEF + assets) |
 | [x402 jobs](./docs/x402.md) | Pay-per-job API for agents |

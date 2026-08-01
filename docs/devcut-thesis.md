@@ -104,7 +104,8 @@ Keep the pipeline; change the product.
 6. Run-ledger UX (human tool cards + DevCut stage labels) on the AG-UI surface. → **shipped** (`devcut-ledger.ts`)
 7. HyperFrames handoff (BRIEF.md + `assets/devcut/` drop). → **shipped** (`docs/hyperframes.md`)
 8. Outcome UX (Watch / HyperFrames / Share + kit.zip + HF demo CTA). → **shipped**
-9. Golden Challenge Cut that ends in a pasteable HF kit (prove the Runway + HyperFrames story).
+9. Golden Challenge Cut brief + partner demo script. → **shipped** (`docs/demos/golden-challenge-cut.md`, `docs/demo-script.md`)
+10. Film the golden cut LIVE and record fixtures (film URL, kit, screenshots).
 
 ---
 

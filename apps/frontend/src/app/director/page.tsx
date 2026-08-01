@@ -37,6 +37,7 @@ import {
   DEVCUT,
   DEVCUT_CHALLENGE_EXAMPLES,
   DEVCUT_DOORS,
+  DEVCUT_GOLDEN_CHALLENGE,
   DEVCUT_HF_DEMO,
   DEVCUT_SUBMIT_EXAMPLES,
   type DevCutDoorId,
@@ -1243,7 +1244,7 @@ function DevCutEmptyState({
   const [draft, setDraft] = useState(
     initialMode === "submit"
       ? DEVCUT_SUBMIT_EXAMPLES[0].brief
-      : DEVCUT_CHALLENGE_EXAMPLES[0].brief,
+      : DEVCUT_GOLDEN_CHALLENGE.brief,
   );
 
   const active = DEVCUT_DOORS.find((d) => d.id === door)!;
@@ -1269,19 +1270,34 @@ function DevCutEmptyState({
           DevCut feeds HyperFrames — generative heroes + hackathon packaging. HyperFrames keeps
           HTML composition. Pick a door to start.
         </p>
-        <button
-          type="button"
-          disabled={isRunning}
-          onClick={() => {
-            setDoor("submit");
-            setDraft(DEVCUT_HF_DEMO.brief);
-            const submit = DEVCUT_DOORS.find((d) => d.id === "submit")!;
-            onStart(`${submit.prompt} ${DEVCUT_HF_DEMO.brief}`);
-          }}
-          className="mx-auto rounded-full border border-[#7a9e88]/45 bg-[#7a9e88]/10 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/20 disabled:opacity-40"
-        >
-          Or run HyperFrames demo
-        </button>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            disabled={isRunning}
+            onClick={() => {
+              setDoor("challenge");
+              setDraft(DEVCUT_GOLDEN_CHALLENGE.brief);
+              const challenge = DEVCUT_DOORS.find((d) => d.id === "challenge")!;
+              onStart(`${challenge.prompt} ${DEVCUT_GOLDEN_CHALLENGE.brief}`);
+            }}
+            className="rounded-full bg-[#c5d4c8] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white disabled:opacity-40"
+          >
+            Run golden Challenge Cut
+          </button>
+          <button
+            type="button"
+            disabled={isRunning}
+            onClick={() => {
+              setDoor("submit");
+              setDraft(DEVCUT_HF_DEMO.brief);
+              const submit = DEVCUT_DOORS.find((d) => d.id === "submit")!;
+              onStart(`${submit.prompt} ${DEVCUT_HF_DEMO.brief}`);
+            }}
+            className="rounded-full border border-[#7a9e88]/45 bg-[#7a9e88]/10 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/20 disabled:opacity-40"
+          >
+            HyperFrames demo
+          </button>
+        </div>
       </div>
 
       <div className="grid w-full max-w-3xl gap-3 md:grid-cols-3">
@@ -1293,7 +1309,7 @@ function DevCutEmptyState({
               type="button"
               onClick={() => {
                 setDoor(d.id);
-                if (d.id === "challenge") setDraft(DEVCUT_CHALLENGE_EXAMPLES[0].brief);
+                if (d.id === "challenge") setDraft(DEVCUT_GOLDEN_CHALLENGE.brief);
                 if (d.id === "submit") setDraft(DEVCUT_SUBMIT_EXAMPLES[0].brief);
               }}
               className={`rounded-xl border px-4 py-4 text-left transition-colors ${

@@ -42,10 +42,14 @@ Toggle: `GENBLAZE_ENABLED=1` + `B2_KEY_ID` / `B2_APP_KEY` / `B2_BUCKET` / `B2_RE
 - Genblaze handles endpoint, hashing, multipart, and URL rewrite — no hand-rolled boto3.
 - Canvas `durable_url` + `manifest_uri` surface B2 objects in the Export panel.
 
-## Demo script (~3 min)
+## Demo script
 
-1. Open `/director`, enter a one-line brief.
-2. Agent plans shots → generates stills (URLs rewrite to B2 when enabled).
-3. Animate shots — show Genblaze log line / B2 object appearing.
-4. Stitch final cut — Export panel shows **Stored on B2** + Durable + Manifest links.
-5. Open `manifest_uri` JSON — show provider, model, prompt, sha256, `verify()`.
+Partner walkthrough (Challenge Cut + HF demo + agent door): [`demo-script.md`](./demo-script.md).  
+Golden brief: [`demos/golden-challenge-cut.md`](./demos/golden-challenge-cut.md).
+
+### Short B2-focused path (~3 min, LIVE + Genblaze)
+
+1. Open `/` → **Run golden Challenge Cut** (or `/director?mode=challenge&demo=golden`).
+2. Agent plans → stills → clips; B2 rewrite when `GENBLAZE_ENABLED=1`.
+3. Stitch → Job outcome **HyperFrames** tab → download kit.zip.
+4. Share tab → copy invite; open `manifest_uri` if present.

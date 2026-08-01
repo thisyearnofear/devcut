@@ -9,6 +9,8 @@ Start with the root [README](../README.md) for the project overview and quicksta
 | [**DevCut thesis**](devcut-thesis.md) | North star — who, jobs, SKUs, non-goals |
 | [Providers](providers.md) | NVIDIA → Venice → Gemini, media, AG-UI foundation |
 | [DevCut × HyperFrames](hyperframes.md) | Complement story + BRIEF/asset handoff |
+| [Demo script](demo-script.md) | Partner walkthrough (~30–40 min) |
+| [Golden Challenge Cut](demos/golden-challenge-cut.md) | Genblaze+B2 judging-spec brief + success criteria |
 | [x402](x402.md) | Pay-per-job API for agents |
 | [Architecture](architecture.md) | Director pipeline, BFF, canvas, JobOutcomePanel |
 | [Roadmap](roadmap.md) | Shipped / next / won’t build |
