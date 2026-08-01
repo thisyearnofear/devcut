@@ -34,7 +34,7 @@ AISA is **removed** (no longer available).
 | --- | --- |
 | Stills / clips / VO / SFX | Runway |
 | Durable URL + provenance | B2 via Genblaze (optional) |
-| Composition handoff | HyperFrames (external) |
+| Composition handoff | HyperFrames (external) — see [`hyperframes.md`](./hyperframes.md) |
 
 Do not multi-provider remix video in the UI. Planner modernization ≠ media marketplace.
 

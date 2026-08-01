@@ -33,6 +33,25 @@ export interface Storyboard {
 
 export type ExportStatus = "idle" | "stitching" | "ready" | "error";
 
+export interface BuilderKitAsset {
+  kind: string;
+  beat: string;
+  path: string;
+  url: string;
+  note: string;
+}
+
+/** HyperFrames handoff emitted after stitch (or emit_hyperframes_kit). */
+export interface BuilderKit {
+  mode: "challenge" | "submit" | string;
+  workflow: string;
+  title: string;
+  brief_md: string;
+  assets: BuilderKitAsset[];
+  drop_instructions: string;
+  summary: string;
+}
+
 export interface StoryboardState {
   storyboard: Storyboard;
   shots: Shot[];
@@ -46,6 +65,8 @@ export interface StoryboardState {
   manifest_uri: string | null;
   export_status: ExportStatus;
   export_error: string | null;
+  /** BRIEF.md seed + asset drop map for HyperFrames. */
+  builder_kit: BuilderKit | null;
 }
 
 export const initialStoryboardState: StoryboardState = {
@@ -71,6 +92,7 @@ export const initialStoryboardState: StoryboardState = {
   manifest_uri: null,
   export_status: "idle",
   export_error: null,
+  builder_kit: null,
 };
 
 export const STATUS_LABEL: Record<ShotStatus, string> = {

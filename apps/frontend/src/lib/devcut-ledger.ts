@@ -76,7 +76,12 @@ const TOOL_COPY: Record<string, ToolCopy> = {
   stitch_final_cut: {
     title: "Stitch final cut",
     summarize: (_a, done) =>
-      done ? "MP4 ready for Devpost / kit" : "Stitching clips into one MP4",
+      done ? "MP4 + HyperFrames handoff ready" : "Stitching clips into one MP4",
+  },
+  emit_hyperframes_kit: {
+    title: "HyperFrames kit",
+    summarize: (_a, done) =>
+      done ? "BRIEF.md + asset drop attached" : "Building HyperFrames handoff",
   },
   selectShot: {
     title: "Select shot",

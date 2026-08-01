@@ -8,6 +8,7 @@ Start with the root [README](../README.md) for the project overview and quicksta
 | --- | --- |
 | [**DevCut thesis**](devcut-thesis.md) | North star — who, jobs, SKUs, non-goals |
 | [Providers](providers.md) | NVIDIA → Venice → Gemini, media, AG-UI foundation |
+| [DevCut × HyperFrames](hyperframes.md) | Complement story + BRIEF/asset handoff |
 | [x402](x402.md) | Pay-per-job API for agents |
 | [Architecture](architecture.md) | Director pipeline, BFF, canvas |
 | [Roadmap](roadmap.md) | Shipped / next / won’t build |

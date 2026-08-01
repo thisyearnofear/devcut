@@ -163,8 +163,64 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* HyperFrames complement — prove the wedge */}
+        <section className="mt-20 border-t border-white/10 pt-12">
+          <h2 className="font-mono text-sm uppercase tracking-[0.14em] text-white/50">
+            How we feed HyperFrames
+          </h2>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-white/70">
+            HyperFrames owns code→video. DevCut fills the mid-hack gap: consistent Runway
+            heroes, a Devpost-shaped stitch, and a handoff kit builders can paste into an HF
+            project — not another authoring tool.
+          </p>
+          <ol className="mt-8 grid gap-4 md:grid-cols-3">
+            {[
+              {
+                step: "01",
+                title: "Generate in DevCut",
+                body: "Challenge Cut or Submit Ready → stills → clips → stitch on the live canvas.",
+              },
+              {
+                step: "02",
+                title: "Copy the handoff",
+                body: "BRIEF.md seed + assets/devcut/ drop map attach automatically after export.",
+              },
+              {
+                step: "03",
+                title: "Finish in HyperFrames",
+                body: "Paste BRIEF, stage media, keep HTML composition + render where it belongs.",
+              },
+            ].map((row) => (
+              <li
+                key={row.step}
+                className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4"
+              >
+                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a8c4b4]">
+                  {row.step}
+                </p>
+                <p className="mt-2 text-sm font-medium text-white/90">{row.title}</p>
+                <p className="mt-1 text-xs leading-5 text-white/55">{row.body}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-6 font-mono text-[11px] text-white/40">
+            <Link href="/about" className="underline-offset-2 hover:text-white/70 hover:underline">
+              About
+            </Link>
+            {" · "}
+            <a
+              href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/hyperframes.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-2 hover:text-white/70 hover:underline"
+            >
+              DevCut × HyperFrames
+            </a>
+          </p>
+        </section>
+
         {/* One supporting section — not a dashboard */}
-        <section className="mt-20 grid gap-8 border-t border-white/10 pt-12 md:grid-cols-2">
+        <section className="mt-16 grid gap-8 border-t border-white/10 pt-12 md:grid-cols-2">
           <div>
             <h2 className="font-mono text-sm uppercase tracking-[0.14em] text-white/50">
               Why this exists

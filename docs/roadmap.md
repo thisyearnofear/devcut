@@ -18,14 +18,14 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 - [x] x402 SKUs on BFF + Agent door (catalog, 402, demo settle, canvas unlock)
 - [x] Planner providers: NVIDIA → Venice → Gemini; AISA removed ([`providers.md`](./providers.md))
 - [x] Run ledger UX — DevCut-shaped stages + human tool cards (AG-UI)
-- [ ] First golden Challenge Cut (live hackathon brief)
-- [ ] Submit Ready → HyperFrames `BRIEF.md` handoff
+- [x] HyperFrames handoff — BRIEF.md seed + asset drop on stitch ([`hyperframes.md`](./hyperframes.md))
+- [ ] First golden Challenge Cut (live hackathon brief) that demos the HF kit
 - [ ] `X402_MODE=live` facilitator settle in production
 
 ## Next
 
-- HyperFrames handoff: emit `BRIEF.md` seed + asset drop instructions
-- Builder kit export (shot list JSON + stills zip) beside MP4
+- Golden Challenge Cut with real organizer logo → builders paste BRIEF into HF
+- Hero shot pack SKU → `assets/devcut/` only (no stitch) for existing compositions
 - Agent OpenAPI surface documented for Cursor/Claude skills
 - Optional: Venice x402 for inference metering (agent wallets) — after job SKUs are live
 

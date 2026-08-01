@@ -76,6 +76,8 @@ class StoryboardCanvasState(AgentState):
     # "idle" | "stitching" | "ready" | "error"
     export_status: NotRequired[Annotated[str, _replace]]
     export_error: NotRequired[Annotated[Optional[str], _replace]]
+    # HyperFrames handoff — BRIEF.md seed + asset drop map (see hyperframes_kit.py).
+    builder_kit: NotRequired[Annotated[Optional[dict], _replace]]
 
 
 class StoryboardStateMiddleware(AgentMiddleware[StoryboardCanvasState, Any]):  # type: ignore[type-arg]

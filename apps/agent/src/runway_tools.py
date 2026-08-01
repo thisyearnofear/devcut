@@ -711,10 +711,30 @@ def stitch_final_cut(
         f"Final cut ready ({result.mode}, {result.duration}s, "
         f"{result.shot_count} shots). URL: {result.url}"
     )
+    kit_state = {
+        **(state or {}),
+        "shots": shots,
+        "storyboard": storyboard,
+        "final_video_url": result.url,
+        "durable_url": result.durable_url,
+        "manifest_uri": result.manifest_uri,
+    }
+    from src.hyperframes_kit import build_builder_kit
+
+    builder_kit = build_builder_kit(
+        kit_state,
+        final_video_url=result.url,
+        durable_url=result.durable_url,
+    )
+    msg += (
+        f" HyperFrames handoff attached ({builder_kit.get('mode')}): "
+        "copy BRIEF.md + stage assets/devcut/ — composition stays in HyperFrames."
+    )
     update: dict = {
         "final_video_url": result.url,
         "export_status": "ready",
         "export_error": None,
+        "builder_kit": builder_kit,
         "storyboard": {**storyboard, "stitch_mode": result.mode},
         "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
     }
@@ -723,6 +743,35 @@ def stitch_final_cut(
     if result.manifest_uri:
         update["manifest_uri"] = result.manifest_uri
     return Command(update=update)
+
+
+@tool
+def emit_hyperframes_kit(
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Refresh the HyperFrames handoff (BRIEF.md seed + asset drop map) on the canvas.
+
+    Call after planning or after stitch when the user asks for a builder kit
+    without re-stitching. Does not replace HyperFrames authoring.
+    """
+    from src.hyperframes_kit import build_builder_kit
+
+    kit = build_builder_kit(state or {})
+    return Command(
+        update={
+            "builder_kit": kit,
+            "messages": [
+                ToolMessage(
+                    content=(
+                        f"HyperFrames kit ready ({kit.get('mode')}): "
+                        f"{kit.get('summary')} Paste BRIEF.md at the HF project root."
+                    ),
+                    tool_call_id=tool_call_id,
+                )
+            ],
+        }
+    )
 
 
 def load_runway_tools() -> list:
@@ -741,5 +790,6 @@ def load_runway_tools() -> list:
         generate_all_references,
         generate_all_videos,
         stitch_final_cut,
+        emit_hyperframes_kit,
         *load_audio_tools(),
     ]

@@ -41,6 +41,7 @@ import {
   type DevCutDoorId,
 } from "@/lib/devcut";
 import { AgentPaymentsPanel } from "@/components/devcut/AgentPaymentsPanel";
+import { HyperFramesHandoffPanel } from "@/components/devcut/HyperFramesHandoffPanel";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1070,16 +1071,21 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
 
               {/* Final cut hero — shown above timeline when ready */}
               {state.export_status === "ready" && (
-                <ExportPanel
-                  exportStatus={state.export_status}
-                  exportError={state.export_error}
-                  finalVideoUrl={state.final_video_url}
-                  durableUrl={state.durable_url}
-                  manifestUri={state.manifest_uri}
-                  storyboardTitle={state.storyboard.title}
-                  onExport={handleExport}
-                  onDownload={handleDownloadFinal}
-                />
+                <>
+                  <ExportPanel
+                    exportStatus={state.export_status}
+                    exportError={state.export_error}
+                    finalVideoUrl={state.final_video_url}
+                    durableUrl={state.durable_url}
+                    manifestUri={state.manifest_uri}
+                    storyboardTitle={state.storyboard.title}
+                    onExport={handleExport}
+                    onDownload={handleDownloadFinal}
+                  />
+                  {state.builder_kit && (
+                    <HyperFramesHandoffPanel kit={state.builder_kit} />
+                  )}
+                </>
               )}
 
               <StoryboardTimeline
@@ -1242,8 +1248,8 @@ function DevCutEmptyState({
           {DEVCUT.tagline}
         </h2>
         <p className="mx-auto max-w-xl text-sm leading-6 text-white/65">
-          Pick a door. Challenge Cut for organizers. Submit Ready for builders. Agent path for
-          x402-metered jobs.
+          DevCut feeds HyperFrames — generative heroes + hackathon packaging. HyperFrames keeps
+          HTML composition. Pick a door to start.
         </p>
       </div>
 
