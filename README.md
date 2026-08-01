@@ -29,7 +29,8 @@ cp .env.example .env
 npm install && npm run dev
 ```
 
-Open <http://localhost:3000> → pick a door → `/director`.
+Open <http://localhost:3000> → pick a door (or **Run HyperFrames demo**) → `/director`.
+After stitch: **Watch · HyperFrames · Share** — download the HF kit.zip for `hyperframes init`.
 
 ## Stack
 

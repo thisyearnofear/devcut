@@ -10,10 +10,11 @@ Start with the root [README](../README.md) for the project overview and quicksta
 | [Providers](providers.md) | NVIDIA → Venice → Gemini, media, AG-UI foundation |
 | [DevCut × HyperFrames](hyperframes.md) | Complement story + BRIEF/asset handoff |
 | [x402](x402.md) | Pay-per-job API for agents |
-| [Architecture](architecture.md) | Director pipeline, BFF, canvas |
+| [Architecture](architecture.md) | Director pipeline, BFF, canvas, JobOutcomePanel |
 | [Roadmap](roadmap.md) | Shipped / next / won’t build |
 | [Concept](concept.md) | Longer product narrative |
 | [Hackathons](hackathons.md) | Submission notes |
+| [Hackathon / B2](hackathon-backblaze.md) | Genblaze + B2 notes |
 
 ## Developer
 

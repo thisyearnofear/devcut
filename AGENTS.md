@@ -5,7 +5,7 @@
 
 North star: `docs/devcut-thesis.md`
 
-Engine (unchanged): LangGraph agent → shot plan → Runway stills/clips → VO/SFX → stitch MP4 on a live storyboard canvas. Product shape is hackathon-only — not a general film studio.
+Engine (unchanged): LangGraph agent → shot plan → Runway stills/clips → VO/SFX → stitch MP4 on a live storyboard canvas. Product shape is hackathon-only — not a general film studio. HyperFrames owns composition; DevCut feeds BRIEF + assets (see `docs/hyperframes.md`).
 
 Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizers + HyperFrames builders (+ Backblaze Generative Media / x402 tracks).
 

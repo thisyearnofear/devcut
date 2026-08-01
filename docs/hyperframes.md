@@ -45,7 +45,10 @@ Stills/clips only — no full stitch required — for an existing composition’
 
 | Piece | Path |
 | --- | --- |
-| Kit builder | `apps/agent/src/hyperframes_kit.py` |
+| Kit builder (agent) | `apps/agent/src/hyperframes_kit.py` |
 | Attached on stitch | `stitch_final_cut` → `builder_kit` state |
-| UI panel | `apps/frontend/src/components/devcut/HyperFramesHandoffPanel.tsx` |
+| Outcome UI | `apps/frontend/src/components/devcut/JobOutcomePanel.tsx` |
+| Handoff details | `apps/frontend/src/components/devcut/HyperFramesHandoffPanel.tsx` |
+| Kit ZIP (client) | `apps/frontend/src/lib/builder-kit-download.ts` |
+| Demo CTA brief | `DEVCUT_HF_DEMO` in `apps/frontend/src/lib/devcut.ts` |
 | Product thesis | [`devcut-thesis.md`](./devcut-thesis.md) |

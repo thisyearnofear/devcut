@@ -103,7 +103,8 @@ Keep the pipeline; change the product.
 5. Harden B2/Genblaze as durable + provenance for those jobs — infrastructure in service of the wedge, not the identity.
 6. Run-ledger UX (human tool cards + DevCut stage labels) on the AG-UI surface. → **shipped** (`devcut-ledger.ts`)
 7. HyperFrames handoff (BRIEF.md + `assets/devcut/` drop). → **shipped** (`docs/hyperframes.md`)
-8. Golden Challenge Cut that ends in a pasteable HF kit (prove the Runway + HyperFrames story).
+8. Outcome UX (Watch / HyperFrames / Share + kit.zip + HF demo CTA). → **shipped**
+9. Golden Challenge Cut that ends in a pasteable HF kit (prove the Runway + HyperFrames story).
 
 ---
 
