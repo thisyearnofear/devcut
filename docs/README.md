@@ -6,31 +6,32 @@ Start with the root [README](../README.md) for the project overview and quicksta
 
 | | |
 | --- | --- |
-| [Concept](concept.md) | What it is, who it's for, why it's not just a Runway wrapper |
-| [Architecture](architecture.md) | Full system architecture — Director pipeline, leads infrastructure, model selection, BYOK |
-| [Roadmap](roadmap.md) | What's shipped, what's next, what we won't build |
-| [Hackathons](hackathons.md) | Runway API hackathon submission notes |
+| [**DevCut thesis**](devcut-thesis.md) | North star — who, jobs, SKUs, non-goals |
+| [Providers](providers.md) | NVIDIA → Venice → Gemini, media, AG-UI foundation |
+| [x402](x402.md) | Pay-per-job API for agents |
+| [Architecture](architecture.md) | Director pipeline, BFF, canvas |
+| [Roadmap](roadmap.md) | Shipped / next / won’t build |
+| [Concept](concept.md) | Longer product narrative |
+| [Hackathons](hackathons.md) | Submission notes |
 
 ## Developer
 
 | | |
 | --- | --- |
-| [Setup](setup.md) | Prerequisites, API keys, Notion MCP, model switching, Docker-free mode, threads |
-| [Customization](customization.md) | Add frontend tools, HITL components, swap MCP servers, demo prompts |
-| [MCP server](mcp-server.md) | Run, tunnel, deploy the Manufact / mcp-use server |
-| [Deployment](deployment.md) | Deploy to Hetzner (or any Linux VPS) with Docker + Caddy |
+| [Setup](setup.md) | Keys, Notion MCP, threads |
+| [Customization](customization.md) | Frontend tools, HITL, MCP |
+| [MCP server](mcp-server.md) | mcp-use server |
+| [Deployment](deployment.md) | VPS / PM2 |
 | [Scripts](scripts.md) | `npm run` cheat sheet |
-| [Troubleshooting](troubleshooting.md) | Known failure modes + fixes |
+| [Troubleshooting](troubleshooting.md) | Failure modes |
 
 ## External docs
 
-- **CopilotKit:** https://docs.copilotkit.ai
-- **CopilotKit Intelligence:** https://docs.copilotkit.ai/learn/intelligence-platform
-- **CopilotKit Coding Agents:** https://docs.copilotkit.ai/coding-agents
-- **CopilotKit Skills (vibe coding):** https://github.com/CopilotKit/skills
-- **LangChain Deep Agents:** https://github.com/langchain-ai/deepagents
+- **CopilotKit / AG-UI:** https://docs.copilotkit.ai · https://docs.ag-ui.com
+- **LangChain + CopilotKit:** https://docs.langchain.com/oss/python/langchain/frontend/integrations/copilotkit
+- **LangGraph / Deep Agents:** https://github.com/langchain-ai/deepagents
+- **NVIDIA NIM API:** https://docs.api.nvidia.com/
+- **Venice API:** https://docs.venice.ai/overview/about-venice
 - **Gemini API:** https://ai.google.dev/gemini-api/docs
-- **Notion MCP server:** https://github.com/makenotion/notion-mcp-server
-- **Model Context Protocol:** https://modelcontextprotocol.io
-- **Manufact / mcp-use:** https://manufact.com/docs/typescript/getting-started/quickstart
+- **Runway API:** https://docs.dev.runwayml.com
 - **Next.js:** https://nextjs.org/docs

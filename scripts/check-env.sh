@@ -6,11 +6,11 @@
 #   2. npx is available so `@notionhq/notion-mcp-server` can be fetched
 #      on demand. We don't pull the package here (slow) — we just prove
 #      the resolver works.
-#   3. apps/agent/.env exists and has GEMINI_API_KEY, NOTION_TOKEN, and
-#      NOTION_LEADS_DATABASE_ID set to non-stub values.
+#   3. apps/agent/.env (or root .env) has at least one planner key:
+#      NVIDIA_API_KEY | VENICE_API_KEY | GEMINI_API_KEY
+#      Plus Notion vars if you use the leads demo.
 #   4. Notion is reachable AND the leads database is shared with the
-#      integration. Defers to `apps/agent/src/notion_tools.py --check`, which
-#      reports an actionable FAIL: with the share-gotcha fix on a 404.
+#      integration (skipped when Notion vars are unset).
 #
 # Collects every problem into a numbered list rather than bailing on the
 # first failure, so participants can fix the whole batch in one pass.
@@ -34,16 +34,22 @@ if ! command -v npx >/dev/null 2>&1; then
   PROBLEMS+=("npx is not on PATH. Install Node.js 20+ (npm bundles npx).")
 fi
 
-# ---------- 3. agent/.env vars -----------------------------------------------
+# ---------- 3. planner + optional Notion ------------------------------------
+# Prefer apps/agent/.env; also accept keys from root .env (agent loads both).
 AGENT_ENV="$REPO_ROOT/apps/agent/.env"
-if [[ ! -f "$AGENT_ENV" ]]; then
-  PROBLEMS+=("apps/agent/.env is missing. Run: cp apps/agent/.env.example apps/agent/.env, then fill in the keys.")
+ROOT_ENV="$REPO_ROOT/.env"
+if [[ ! -f "$AGENT_ENV" && ! -f "$ROOT_ENV" ]]; then
+  PROBLEMS+=("No .env found. Run: cp .env.example .env (and optionally cp apps/agent/.env.example apps/agent/.env), then set NVIDIA_API_KEY.")
 else
-  # Read VAR=VALUE lines. We tolerate values without quotes (the .env files
-  # ship without quotes) and strip surrounding whitespace.
   read_var() {
     local key="$1"
-    grep -E "^[[:space:]]*${key}=" "$AGENT_ENV" | tail -n1 | sed -E "s/^[[:space:]]*${key}=//; s/^[\"']//; s/[\"'][[:space:]]*$//; s/[[:space:]]+$//"
+    local file val=""
+    for file in "$AGENT_ENV" "$ROOT_ENV"; do
+      [[ -f "$file" ]] || continue
+      val="$(grep -E "^[[:space:]]*${key}=" "$file" | tail -n1 | sed -E "s/^[[:space:]]*${key}=//; s/^[\"']//; s/[\"'][[:space:]]*$//; s/[[:space:]]+$//" || true)"
+      [[ -n "$val" ]] && break
+    done
+    printf '%s' "$val"
   }
   is_stub() {
     local v="$1"
@@ -53,35 +59,38 @@ else
     esac
     return 1
   }
-  for VAR in GEMINI_API_KEY NOTION_TOKEN NOTION_LEADS_DATABASE_ID; do
-    val="$(read_var "$VAR" || true)"
-    if is_stub "$val"; then
-      case "$VAR" in
-        GEMINI_API_KEY)
-          PROBLEMS+=("$VAR is unset (or a stub) in apps/agent/.env. Get a key at https://aistudio.google.com -> Get API key.")
-          ;;
-        NOTION_TOKEN)
-          PROBLEMS+=("$VAR is unset (or a stub) in apps/agent/.env. Get a token at https://notion.so/my-integrations -> New integration -> Internal Integration Token.")
-          ;;
-        NOTION_LEADS_DATABASE_ID)
-          PROBLEMS+=("$VAR is unset in apps/agent/.env. Paste the database id from your Notion database URL.")
-          ;;
-      esac
+
+  nvidia="$(read_var NVIDIA_API_KEY || true)"
+  venice="$(read_var VENICE_API_KEY || true)"
+  gemini="$(read_var GEMINI_API_KEY || true)"
+  if is_stub "$nvidia" && is_stub "$venice" && is_stub "$gemini"; then
+    PROBLEMS+=("No planner API key set. Prefer NVIDIA_API_KEY (https://build.nvidia.com); fallbacks: VENICE_API_KEY, GEMINI_API_KEY. See docs/providers.md.")
+  fi
+
+  # Notion is only required for the /leads demo — skip if unset.
+  notion_auth="$(read_var NOTION_TOKEN || true)"
+  notion_db="$(read_var NOTION_LEADS_DATABASE_ID || true)"
+  if ! is_stub "$notion_auth" || ! is_stub "$notion_db"; then
+    if is_stub "$notion_auth"; then
+      PROBLEMS+=("NOTION_TOKEN is unset (or a stub). Get a token at https://notion.so/my-integrations.")
     fi
-  done
+    if is_stub "$notion_db"; then
+      PROBLEMS+=("NOTION_LEADS_DATABASE_ID is unset. Paste the database id from your Notion URL.")
+    fi
+  fi
 fi
 
 # ---------- 4. Notion reachable + database shared ---------------------------
-# Only run the live health check if the env vars passed (no point hitting the
-# network when we know auth will fail). The script prints OK: ... or FAIL: ...
-# with the share-gotcha fix on a 404.
-if [[ ${#PROBLEMS[@]} -eq 0 ]]; then
-  HEALTH_OUT="$(cd "$REPO_ROOT/apps/agent" && uv run python -m src.notion_tools --check 2>&1 || true)"
-  if ! grep -q "^OK: " <<<"$HEALTH_OUT"; then
-    # Pass the FAIL output through verbatim — the --check flag already
-    # formats the share-gotcha fix instructions when applicable.
-    PROBLEMS+=("Notion health check failed:
+# Only when Notion vars are configured (DevCut can run without Notion).
+if [[ ${#PROBLEMS[@]} -eq 0 ]] && declare -F read_var >/dev/null && declare -F is_stub >/dev/null; then
+  notion_auth="$(read_var NOTION_TOKEN || true)"
+  notion_db="$(read_var NOTION_LEADS_DATABASE_ID || true)"
+  if ! is_stub "$notion_auth" && ! is_stub "$notion_db"; then
+    HEALTH_OUT="$(cd "$REPO_ROOT/apps/agent" && uv run python -m src.notion_tools --check 2>&1 || true)"
+    if ! grep -q "^OK: " <<<"$HEALTH_OUT"; then
+      PROBLEMS+=("Notion health check failed:
 $HEALTH_OUT")
+    fi
   fi
 fi
 

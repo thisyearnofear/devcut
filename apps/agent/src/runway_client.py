@@ -148,6 +148,7 @@ class RunwayImageResult:
     url: str
     prompt: str
     mode: str  # "LIVE" | "MOCK"
+    sha256: Optional[str] = None
 
 
 @dataclass
@@ -157,6 +158,8 @@ class RunwayVideoResult:
     duration: int
     mode: str
     image_url: Optional[str] = None
+    manifest_uri: Optional[str] = None
+    sha256: Optional[str] = None
 
 
 # --------------------------------------------------------------------- mock
@@ -404,6 +407,23 @@ def _live_restyle(
 # --------------------------------------------------------------------- public
 
 
+def _persist_image_to_b2(result: RunwayImageResult) -> RunwayImageResult:
+    """Rewrite a LIVE image URL to a durable B2 URL when storage is on."""
+    from .media_storage import b2_enabled, persist_url
+
+    if not b2_enabled() or result.mode != "LIVE":
+        return result
+    stored = persist_url(
+        result.url,
+        content_type="image/jpeg",
+        tenant_id=_current_thread_id() or "director",
+    )
+    if stored:
+        result.url = stored.url
+        result.sha256 = stored.sha256
+    return result
+
+
 def generate_reference_image(
     prompt: str,
     ratio: str = "1280:720",
@@ -418,12 +438,15 @@ def generate_reference_image(
     storyboard. When provided, they are passed to gen4_image_turbo as
     referenceImages so characters and visual style stay consistent across
     shots.
+
+    When Genblaze/B2 is enabled, the CDN URL is rewritten to a durable
+    B2 object URL so storyboard stills do not expire.
     """
     if runway_is_live():
         _check_budget()
         result = _live_image(prompt, ratio=ratio, prior_ref_urls=prior_ref_urls)
         _notify_bff_call_used(_current_thread_id())
-        return result
+        return _persist_image_to_b2(result)
     return _mock_image(prompt)
 
 
@@ -437,10 +460,42 @@ def generate_shot_video(
 
     Checks the per-thread budget before calling Runway, then notifies the
     BFF to increment the counter on success.
+
+    When ``GENBLAZE_ENABLED=1``, generation runs through Genblaze's
+    Pipeline + RunwayProvider (with optional B2 ObjectStorageSink).
+    Otherwise the direct Runway SDK path is used; if B2 is still
+    configured, the CDN clip is persisted afterward.
     """
     if runway_is_live():
         _check_budget()
-        result = _live_video(image_url, prompt, duration=duration, ratio=ratio)
+        from .genblaze_bridge import genblaze_video_enabled, run_shot_video
+
+        if genblaze_video_enabled():
+            bridge = run_shot_video(
+                image_url, prompt, duration=duration, ratio=ratio,
+            )
+            result = RunwayVideoResult(
+                url=bridge.url,
+                prompt=bridge.prompt,
+                duration=bridge.duration,
+                mode=bridge.mode,
+                image_url=bridge.image_url,
+                manifest_uri=bridge.manifest_uri,
+                sha256=bridge.sha256,
+            )
+        else:
+            result = _live_video(image_url, prompt, duration=duration, ratio=ratio)
+            from .media_storage import b2_enabled, persist_url
+
+            if b2_enabled():
+                stored = persist_url(
+                    result.url,
+                    content_type="video/mp4",
+                    tenant_id=_current_thread_id() or "director",
+                )
+                if stored:
+                    result.url = stored.url
+                    result.sha256 = stored.sha256
         _notify_bff_call_used(_current_thread_id())
         return result
     time.sleep(0.6)
@@ -467,6 +522,17 @@ def restyle_shot_video(
         # Aleph preserves source duration — pass through whatever the
         # caller knows so downstream timing stays correct.
         result.duration = duration
+        from .media_storage import b2_enabled, persist_url
+
+        if b2_enabled():
+            stored = persist_url(
+                result.url,
+                content_type="video/mp4",
+                tenant_id=_current_thread_id() or "director",
+            )
+            if stored:
+                result.url = stored.url
+                result.sha256 = stored.sha256
         return result
     time.sleep(0.4)
     return RunwayVideoResult(
@@ -480,4 +546,7 @@ def restyle_shot_video(
 
 def boot_status() -> str:
     """One-line status for the agent boot log."""
-    return f"runway: {runway_mode_label()}"
+    from .genblaze_bridge import boot_status as genblaze_boot
+    from .media_storage import boot_status as storage_boot
+
+    return f"runway: {runway_mode_label()} | {genblaze_boot()} | {storage_boot()}"

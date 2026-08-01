@@ -28,6 +28,14 @@ import { ShotPreview } from "@/components/storyboard/ShotPreview";
 import { ToolFallbackCard } from "@/components/copilot/ToolFallbackCard";
 import { AvatarShowcase } from "@/components/storyboard/AvatarShowcase";
 import { AvatarPanel } from "@/components/storyboard/AvatarPanel";
+import {
+  DEVCUT,
+  DEVCUT_CHALLENGE_EXAMPLES,
+  DEVCUT_DOORS,
+  DEVCUT_SUBMIT_EXAMPLES,
+  type DevCutDoorId,
+} from "@/lib/devcut";
+import { AgentPaymentsPanel } from "@/components/devcut/AgentPaymentsPanel";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,7 +49,7 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
       <div data-theme="cinema" className="flex min-h-svh items-center justify-center bg-background px-6 text-center">
         <div className="space-y-3">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/60">
-            Loading director
+            Loading {DEVCUT.name}
           </p>
           <div className="mx-auto flex w-fit items-center gap-1.5">
             {[0, 1, 2].map((i) => (
@@ -75,7 +83,8 @@ function mergeStoryboardState(raw: unknown): StoryboardState {
     },
     shots: partial.shots ?? initialStoryboardState.shots,
     selectedShotId: partial.selectedShotId ?? null,
-    grove_uri: partial.grove_uri ?? null,
+    durable_url: partial.durable_url ?? null,
+    manifest_uri: partial.manifest_uri ?? null,
   };
 }
 
@@ -130,10 +139,13 @@ function LiveStoryboardSummary() {
 // ---------------------------------------------------------------------------
 
 const SUGGESTIONS = [
-  "Sci-fi opener: lone astronaut, glass-domed alien city, golden hour. 4 shots.",
-  "Product reveal: ceramic coffee mug, studio light, slow rotation. 4 shots.",
-  "Travel reel: Lisbon at blue hour — trams, tiles, the river. 5 shots.",
-  "TikTok teaser: indie band 'Static Garden', neon, vertical. 3 shots, 720:1280.",
+  ...DEVCUT_CHALLENGE_EXAMPLES.map((ex) => `${DEVCUT_DOORS[0].prompt} ${ex.brief}`),
+  ...DEVCUT_SUBMIT_EXAMPLES.map((ex) => `${DEVCUT_DOORS[1].prompt} ${ex.brief}`),
+];
+
+const SUGGESTION_LABELS = [
+  ...DEVCUT_CHALLENGE_EXAMPLES.map((ex) => `Challenge · ${ex.label}`),
+  ...DEVCUT_SUBMIT_EXAMPLES.map((ex) => `Submit · ${ex.label}`),
 ];
 
 // ---------------------------------------------------------------------------
@@ -158,7 +170,7 @@ function settingsSuffix(s: ProductionSettings): string {
 }
 
 const MODEL_LABEL =
-  process.env.NEXT_PUBLIC_AGENT_MODEL ?? "gemini-2.5-pro · AISA";
+  process.env.NEXT_PUBLIC_AGENT_MODEL ?? "nvidia · NIM";
 
 // True when the Runway avatar is configured — baked in at build time.
 const AVATAR_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_RUNWAY_AVATAR_ID);
@@ -365,16 +377,21 @@ function DirectorChat({
         {showSuggestions ? (
           <div className="space-y-3 pt-2">
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/55">
-              Suggestions
+              DevCut jobs
             </p>
-            {SUGGESTIONS.map((s) => (
+            {SUGGESTIONS.map((s, i) => (
               <button
-                key={s}
+                key={SUGGESTION_LABELS[i]}
                 type="button"
                 onClick={() => onSend(s)}
                 className="block w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-xs leading-relaxed text-white/70 transition-colors hover:border-white/25 hover:text-white/90"
               >
-                {s}
+                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#9bb5a4]">
+                  {SUGGESTION_LABELS[i]}
+                </span>
+                <span className="mt-1 block line-clamp-2 text-white/60">
+                  {s.replace(/^Mode:.*?\.\s*/, "").slice(0, 140)}…
+                </span>
               </button>
             ))}
           </div>
@@ -614,7 +631,7 @@ function DirectorChat({
                 handleSend(draft);
               }
             }}
-            placeholder="Describe your scene…"
+            placeholder="Challenge brief, product URL, or repo…"
             rows={2}
             className="flex-1 resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-white/85 placeholder:text-white/45 focus:border-white/35 focus:outline-none"
           />
@@ -624,7 +641,7 @@ function DirectorChat({
             disabled={!draft.trim() || isRunning}
             className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white/75 transition-colors hover:bg-white/20 hover:text-white/90 disabled:opacity-30"
           >
-            Cut
+            Run
           </button>
         </div>
         <div className="mt-1.5 flex items-center justify-between">
@@ -663,6 +680,11 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   const [queuePosition, setQueuePosition] = useState(0);
   const [estimatedWaitSec, setEstimatedWaitSec] = useState(0);
   const { key: runwayKey } = useRunwayApiKey();
+  const [paidSku, setPaidSku] = useState<string | null>(null);
+  useEffect(() => {
+    const sku = new URLSearchParams(window.location.search).get("sku");
+    if (sku) setPaidSku(sku);
+  }, []);
 
   // Persisted checkpoint fetched from LangGraph on thread switch.
   // Stored locally because agent.setState() only works during an active run.
@@ -682,24 +704,63 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
       .catch(() => { /* silently ignore */ });
   }, [threadId]);
 
-  // Auto-inject ?brief= from landing page
+  // Auto-inject ?brief= / paid x402 unlock from landing or agent settle
   const briefInjectedRef = useRef(false);
   useEffect(() => {
     if (briefInjectedRef.current || !agent) return;
     const params = new URLSearchParams(window.location.search);
     const brief = params.get("brief");
+    const unlock = params.get("unlock");
+    const sku = params.get("sku");
+
+    const cleanUrl = () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("brief");
+      url.searchParams.delete("unlock");
+      // keep mode + sku + job for badge
+      window.history.replaceState({}, "", url.toString());
+    };
+
+    if (unlock) {
+      briefInjectedRef.current = true;
+      fetch(`/api/x402/unlock/verify?token=${encodeURIComponent(unlock)}`)
+        .then(async (r) => {
+          if (!r.ok) throw new Error("invalid unlock");
+          return r.json() as Promise<{
+            valid: boolean;
+            mode_prompt: string;
+            title: string;
+            sku: string;
+          }>;
+        })
+        .then((data) => {
+          cleanUrl();
+          const userBrief = brief?.trim() || "";
+          const prompt = `${data.mode_prompt}${userBrief ? ` Brief follows: ${userBrief}` : ""}`;
+          toast.success(`Paid ${data.title} unlocked`, { duration: 4000 });
+          setTimeout(() => injectPrompt(prompt), 600);
+        })
+        .catch(() => {
+          briefInjectedRef.current = false;
+          toast.error("x402 unlock invalid or expired");
+        });
+      return;
+    }
+
     if (!brief) return;
     briefInjectedRef.current = true;
-    const url = new URL(window.location.href);
-    url.searchParams.delete("brief");
-    window.history.replaceState({}, "", url.toString());
+    cleanUrl();
+    // If mode door prompt isn't already in the brief, leave as-is (landing prepends it).
     setTimeout(() => injectPrompt(brief), 800);
   }, [agent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep suggestions registered (used by the chat component)
   useConfigureSuggestions({
     available: "before-first-message",
-    suggestions: SUGGESTIONS.map((s) => ({ title: s.split(":")[0], message: s })),
+    suggestions: SUGGESTIONS.map((s, i) => ({
+      title: SUGGESTION_LABELS[i] ?? "DevCut",
+      message: s,
+    })),
   });
 
   const injectPrompt = useCallback(
@@ -940,76 +1001,16 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
             readyCount={readyShots}
             onKeyClick={() => setShowKeyPanel((v) => !v)}
             hasPersonalKey={Boolean(runwayKey)}
+            paidSku={paidSku}
           />
 
           {showKeyPanel && <ApiKeyPanel onClose={() => setShowKeyPanel(false)} isLive={state.storyboard.runway_mode === "LIVE"} />}
 
           {totalShots === 0 ? (
-            /* Empty state — hero onboarding with optional avatar */
-            <div className="relative flex flex-1 flex-col items-center justify-center gap-8 px-3 py-8 text-center sm:px-6 lg:py-0">
-              {/* Mobile warning */}
-              <div className="w-full max-w-2xl rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-left sm:hidden">
-                <p className="text-xs leading-5 text-amber-300/80">
-                  Director&apos;s Canvas is optimised for desktop. On mobile you can browse and send briefs, but the canvas view works best on a larger screen.
-                </p>
-              </div>
-
-              <div className="max-w-2xl space-y-4">
-                <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/60">
-                  One brief → storyboard → clips → final cut
-                </p>
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-semibold tracking-tight text-white/92 md:text-3xl">
-                    Start with one line.
-                  </h2>
-                  <p className="mx-auto max-w-xl text-sm leading-6 text-white/70 md:text-[15px]">
-                    Describe the scene in chat. Director&apos;s Canvas will break it into shots,
-                    generate reference stills, animate each shot, and assemble a shareable MP4.
-                  </p>
-                </div>
-              </div>
-
-              {/* Quick-start brief chips */}
-              <div className="w-full max-w-2xl">
-                <p className="mb-3 text-left font-mono text-[11px] uppercase tracking-[0.16em] text-white/45">
-                  Quick start
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      disabled={isRunning}
-                      onClick={() => injectPrompt(s)}
-                      className="group rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-left text-xs leading-relaxed text-white/65 transition-all hover:border-white/18 hover:bg-white/[0.06] hover:text-white/85 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Avatar showcase — only shown when avatar is NOT configured in chat panel */}
-              {!AVATAR_CONFIGURED && (
-                <AvatarShowcase progressNarration={null} />
-              )}
-
-              <div className="grid w-full max-w-3xl gap-3 text-left md:grid-cols-3">
-                {[
-                  ["1", "Enter a brief", "Use a suggestion above or describe a scene in one sentence."],
-                  ["2", "Review shots", "Select a shot to inspect prompts, stills, and generated clips."],
-                  ["3", "Export final cut", "When every shot is ready, stitch everything into one MP4."],
-                ].map(([step, title, body]) => (
-                  <div key={step} className="rounded-xl border border-white/10 bg-white/[0.045] p-4">
-                    <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/58">
-                      Step {step}
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-white/88">{title}</p>
-                    <p className="mt-1 text-sm leading-6 text-white/68">{body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DevCutEmptyState
+              isRunning={isRunning}
+              onStart={(prompt) => injectPrompt(prompt)}
+            />
           ) : (
             <div className="relative flex flex-1 flex-col gap-3 overflow-auto">
               {/* Pipeline action bar */}
@@ -1074,7 +1075,8 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   exportStatus={state.export_status}
                   exportError={state.export_error}
                   finalVideoUrl={state.final_video_url}
-                  groveUri={state.grove_uri}
+                  durableUrl={state.durable_url}
+                  manifestUri={state.manifest_uri}
                   storyboardTitle={state.storyboard.title}
                   onExport={handleExport}
                   onDownload={handleDownloadFinal}
@@ -1095,7 +1097,8 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   exportStatus={state.export_status}
                   exportError={state.export_error}
                   finalVideoUrl={state.final_video_url}
-                  groveUri={state.grove_uri}
+                  durableUrl={state.durable_url}
+                  manifestUri={state.manifest_uri}
                   storyboardTitle={state.storyboard.title}
                   onExport={handleExport}
                   onDownload={handleDownloadFinal}
@@ -1195,7 +1198,130 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
 }
 
 // ---------------------------------------------------------------------------
-// Page
+// DevCut empty state — three doors only
+// ---------------------------------------------------------------------------
+
+function DevCutEmptyState({
+  isRunning,
+  onStart,
+}: {
+  isRunning: boolean;
+  onStart: (prompt: string) => void;
+}) {
+  const initialMode =
+    typeof window !== "undefined"
+      ? (new URLSearchParams(window.location.search).get("mode") as DevCutDoorId | null)
+      : null;
+  const [door, setDoor] = useState<DevCutDoorId>(
+    initialMode === "submit" || initialMode === "agent" || initialMode === "challenge"
+      ? initialMode
+      : "challenge",
+  );
+  const [draft, setDraft] = useState(
+    initialMode === "submit"
+      ? DEVCUT_SUBMIT_EXAMPLES[0].brief
+      : DEVCUT_CHALLENGE_EXAMPLES[0].brief,
+  );
+
+  const active = DEVCUT_DOORS.find((d) => d.id === door)!;
+  const examples = door === "submit" ? DEVCUT_SUBMIT_EXAMPLES : DEVCUT_CHALLENGE_EXAMPLES;
+
+  return (
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-8 px-3 py-8 sm:px-6 lg:py-0">
+      <div className="w-full max-w-2xl rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-left sm:hidden">
+        <p className="text-xs leading-5 text-amber-300/80">
+          {DEVCUT.name} is optimised for desktop. You can start a job on mobile; the canvas
+          works best on a larger screen.
+        </p>
+      </div>
+
+      <div className="max-w-2xl space-y-3 text-center">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/55">
+          {DEVCUT.name}
+        </p>
+        <h2 className="text-2xl font-semibold tracking-tight text-white/92 md:text-3xl">
+          {DEVCUT.tagline}
+        </h2>
+        <p className="mx-auto max-w-xl text-sm leading-6 text-white/65">
+          Pick a door. Challenge Cut for organizers. Submit Ready for builders. Agent path for
+          x402-metered jobs.
+        </p>
+      </div>
+
+      <div className="grid w-full max-w-3xl gap-3 md:grid-cols-3">
+        {DEVCUT_DOORS.map((d) => {
+          const selected = door === d.id;
+          return (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => {
+                setDoor(d.id);
+                if (d.id === "challenge") setDraft(DEVCUT_CHALLENGE_EXAMPLES[0].brief);
+                if (d.id === "submit") setDraft(DEVCUT_SUBMIT_EXAMPLES[0].brief);
+              }}
+              className={`rounded-xl border px-4 py-4 text-left transition-colors ${
+                selected
+                  ? "border-[#7a9e88]/50 bg-[#7a9e88]/10"
+                  : "border-white/10 bg-white/[0.03] hover:border-white/20"
+              }`}
+            >
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
+                {d.label}
+              </p>
+              <p className="mt-2 text-sm font-medium text-white/90">{d.title}</p>
+              <p className="mt-1 text-xs leading-5 text-white/55">{d.body}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="w-full max-w-3xl rounded-xl border border-white/10 bg-black/20 p-5 text-left">
+        {door === "agent" ? (
+          <AgentPaymentsPanel embedded />
+        ) : (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {examples.map((ex) => (
+                <button
+                  key={ex.label}
+                  type="button"
+                  onClick={() => setDraft(ex.brief)}
+                  className={`rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] ${
+                    draft === ex.brief
+                      ? "border-[#7a9e88]/45 text-[#c5d4c8]"
+                      : "border-white/10 text-white/45 hover:text-white/75"
+                  }`}
+                >
+                  {ex.label}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={4}
+              className="w-full resize-y rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs leading-5 text-white/85 outline-none focus:border-white/30"
+            />
+            <button
+              type="button"
+              disabled={isRunning || !draft.trim()}
+              onClick={() => onStart(`${active.prompt} ${draft.trim()}`)}
+              className="rounded-full bg-white/90 px-5 py-2 font-mono text-xs uppercase tracking-[0.12em] text-black hover:bg-white disabled:opacity-40"
+            >
+              {door === "challenge" ? "Start Challenge Cut" : "Start Submit Ready"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {!AVATAR_CONFIGURED && <AvatarShowcase progressNarration={null} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page chrome
 // ---------------------------------------------------------------------------
 
 function DirectorPage() {

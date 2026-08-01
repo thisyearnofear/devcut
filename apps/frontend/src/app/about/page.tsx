@@ -3,9 +3,9 @@ import { ArrowLeft, Clapperboard, Film, KeyRound, Sparkles, Zap } from "lucide-r
 import { AboutToc, type TocItem } from "./toc";
 
 export const metadata = {
-  title: "About — Director's Canvas",
+  title: "About — DevCut",
   description:
-    "How Director's Canvas turns a one-line brief into a stitched MP4 — architecture, Runway API usage, and how to run it.",
+    "DevCut is the hackathon video desk: Challenge Cuts for organizers, Submit Ready for HyperFrames builders, x402 jobs for agents.",
 };
 
 const tocItems: TocItem[] = [
@@ -80,12 +80,13 @@ const pipeline = [
 ];
 
 const stack = [
-  { layer: "Agent", tech: "LangGraph Deep Agents + Gemini 3.1 Flash-Lite" },
+  { layer: "Agent", tech: "LangGraph + CopilotKit / AG-UI" },
+  { layer: "Planner", tech: "NVIDIA NIM → Venice → Gemini" },
   { layer: "Video", tech: "Runway Gen-4 Image / Gen-4 Image Turbo / Gen-4.5" },
   { layer: "Transport", tech: "AG-UI + CopilotKit Intelligence (durable threads)" },
   { layer: "UI", tech: "Next.js + React + useFrontendTool (A2UI pattern)" },
-  { layer: "BFF", tech: "Hono — CopilotKit runtime + BYOK injection + budget guard" },
-  { layer: "Export", tech: "FFmpeg concat (LIVE) / placeholder URL (MOCK)" },
+  { layer: "BFF", tech: "Hono — CopilotKit runtime + x402 + BYOK injection" },
+  { layer: "Export", tech: "FFmpeg concat · optional B2 / Genblaze" },
   { layer: "MCP", tech: "mcp-use server — exposes the director to Claude / ChatGPT" },
 ];
 
@@ -100,6 +101,8 @@ const docs = [
 ];
 
 const externalDocs = [
+  { label: "NVIDIA NIM", href: "https://docs.api.nvidia.com/" },
+  { label: "Venice API", href: "https://docs.venice.ai/overview/about-venice" },
   { label: "Runway API docs", href: "https://docs.dev.runwayml.com" },
   { label: "CopilotKit docs", href: "https://docs.copilotkit.ai" },
   { label: "LangChain Deep Agents", href: "https://github.com/langchain-ai/deepagents" },
@@ -122,17 +125,26 @@ export default function AboutPage() {
 
         <header id="overview" className="scroll-mt-12">
           <p className="mb-3 text-xs font-medium uppercase tracking-widest text-accent">
-            Runway API Hackathon
+            Product thesis
           </p>
           <h1 className="text-4xl font-semibold leading-tight text-foreground md:text-5xl">
-            Director&apos;s Canvas
+            DevCut
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Agent-directed video production as a generative interface. Type a
-            one-line brief — watch a LangGraph agent decompose it into shots,
-            generate Runway reference stills, animate each into a clip, and
-            stitch a final MP4. The agent&apos;s output <em>is</em> the
-            interface.
+            The video desk for hackathons. Organizers commission Challenge Cuts —
+            visual specs of what winning looks like. Builders run Submit Ready —
+            HyperFrames / repo / product URL to a Devpost-ready MP4. Agents pay
+            per job via x402. Same storyboard engine; hackathon-shaped product.
+          </p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            <a
+              className="underline underline-offset-2 hover:text-foreground"
+              href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/devcut-thesis.md"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Read the north-star thesis
+            </a>
           </p>
         </header>
 

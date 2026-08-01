@@ -1,6 +1,7 @@
 "use client";
 
 import type { Storyboard } from "@/lib/storyboard/types";
+import { DEVCUT } from "@/lib/devcut";
 
 interface BriefHeaderProps {
   title: string;
@@ -10,6 +11,8 @@ interface BriefHeaderProps {
   readyCount: number;
   onKeyClick?: () => void;
   hasPersonalKey?: boolean;
+  /** Paid x402 SKU id when canvas was unlocked via job receipt */
+  paidSku?: string | null;
 }
 
 export function BriefHeader({
@@ -20,6 +23,7 @@ export function BriefHeader({
   readyCount,
   onKeyClick,
   hasPersonalKey,
+  paidSku,
 }: BriefHeaderProps) {
   const isLive = storyboard.runway_mode === "LIVE";
   // Always show the mode badge so users can switch before the agent responds.
@@ -42,13 +46,18 @@ export function BriefHeader({
           </>
         ) : (
           <h1 className="font-mono text-xs font-medium uppercase tracking-[0.16em] text-white/65">
-            🦬 Director&apos;s Canvas
+            {DEVCUT.name}
           </h1>
         )}
       </div>
 
       {/* Right controls */}
       <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+        {paidSku && (
+          <span className="rounded-full border border-[#7a9e88]/40 bg-[#7a9e88]/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8]">
+            x402 · {paidSku}
+          </span>
+        )}
         {/* Progress */}
         {shotCount > 0 && (
           <span className="font-mono text-xs uppercase tracking-[0.12em] text-white/58">

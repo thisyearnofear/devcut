@@ -42,6 +42,14 @@ const nextConfig: NextConfig = {
         source: "/api/thread-state/:path*",
         destination: `${BFF_URL}/api/thread-state/:path*`,
       },
+      {
+        source: "/api/x402/:path*",
+        destination: `${BFF_URL}/api/x402/:path*`,
+      },
+      {
+        source: "/api/x402",
+        destination: `${BFF_URL}/api/x402/catalog`,
+      },
     ];
   },
 };

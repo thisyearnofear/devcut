@@ -5,9 +5,9 @@
 | Symptom | Cause | Fix |
 |---|---|---|
 | `npm run dev` aborts with "Docker isn't running" | Docker Desktop not started | Start Docker Desktop and re-run. The pre-flight retries automatically. |
-| Pre-flight prints "GEMINI_API_KEY is unset (or a stub)" | Gemini key not pasted into `apps/agent/.env` | Get one at https://aistudio.google.com → Get API key, paste into `apps/agent/.env` (and `.env`). |
+| Pre-flight prints no planner API key | None of `NVIDIA_API_KEY` / `VENICE_API_KEY` / `GEMINI_API_KEY` set | Primary: https://build.nvidia.com · fallbacks: Venice + Gemini — see [`providers.md`](./providers.md). |
 | Pre-flight prints "NOTION_TOKEN is unset" | Notion token not pasted | Create an integration at [notion.so/profile/integrations/internal](https://www.notion.so/profile/integrations/internal) and paste the Internal Integration Token into `apps/agent/.env`. |
-| Chat hangs forever, never replies | `GEMINI_API_KEY` not set when you skipped the pre-flight (e.g. ran `npm run dev:agent` directly) | Set it in `apps/agent/.env` and restart the agent. The agent now answers in <3s with a setup pointer when the key is missing instead of hanging. |
+| Chat replies with a setup pointer, no tools | All planner keys missing/stub → noop graph | Set at least `NVIDIA_API_KEY` (or a fallback) and restart the agent. |
 | Toast: "Run `npm run seed` to seed the default user" | Postgres `default` / `1_default` user not seeded | Run `npm run seed`. The BFF rewrites the upstream `threads_user_id_fkey` 500 into this hint automatically. |
 | Notion health check returns "0 rows" or "shared with this integration" | Database not shared with your integration | Open the database in Notion → `...` menu → **Connections** → **+ Add connection** → pick your integration **directly** (not via parent-page inheritance — that's the most common gotcha). |
 | `Could not find database with ID …` | Wrong `NOTION_LEADS_DATABASE_ID` *or* not shared | Both — verify by running `cd apps/agent && uv run python -m src.notion_tools --check`. The output names which one is wrong. |
@@ -33,9 +33,9 @@ Intelligence isn't running. Check:
 </details>
 
 <details>
-<summary><strong>Gemini quota exceeded</strong></summary>
+<summary><strong>Planner quota / auth errors</strong></summary>
 
-Free tier is generous but not infinite. Either wait, switch to a paid Gemini key, or temporarily swap the model id in `apps/agent/src/runtime.py` (`_gemini_llm`) to `gemini-3-flash` (frontier-class quality) or `gemini-3-pro-preview` (more reasoning, slower) — each tier has its own quota.
+The director uses NVIDIA → Venice → Gemini (`with_fallbacks`). A 401/429 on NVIDIA should fall through if Venice/Gemini keys are set. To force a provider, set `AGENT_RUNTIME=venice-react` or `gemini-flash-react`. Model ids: `NVIDIA_MODEL`, `VENICE_MODEL`, `GEMINI_MODEL` — see [`providers.md`](./providers.md).
 
 </details>
 

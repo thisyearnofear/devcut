@@ -1,5 +1,9 @@
 # Concept
 
+> **North star moved.** Product direction is now **DevCut** — see
+> [`devcut-thesis.md`](./devcut-thesis.md). This page keeps the original
+> Director's Canvas concept for historical context.
+
 ## What it is
 
 **Director's Canvas** turns a one-line brief into a working storyboard you

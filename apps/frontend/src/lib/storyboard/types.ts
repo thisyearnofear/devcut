@@ -40,8 +40,10 @@ export interface StoryboardState {
   header: { title: string; subtitle: string };
   /** Final concatenated MP4. Set by the backend `stitch_final_cut` tool. */
   final_video_url: string | null;
-  /** Permanent Grove URI for the final cut (lens:// or https://api.grove.storage/...). */
-  grove_uri: string | null;
+  /** Durable Backblaze B2 URL for the final cut (when Genblaze/B2 is enabled). */
+  durable_url: string | null;
+  /** Genblaze provenance manifest URI (JSON in B2) for the last video/export run. */
+  manifest_uri: string | null;
   export_status: ExportStatus;
   export_error: string | null;
 }
@@ -61,11 +63,12 @@ export const initialStoryboardState: StoryboardState = {
   shots: [],
   selectedShotId: null,
   header: {
-    title: "Director's Canvas",
-    subtitle: "Agent-driven video production",
+    title: "DevCut",
+    subtitle: "Hackathon video desk",
   },
   final_video_url: null,
-  grove_uri: null,
+  durable_url: null,
+  manifest_uri: null,
   export_status: "idle",
   export_error: null,
 };

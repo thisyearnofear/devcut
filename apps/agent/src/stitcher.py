@@ -11,8 +11,9 @@ Why write into `apps/frontend/public/exports/`:
   In dev, the agent runs at :8123 (LangGraph) and the frontend at :3000.
   Putting the file inside Next's `public/` is the simplest way to make
   the resulting `<video src=...>` work without standing up a separate
-  static server. For production, override `EXPORT_DIR` + `EXPORT_BASE_URL`
-  to point at S3 / R2 / a CDN.
+  static server. When Genblaze/B2 is enabled, the final MP4 is also
+  uploaded to Backblaze B2 and `durable_url` / `manifest_uri` are set
+  for permanent playback and provenance.
 
 The whole thing is sync — same shape as `runway_client.py` — so it slots
 into the LangGraph tool worker pool without any async glue.
@@ -85,7 +86,8 @@ class StitchResult:
     mode: str         # "LIVE" | "MOCK"
     duration: int     # seconds
     shot_count: int
-    grove_uri: Optional[str] = None  # set when Grove upload succeeds
+    durable_url: Optional[str] = None   # B2 durable URL when upload succeeds
+    manifest_uri: Optional[str] = None  # Genblaze provenance manifest URI
 
 
 # --------------------------------------------------------------------- mock
@@ -343,31 +345,23 @@ def _live_stitch(shots: list[dict], slug: str) -> StitchResult:
 
     duration = sum(int(s.get("duration") or 5) for s in shots if s.get("video_url"))
 
-    # Return the local export URL immediately so the frontend unblocks.
-    # Grove upload runs in a daemon thread — grove_uri is set on the result
-    # object once the upload completes (runway_tools reads it back).
+    # Local export URL so the canvas can play immediately in dev.
     local_url = f"{_export_base_url()}/{out_name}"
     result = StitchResult(url=local_url, mode="LIVE", duration=duration, shot_count=len(shots))
 
-    if os.getenv("GROVE_ENABLED", "").lower() in ("1", "true", "yes"):
-        import threading
-        from .grove_client import upload_to_grove
+    # Primary durable store: Backblaze B2 via Genblaze ObjectStorageSink.
+    from .media_storage import b2_enabled, persist_file
+    from .runway_client import _current_thread_id
 
-        def _grove_upload() -> None:
-            try:
-                grove = upload_to_grove(out_path, content_type="video/mp4")
-                if grove:
-                    result.url = grove.gateway_url
-                    result.grove_uri = grove.uri
-            except Exception:  # noqa: BLE001
-                pass  # grove failure is non-fatal; local URL already set
-
-        t = threading.Thread(target=_grove_upload, daemon=True, name="grove-upload")
-        t.start()
-        # Give Grove up to 30 s to finish before the caller reads the result.
-        # This keeps the happy path fast while still surfacing the URI when
-        # the upload is quick (typical for small MP4s on a fast VPS).
-        t.join(timeout=30)
+    if b2_enabled():
+        stored = persist_file(
+            out_path,
+            content_type="video/mp4",
+            tenant_id=_current_thread_id() or "director",
+        )
+        if stored:
+            result.durable_url = stored.url
+            result.url = stored.url  # canvas plays the durable URL in prod
 
     return result
 

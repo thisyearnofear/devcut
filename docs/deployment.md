@@ -111,6 +111,9 @@ The server reads all secrets from `/opt/gen-ui/.env`. Key variables:
 | `DOMAIN` | Your domain, e.g. `director.yourdomain.com` |
 | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com) → Get API key |
 | `RUNWAY_API_KEY` | [dev.runwayml.com](https://dev.runwayml.com) → leave blank for MOCK mode |
+| `GENBLAZE_ENABLED` | `1` to route video through Genblaze Pipeline + persist to B2 |
+| `B2_KEY_ID` / `B2_APP_KEY` | [B2 Application Keys](https://secure.backblaze.com/app_keys.htm) (not master key) |
+| `B2_BUCKET` / `B2_REGION` | Public bucket name + region from endpoint (e.g. `us-west-004`) |
 | `COPILOTKIT_LICENSE_TOKEN` | Run `npm run license` locally, copy the token |
 | `INTELLIGENCE_AUTH_SECRET` | `openssl rand -base64 32` |
 | `INTELLIGENCE_RUNNER_AUTH_SECRET` | `openssl rand -base64 32` |

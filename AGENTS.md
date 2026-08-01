@@ -1,17 +1,22 @@
-# Director's Canvas — Agent-Directed Video Production
+# DevCut — Agent-Directed Hackathon Video
 
 ## Project Goal
-Agent-directed video production on the Runway API. Type a one-line brief and a LangGraph agent decomposes it into shots, generates Runway reference stills, animates clips, lays in voiceover + sound, and stitches a deliverable MP4 — all on a live storyboard canvas.
+**DevCut** is the x402-metered video desk for hackathons. Organizers commission Challenge Cuts (visual specs of winning work); builders enhance HyperFrames submissions into Devpost-ready cuts; agents pay per job.
 
-Built for the **Runway API Hackathon**.
+North star: `docs/devcut-thesis.md`
+
+Engine (unchanged): LangGraph agent → shot plan → Runway stills/clips → VO/SFX → stitch MP4 on a live storyboard canvas. Product shape is hackathon-only — not a general film studio.
+
+Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizers + HyperFrames builders (+ Backblaze Generative Media / x402 tracks).
 
 ## Architecture
-- **Frontend**: Next.js standalone (`apps/frontend/`) — the storyboard canvas at `/director`
-- **BFF**: Hono / CopilotKit runtime (`apps/bff/`) — proxies agent + intelligence
-- **Agent**: Python LangGraph (`apps/agent/`) — Deep Agent that plans shots, calls Runway, assembles MP4s
-- **MCP**: mcp-use server (`apps/mcp/`) — exposes director agent to Claude / ChatGPT
+- **Frontend**: Next.js standalone (`apps/frontend/`) — DevCut landing + storyboard canvas at `/director`
+- **BFF**: Hono / CopilotKit runtime (`apps/bff/`) — proxies agent + intelligence + x402
+- **Agent**: Python LangGraph (`apps/agent/`) — plans shots, calls Runway, assembles MP4s
+- **Planner LLM**: NVIDIA (primary) → Venice → Gemini — see `docs/providers.md` (AISA removed)
+- **MCP**: mcp-use server (`apps/mcp/`) — exposes agent to Claude / ChatGPT
 - **Infrastructure**: Postgres, Redis, CopilotKit Intelligence (Docker containers)
-- **Source**: https://github.com/thisyearnofear/gen-ui (renamed from directors-canvas)
+- **Source**: https://github.com/thisyearnofear/gen-ui
 
 ## Server Infrastructure (nuncio-vultr)
 - **Server**: nuncio-vultr (`144.202.117.160`), user `linuxuser`, 109GB disk

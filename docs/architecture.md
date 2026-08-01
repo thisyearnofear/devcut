@@ -18,7 +18,7 @@ graph TB
     end
 
     subgraph LocalServices["Local services"]
-        Agent["Deep Agent<br/>langgraph dev :8133<br/>Gemini Flash-Lite"]
+        Agent["Director agent<br/>langgraph :8123<br/>NVIDIA→Venice→Gemini"]
         MCP["Manufact MCP :3011<br/>mcp-use"]
         NotionMCP["Notion MCP server<br/>npx notion-mcp-server"]
         Intel["Intelligence composite<br/>:4213 / :4413"]
@@ -28,8 +28,11 @@ graph TB
 
     subgraph External
         Notion["Notion Leads DB"]
+        NVIDIA["NVIDIA NIM"]
+        Venice["Venice API"]
         Gemini["Gemini API"]
         Runway["Runway API"]
+        B2["Backblaze B2"]
     end
 
     UI <--> Next
@@ -40,11 +43,16 @@ graph TB
     Runtime <--> Intel
     Intel --> DB
     Intel --> Cache
+    Agent --> NVIDIA
+    Agent --> Venice
     Agent --> Gemini
     Agent --> Runway
+    Agent --> B2
     Agent --> NotionMCP
     NotionMCP --> Notion
 ```
+
+Planner inference detail: [`providers.md`](./providers.md).
 
 > Default Intelligence/Postgres/Redis ports (`4201` / `4401` / `5432` / `6379`) are remapped to `4213` / `4413` / `5436` / `6382` via `.env` (`APP_API_HOST_PORT`, `REALTIME_GATEWAY_HOST_PORT`, `POSTGRES_HOST_PORT`, `REDIS_HOST_PORT`) so the kit boots cleanly on machines that already run another Intelligence stack. Override them in `.env` to use the originals.
 

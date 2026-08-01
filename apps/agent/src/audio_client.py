@@ -83,6 +83,7 @@ class RunwayAudioResult:
     mode: str  # "LIVE" | "MOCK"
     kind: str  # "voiceover" | "sfx"
     voice: Optional[str] = None
+    sha256: Optional[str] = None
 
 
 # --------------------------------------------------------------------- helpers
@@ -167,6 +168,24 @@ def _live_sound_effect(prompt: str, duration: float, loop: bool) -> RunwayAudioR
 # --------------------------------------------------------------------- public
 
 
+def _persist_audio_to_b2(result: RunwayAudioResult) -> RunwayAudioResult:
+    """Rewrite LIVE audio URL to durable B2 when storage is on."""
+    from .media_storage import b2_enabled, persist_url
+    from .runway_client import _current_thread_id
+
+    if not b2_enabled() or result.mode != "LIVE":
+        return result
+    stored = persist_url(
+        result.url,
+        content_type="audio/mpeg",
+        tenant_id=_current_thread_id() or "director",
+    )
+    if stored:
+        result.url = stored.url
+        result.sha256 = stored.sha256
+    return result
+
+
 def generate_voiceover(line: str, voice: Optional[str] = None) -> RunwayAudioResult:
     """Generate a voiceover line via Runway's eleven_multilingual_v2.
 
@@ -184,7 +203,7 @@ def generate_voiceover(line: str, voice: Optional[str] = None) -> RunwayAudioRes
         _check_budget()
         result = _live_voiceover(line, voice)
         _notify_bff_call_used(_current_thread_id())
-        return result
+        return _persist_audio_to_b2(result)
 
     return _mock_audio(line, duration=0.0, kind="voiceover", voice=voice)
 
@@ -203,7 +222,7 @@ def generate_sound_effect(
         _check_budget()
         result = _live_sound_effect(prompt, duration or 0.0, loop=loop)
         _notify_bff_call_used(_current_thread_id())
-        return result
+        return _persist_audio_to_b2(result)
 
     return _mock_audio(prompt, duration or 5.0, kind="sfx", voice=None)
 

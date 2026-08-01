@@ -338,7 +338,7 @@ export default function ThreadsDrawer({
           <div className={styles.brandRow}>
             <div className={styles.brandLogo}>
               <Clapperboard size={14} className={styles.brandIcon} aria-hidden />
-              <span>Director&apos;s Canvas</span>
+              <span>DevCut</span>
             </div>
             <button
               aria-label="Collapse threads drawer"
@@ -605,7 +605,7 @@ export default function ThreadsDrawer({
                 size={14}
                 className={styles.navItemMark}
               />
-              <span>Director&apos;s Canvas</span>
+              <span>DevCut</span>
             </a>
             <button
               aria-label={

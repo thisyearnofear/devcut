@@ -1,92 +1,56 @@
-# Director's Canvas
+# DevCut
 
-> Agent-directed video production on the Runway API.
+> The x402-metered video desk for hackathons.
 
-Type a one-line brief — *"direct a 30s sci-fi opener: lone astronaut on
-a glass-domed alien city at golden hour"* — and watch a LangGraph Deep
-Agent decompose it into shots, generate Runway reference stills, animate
-every still into a clip, lay in voiceover + sound, and stitch the whole
-thing into a deliverable MP4 — all on a live storyboard canvas.
-No chat-wrapper: the agent's output **is** the interface.
+Organizers commission a **Challenge Cut** (visual spec of what winning looks like).
+Builders run **Submit Ready** (HyperFrames / repo / product URL → Devpost-ready MP4).
+Agents pay per job via **x402** — no Runway key paste as the default path.
 
-Built for the **[Runway API Hackathon](https://runwayml.com/api-hackathon)**.
+**North star:** [`docs/devcut-thesis.md`](docs/devcut-thesis.md)
+
+Formerly “Director’s Canvas” — same agent pipeline (storyboard → Runway stills → clips → stitch), **hackathon-shaped** product.
 
 ## What's here
 
 | Route | What it is |
 | --- | --- |
-| `/director` | The storyboard canvas — the headline experience |
-| `/leads` | The upstream CopilotKit lead-triage starter, kept as a second working example |
-| MCP server | Exposes the director agent to Claude / ChatGPT |
+| `/` | DevCut landing — three doors |
+| `/director` | Live storyboard canvas (Challenge Cut / Submit Ready) |
+| `/leads` | Legacy CopilotKit lead-triage starter |
+| MCP | Expose the agent to Claude / ChatGPT |
 
 ## Quickstart
 
 ```bash
-# 1. Init CopilotKit Intelligence (durable threads)
-npx @copilotkit/cli@latest init   # pick Intelligence
-
-# 2. Add keys
+npx @copilotkit/cli@latest init   # Intelligence
 cp .env.example .env
-cp .env apps/agent/.env
-# Set GEMINI_API_KEY in both files.
-# Optionally set RUNWAY_API_KEY — without it the director runs in
-# MOCK mode (same UI, deterministic placeholder media, no credits burned).
-
-# 3. Install + run
+# Set NVIDIA_API_KEY (primary). Optional: VENICE_API_KEY, GEMINI_API_KEY.
+# Optionally RUNWAY_API_KEY (else MOCK). GENBLAZE_ENABLED=1 + B2_* for durable exports.
 npm install && npm run dev
 ```
 
-Open <http://localhost:3000> → `/director`. Try a suggestion chip or paste a brief.
-
-> Full setup (Notion, Docker-free, manual CLI): [`docs/setup.md`](./docs/setup.md)
-
-## Key features
-
-- **Brief → storyboard → video → audio → final cut** in one agent loop, no prompt engineering required
-- **Cross-shot character consistency** — shot 0's reference image anchors all subsequent shots via Runway `gen4_image_turbo` `referenceImages`
-- **Model-aware generation** — `gen4_image` for shot 0, `gen4_image_turbo` for shots 1+, `gen4.5` for video, `gen4_aleph` for restyle, `eleven_multilingual_v2` for voiceover, `eleven_text_to_sound_v2` for ambient sound — all through the same Runway key
-- **Stitched export with audio** — FFmpeg concat of all clips into one MP4 with per-shot voiceover + ambient sound bed muxed in, served directly from the frontend
-- **BYOK** — users supply their own Runway API key via the canvas header; stored in localStorage, never logged
-- **Per-thread budget guard** — default 20 Runway calls per conversation when using the shared server key
-- **MOCK mode** — full pipeline runs without any API keys; deterministic placeholder media
+Open <http://localhost:3000> → pick a door → `/director`.
 
 ## Stack
 
 | Layer | Technology |
 | --- | --- |
-| Agent | LangGraph Deep Agents + Gemini 3.1 Flash-Lite (default) |
-| Image | Runway `gen4_image` (shot 0) + `gen4_image_turbo` (shots 1+, with `referenceImages` for cross-shot character anchoring) |
-| Video | Runway `gen4.5` (image→video) + `gen4_aleph` (video→video restyle) |
-| Audio | Runway `eleven_multilingual_v2` (voiceover) + `eleven_text_to_sound_v2` (ambient sound) |
-| Avatar | Runway `gwm1_avatars` realtime WebRTC director persona |
-| Transport | AG-UI + CopilotKit Intelligence (durable threads) |
-| UI | Next.js + React + A2UI declarative components |
-| BFF | Hono (CopilotKit runtime + BYOK injection + budget guard) |
-| Export | FFmpeg concat + per-shot audio mux (LIVE) / placeholder URL (MOCK) |
-| MCP | mcp-use server for Claude / ChatGPT |
-
-Swap any layer with a one-line edit — see [`docs/setup.md`](./docs/setup.md) (model switching section).
+| Agent | LangGraph + CopilotKit / AG-UI |
+| Planner | NVIDIA → Venice → Gemini ([`docs/providers.md`](./docs/providers.md)) |
+| Image / video / audio | Runway (`gen4_image_turbo`, `gen4.5`, TTS/SFX) |
+| Composition handoff | HyperFrames (external OS — we feed assets / BRIEF seeds) |
+| Payments | x402 job meter — see [`docs/x402.md`](./docs/x402.md) |
+| Durable export | Backblaze B2 via Genblaze when enabled |
+| UI | Next.js + CopilotKit / AG-UI |
 
 ## Docs
 
-### Product
 | | |
 | --- | --- |
-| [Concept](./docs/concept.md) | What it is, who it's for, why it's not just a Runway wrapper |
-| [Architecture](./docs/architecture.md) | How brief → storyboard → video flows through the stack |
-| [Roadmap](./docs/roadmap.md) | What's shipped, what's next |
-| [Hackathons](./docs/hackathons.md) | Runway API hackathon submission notes |
-
-### Developer
-| | |
-| --- | --- |
-| [Setup](./docs/setup.md) | Prerequisites, keys, Docker-free mode, model switching, threads |
-| [Customization](./docs/customization.md) | Add tools, swap MCP servers, suggestion chips, demo prompts |
-| [MCP server](./docs/mcp-server.md) | Run, tunnel, deploy |
-| [Deployment](./docs/deployment.md) | Deploy to Hetzner with Docker + Caddy |
-| [Scripts](./docs/scripts.md) | `npm run` cheat sheet |
-| [Troubleshooting](./docs/troubleshooting.md) | Known failure modes + fixes |
-
-## License
-
-MIT.
+| [**DevCut thesis**](./docs/devcut-thesis.md) | North star |
+| [Providers](./docs/providers.md) | Inference + AG-UI foundation |
+| [x402 jobs](./docs/x402.md) | Pay-per-job API for agents |
+| [Hackathon / B2 notes](./docs/hackathon-backblaze.md) | Genblaze + B2 submission notes |
+| [Architecture](./docs/architecture.md) | Pipeline internals |
+| [Roadmap](./docs/roadmap.md) | Shipped / next |
+| [Setup](./docs/setup.md) | Full local setup |

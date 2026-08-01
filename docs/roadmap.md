@@ -1,73 +1,36 @@
 # Roadmap
 
-## Shipped
+Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Challenge Cut, Submit Ready, or x402 jobs — don’t build it.
 
-- ✅ Director agent — brief → storyboard plan → references → videos
-- ✅ Live storyboard canvas with horizontally scrolling shot timeline
-- ✅ Runway Gen-4 text-to-image reference frames (`gen4_image`)
-- ✅ Runway Gen-4.5 image-to-video animated clips (upgraded from `gen4_turbo`)
-- ✅ Cross-shot visual consistency — shot 0 ref anchors all subsequent shots
-  via `gen4_image_turbo` `referenceImages` (character1 / style1 / style2 tags)
-- ✅ Per-shot regeneration + prompt rewrite
-- ✅ Batch pipeline — `generate_all_references` + `generate_all_videos` in parallel
-- ✅ MOCK mode for credit-free dev / demos
-- ✅ Stitched export — FFmpeg concat of all ready shots into one MP4
-  (LIVE: real ffmpeg; MOCK: placeholder URL)
-- ✅ Export panel — stitching spinner, final video player, download button
-- ✅ BYOK (Bring Your Own Key) — user supplies their own Runway API key
-  via the canvas header; stored in localStorage, forwarded as a header,
-  injected into LangGraph configurable; budget check skipped for BYOK users
-- ✅ Per-thread call budget — default 20 calls (≈ 10 shots) when using the
-  shared server key; enforced in the Python agent via `BudgetExceededError`;
-  counters stored in Redis (survives BFF restarts, scales horizontally)
-  with in-memory fallback when Redis is unavailable
-- ✅ Shared CopilotKit Intelligence threads (each storyboard is a
-  durable conversation)
-- ✅ Inline shot mini-cards + storyboard summary in chat (generative UI)
-- ✅ FFmpeg LIVE/MOCK pill + Consistent pill in canvas header
-- ✅ Live smoke test suite (`scripts/smoke_test_live.py`) — all 6 checks green
+## Shipped (engine)
 
-## Next (1–2 weeks)
+- Agent storyboard pipeline: plan → references → videos → stitch
+- Live canvas, batch generation, MOCK mode, BYOK + budget guard
+- Cross-shot style anchor, audio tools, restyle tools
+- B2/Genblaze wiring (optional durable export + provenance)
+- **DevCut thesis + three-door IA** (product north star)
 
-- **Audio track.** ElevenLabs TTS + sound effects are already available
-  through the Runway API key — no new account needed. Add a
-  `generate_voiceover(shot_id, line)` tool and a `generate_sound_bed(mood)`
-  tool; mux per-shot audio into the stitched export.
-- **`gen4_aleph` video-to-video restyle.** Take a generated clip and
-  restyle it (anime / noir / claymation) per shot. Same tool pattern as
-  `generate_shot_video`; just a different model + input.
-- **Reference image uploads.** Drag in a product photo, actor headshot,
-  or mood board. The `referenceImages` array already accepts URLs; just
-  needs a file-upload endpoint that returns one.
-- **Real user identity.** Replace the hardcoded `{ id: "default" }` in
-  the BFF with a session UUID from localStorage so multiple users get
-  independent budgets and thread histories.
+## Now (product alignment)
 
-## Mid-term (1–2 months)
+- [x] Lock thesis in docs / README / AGENTS
+- [x] Landing + `/director` empty state = three doors only
+- [x] Agent prompt = Challenge Cut / Submit Ready modes
+- [x] x402 SKUs on BFF + Agent door (catalog, 402, demo settle, canvas unlock)
+- [x] Planner providers: NVIDIA → Venice → Gemini; AISA removed ([`providers.md`](./providers.md))
+- [ ] First golden Challenge Cut (live hackathon brief)
+- [ ] Submit Ready → HyperFrames `BRIEF.md` handoff
+- [ ] `X402_MODE=live` facilitator settle in production
+- [ ] Run ledger UX — DevCut-shaped stages + human tool cards (AG-UI)
 
-- **Runway Characters as the Director avatar.** ~~`gwm1_avatars`~~ Done — a real-time WebRTC avatar lives in the threads drawer sidebar, contextualised with the current storyboard title and logline. Set `NEXT_PUBLIC_RUNWAY_AVATAR_ID` to activate.
-- **Brief intake via Notion / Linear MCP.** Agent reads a brief from
-  a Notion page and posts the finished cuts back as comments.
-- **Agent critique loop.** A sub-agent watches generated clips and
-  flags shots that drift from the logline; auto-suggests rewrites.
-- **Multi-aspect deliverables.** One brief, three aspects (16:9, 9:16,
-  1:1) — agent re-frames each shot and re-renders.
-- **Budget persistence.** ~~Move the in-memory call counter to Redis~~ Done — counters now live in Redis with a 7-day TTL and an in-memory fallback.
+## Next
 
-## Long-term
+- HyperFrames handoff: emit `BRIEF.md` seed + asset drop instructions
+- Builder kit export (shot list JSON + stills zip) beside MP4
+- Agent OpenAPI surface documented for Cursor/Claude skills
+- Optional: Venice x402 for inference metering (agent wallets) — after job SKUs are live
 
-- **Real-time direction.** Streaming preview as Runway generates;
-  the agent and the human can pause / pivot mid-render.
-- **Agent-to-agent collaboration.** A "Producer" agent orchestrates
-  multiple "Director" agents, each owning a scene.
-- **Marketplace.** Shareable Director profiles — one tuned for
-  product launches, one for music videos, one for documentaries —
-  each a system prompt + tool config + reference library.
+## Explicit non-goals
 
-## What we won't build
-
-- A general-purpose NLE. This is a director's tool, not Premiere.
-- A "DALL-E for videos" prompt box. The whole point is the chained
-  workflow on the canvas.
-- A walled garden. The MCP server makes the agent reachable from
-  Claude / ChatGPT / any MCP host — it should not require our UI.
+- General film studio / open-ended cinema demos
+- Competing with HyperFrames catalog or `/product-launch-video` authoring
+- Full NLE, consumer social scheduling, multi-provider marketplace UI

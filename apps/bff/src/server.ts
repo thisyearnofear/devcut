@@ -25,6 +25,7 @@ import {
   rewriteErrors,
   rewriteWsUrl,
 } from "./health.js";
+import { handleX402 } from "./x402/routes.js";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey:
@@ -193,6 +194,10 @@ async function handleRequest(req: Request): Promise<Response> {
   if (url.pathname === "/readyz" || url.pathname === "/health") {
     return handleReadyz();
   }
+
+  // ---- DevCut x402 job meter (catalog + paid SKUs) ----
+  const x402Res = await handleX402(req);
+  if (x402Res) return x402Res;
 
   // ---- Thread-state proxy (frontend canvas restore on thread switch) ----
   const threadStateMatch = url.pathname.match(/^\/api\/thread-state\/([^/]+)$/);

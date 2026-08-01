@@ -158,7 +158,7 @@ def generate_storyboard_plan(
             "storyboard": storyboard,
             "shots": out_shots,
             "header": {
-                "title": title or "Director's Canvas",
+                "title": title or "DevCut",
                 "subtitle": logline or f"Runway {runway_mode_label()}",
             },
             "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
@@ -393,12 +393,14 @@ def generate_shot_video(
         f"Video ready for shot {shot.get('beat') or shot_id} "
         f"({result.mode}, {duration}s). URL: {result.url}"
     )
-    return Command(
-        update={
-            "shots": new_shots,
-            "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
-        }
-    )
+    update: dict = {
+        "shots": new_shots,
+        "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
+    }
+    # Surface Genblaze provenance on the canvas when the bridge attached a manifest.
+    if getattr(result, "manifest_uri", None):
+        update["manifest_uri"] = result.manifest_uri
+    return Command(update=update)
 
 
 @tool
@@ -601,7 +603,7 @@ def generate_all_videos(
             }
         )
 
-    def _one(shot: dict) -> tuple[str, dict]:
+    def _one(shot: dict) -> tuple[str, dict, object | None]:
         try:
             res = _runway_video(
                 shot["ref_image_url"],
@@ -613,16 +615,19 @@ def generate_all_videos(
                 "video_url": res.url,
                 "status": "ready",
                 "error": None,
-            }
+            }, res
         except Exception as e:  # noqa: BLE001
-            return shot["id"], {"status": "error", "error": str(e)}
+            return shot["id"], {"status": "error", "error": str(e)}, None
 
     patches: dict[str, dict] = {}
+    last_manifest: str | None = None
     with _cf.ThreadPoolExecutor(
         max_workers=min(len(targets), _RUNWAY_MAX_CONCURRENCY)
     ) as ex:
-        for shot_id, patch in ex.map(_one, targets):
+        for shot_id, patch, res in ex.map(_one, targets):
             patches[shot_id] = patch
+            if res is not None and getattr(res, "manifest_uri", None):
+                last_manifest = res.manifest_uri
 
     new_shots = [
         ({**s, **patches[s["id"]]} if s["id"] in patches else s) for s in shots
@@ -637,12 +642,13 @@ def generate_all_videos(
         + (f", {failed} failed" if failed else "")
         + f" ({runway_mode_label()}, {total_seconds}s total runtime)."
     )
-    return Command(
-        update={
-            "shots": new_shots,
-            "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
-        }
-    )
+    update: dict = {
+        "shots": new_shots,
+        "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
+    }
+    if last_manifest:
+        update["manifest_uri"] = last_manifest
+    return Command(update=update)
 
 
 @tool
@@ -712,8 +718,10 @@ def stitch_final_cut(
         "storyboard": {**storyboard, "stitch_mode": result.mode},
         "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
     }
-    if result.grove_uri:
-        update["grove_uri"] = result.grove_uri
+    if result.durable_url:
+        update["durable_url"] = result.durable_url
+    if result.manifest_uri:
+        update["manifest_uri"] = result.manifest_uri
     return Command(update=update)
 
 

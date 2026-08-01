@@ -1,24 +1,17 @@
-"""Gemini/AISA tool-schema sanitizer.
+"""Gemini-oriented tool-schema sanitizer.
 
 Gemini's proto-based function-declaration format does not support JSON Schema
-union types such as ``"type": ["string", "null"]``.  When LangChain passes
-tool schemas through an OpenAI-compatible endpoint that proxies to Gemini
-(e.g. AISA), the request is rejected with:
+union types such as ``"type": ["string", "null"]``. When LangChain passes tool
+schemas through an OpenAI-compatible endpoint that proxies to Gemini, the
+request can be rejected with a proto list/type error.
 
-    400 Invalid JSON payload received. Unknown name "type" at
-    'tools[0].function_declarations[N].*.properties[0].value':
-    Proto field is not repeating, cannot start list.
+Default DevCut planners (NVIDIA NIM, Venice) use stock ``ChatOpenAI`` and do
+not need this. Keep ``GeminiCompatibleChatOpenAI`` for Gemini-backed OpenAI
+gateways if you add one later.
 
-This module provides:
-
-* ``sanitize_schema(obj)`` — recursively rewrites any ``"type"`` that is a
-  list into a single string (preferring the first non-"null" entry, falling
-  back to "string").  Also removes ``"$schema"`` and ``"title"`` keys that
-  Gemini rejects, and converts ``"const"`` to ``"enum": [value]``.
-
-* ``GeminiCompatibleChatOpenAI`` — a ``ChatOpenAI`` subclass that applies
-  ``sanitize_schema`` to every tool definition before the request leaves the
-  process.  Drop-in replacement for ``ChatOpenAI`` when targeting AISA/Gemini.
+* ``sanitize_schema(obj)`` — rewrite list ``type``, drop ``$schema`` /
+  ``title`` / ``additionalProperties``, map ``const`` → ``enum``.
+* ``GeminiCompatibleChatOpenAI`` — ``ChatOpenAI`` that sanitizes tools.
 """
 
 from __future__ import annotations
@@ -78,7 +71,7 @@ def sanitize_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 class GeminiCompatibleChatOpenAI(ChatOpenAI):
-    """ChatOpenAI that sanitizes tool schemas before sending to Gemini-backed endpoints."""
+    """ChatOpenAI that sanitizes tool schemas for Gemini-backed OpenAI gateways."""
 
     def _get_request_payload(self, input_: Any, *, stop: list[str] | None = None, **kwargs: Any) -> dict[str, Any]:  # type: ignore[override]
         payload = super()._get_request_payload(input_, stop=stop, **kwargs)

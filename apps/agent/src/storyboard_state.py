@@ -69,8 +69,10 @@ class StoryboardCanvasState(AgentState):
     header: NotRequired[Annotated[_Header, _replace]]
     # Final stitched MP4. Populated by `stitch_final_cut`.
     final_video_url: NotRequired[Annotated[Optional[str], _replace]]
-    # Permanent Grove URI (lens://...) — set when Grove upload succeeds.
-    grove_uri: NotRequired[Annotated[Optional[str], _replace]]
+    # Durable B2 URL for the final cut (set when Genblaze/B2 upload succeeds).
+    durable_url: NotRequired[Annotated[Optional[str], _replace]]
+    # Genblaze provenance manifest URI (JSON in B2) for the final / last video run.
+    manifest_uri: NotRequired[Annotated[Optional[str], _replace]]
     # "idle" | "stitching" | "ready" | "error"
     export_status: NotRequired[Annotated[str, _replace]]
     export_error: NotRequired[Annotated[Optional[str], _replace]]
@@ -98,9 +100,9 @@ class StoryboardStateMiddleware(AgentMiddleware[StoryboardCanvasState, Any]):  #
 
         return {
             "header": {
-                "title": "Director's Canvas",
+                "title": "DevCut",
                 "subtitle": (
-                    f"Agent-driven video production · Runway {runway_mode_label()}"
+                    f"Hackathon video desk · Runway {runway_mode_label()}"
                 ),
             },
             "shots": [],

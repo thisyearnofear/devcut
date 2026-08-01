@@ -22,22 +22,22 @@ const splineMono = Spline_Sans_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Director's Canvas",
+  title: "DevCut",
   description:
-    "Agent-directed video production. Type a brief — watch a LangGraph agent decompose it into shots, generate Runway stills, animate each into a clip, and stitch a final MP4.",
+    "The video desk for hackathons. Challenge Cuts for organizers. Submit Ready cuts for HyperFrames builders. x402 jobs for agents.",
   openGraph: {
-    title: "Director's Canvas",
-    description: "Agent-directed video production powered by Runway.",
+    title: "DevCut",
+    description: "Challenge films + Submit Ready cuts for hackathons.",
     images: [{ url: "/banner.jpg", width: 1280, height: 420 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Director's Canvas",
-    description: "Agent-directed video production powered by Runway.",
+    title: "DevCut",
+    description: "Challenge films + Submit Ready cuts for hackathons.",
     images: ["/banner.jpg"],
   },
   icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦬</text></svg>",
+    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂</text></svg>",
   },
 };
 

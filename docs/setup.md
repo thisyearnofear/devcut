@@ -9,15 +9,33 @@ Detailed setup for the kit — prerequisites, API keys, Notion configuration, mo
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) for Python deps
 - Docker (required for Intelligence — see [Docker-free mode](#removing-intelligence-docker-free-mode) for the no-Docker path)
 - A package manager: `pnpm` (recommended), `npm`, `yarn`, or `bun`
-- API keys: Gemini (required), Notion integration token (required for the lead-form demo), CopilotKit license (issued by the CLI or `npm run license`)
+- API keys: **NVIDIA** (primary planner), optional Venice + Gemini fallbacks, Notion (leads demo only), CopilotKit license (`npm run license`)
 
 > Lock files are gitignored so you can use any package manager. Generate one locally with your tool of choice.
 
 ---
 
-## Get a Gemini API key (required)
+## Planner API keys
 
-This kit defaults to **Gemini 3.1 Flash-Lite**. You need a Gemini API key for chat to work.
+Canonical reference: [`providers.md`](./providers.md).
+
+**Primary — NVIDIA NIM**
+
+1. Create a key at [build.nvidia.com](https://build.nvidia.com).
+2. Set `NVIDIA_API_KEY` in root `.env` (and `apps/agent/.env` if not symlinked).
+
+**Fallbacks (optional but recommended)**
+
+- `VENICE_API_KEY` — [venice.ai](https://venice.ai) API settings  
+- `GEMINI_API_KEY` — [aistudio.google.com](https://aistudio.google.com) → Get API key  
+
+Default runtime: `AGENT_RUNTIME=nvidia-react` (NVIDIA → Venice → Gemini).
+
+---
+
+## Get a Gemini API key (3rd fallback)
+
+Still useful when NVIDIA/Venice are down or unset.
 
 1. Go to [aistudio.google.com](https://aistudio.google.com) and sign in with a Google Account.
 2. In the left sidebar, click **Get API key**.
@@ -109,26 +127,23 @@ The intelligence env vars (`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`
 
 ---
 
-## Switching to a different model
+## Planner models (NVIDIA → Venice → Gemini)
 
-This kit ships **Gemini 3.1 Flash-Lite + deepagents** as the default. Two pre-wired Gemini runtimes are selectable via the `AGENT_RUNTIME` env var — no code edit needed:
+Canonical reference: [`providers.md`](./providers.md).
 
-| `AGENT_RUNTIME`        | Model                   | Planner                          |
-|------------------------|-------------------------|----------------------------------|
-| `gemini-flash-deep`    | `gemini-3.1-flash-lite` | `deepagents`                     |
-| `gemini-flash-react`   | `gemini-3.1-flash-lite` | `langchain.create_agent` (react) |
-
-Set in **both** `.env` and `apps/agent/.env` (the agent reads its own copy):
+Default: **`AGENT_RUNTIME=nvidia-react`** — OpenAI-compatible NVIDIA NIM, falling back to Venice, then Gemini.
 
 ```bash
-AGENT_RUNTIME=gemini-flash-deep
+# Root .env (agent also loads apps/agent/.env overrides)
+AGENT_RUNTIME=nvidia-react
+NVIDIA_API_KEY=          # https://build.nvidia.com → API key
+VENICE_API_KEY=          # https://venice.ai → API settings
+GEMINI_API_KEY=          # https://aistudio.google.com (3rd fallback)
 ```
 
-A third runtime (`claude-sonnet-4-6-react`) is also wired in [`apps/agent/src/runtime.py`](../apps/agent/src/runtime.py) (`_build_claude_react`) if you'd rather run Claude — set `ANTHROPIC_API_KEY` in `apps/agent/.env` and flip `AGENT_RUNTIME` to it. Use it as a template for any other LangChain provider.
+Optional model overrides: `NVIDIA_MODEL`, `VENICE_MODEL`, `GEMINI_MODEL`.
 
-Restart the agent (`npm run dev:agent`) and you should see `[runtime] AGENT_RUNTIME=...` in the agent log.
-
-Want a different Gemini tier (`gemini-3-pro-preview`, `gemini-3-flash`) or a different provider entirely (OpenAI, etc.)? Edit `apps/agent/src/runtime.py` — `_gemini_llm()` is the single place the model id lives, and `_build_*` factories show the LangChain provider import pattern to copy for a new provider. Re-run `cd apps/agent && uv sync` if you add a new LangChain integration package.
+Force a narrower chain: `venice-react` or `gemini-flash-react` / `gemini-flash-deep`. Restart the agent and confirm `[runtime] AGENT_RUNTIME=...` plus `planner_chain` in the boot log.
 
 ---
 

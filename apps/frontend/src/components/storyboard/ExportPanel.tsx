@@ -7,7 +7,8 @@ interface ExportPanelProps {
   exportStatus: ExportStatus;
   exportError: string | null;
   finalVideoUrl: string | null;
-  groveUri: string | null;
+  durableUrl: string | null;
+  manifestUri: string | null;
   storyboardTitle: string;
   onExport: () => void;
   onDownload: (url: string, filename: string) => void;
@@ -21,12 +22,14 @@ export function ExportPanel({
   exportStatus,
   exportError,
   finalVideoUrl,
-  groveUri,
+  durableUrl,
+  manifestUri,
   storyboardTitle,
   onExport,
   onDownload,
 }: ExportPanelProps) {
   const filename = `${slugify(storyboardTitle || "final-cut")}.mp4`;
+  const shareUrl = durableUrl || finalVideoUrl;
 
   if (exportStatus === "idle") {
     return null; // caller decides when to show the Export button
@@ -95,14 +98,14 @@ export function ExportPanel({
           <span className="size-2 shrink-0 rounded-full bg-emerald-500" />
           <p className="text-sm font-semibold text-foreground">Final cut ready</p>
           <span className="text-xs text-muted-foreground">{filename}</span>
-          {groveUri && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-400 ring-1 ring-sky-500/20">
-              <span>⬡</span> Saved to Grove
+          {durableUrl && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 ring-1 ring-amber-500/20">
+              Stored on B2
             </span>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <ShareButton title={storyboardTitle} groveUri={groveUri} />
+          <ShareButton title={storyboardTitle} shareUrl={shareUrl} />
           <button
             type="button"
             onClick={() => onDownload(finalVideoUrl, filename)}
@@ -120,19 +123,39 @@ export function ExportPanel({
         </div>
       </div>
 
-      {/* Grove permanent link */}
-      {groveUri && (
+      {/* Durable B2 link */}
+      {durableUrl && (
         <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
-          <span className="shrink-0 text-[11px] font-mono uppercase tracking-wider text-white/45">Permanent</span>
+          <span className="shrink-0 text-[11px] font-mono uppercase tracking-wider text-white/45">
+            Durable
+          </span>
           <a
-            href={groveUri.startsWith("lens://") ? `https://api.grove.storage/${groveUri.replace("lens://", "")}` : groveUri}
+            href={durableUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-w-0 flex-1 truncate font-mono text-[11px] text-amber-400 hover:text-amber-300"
+          >
+            {durableUrl}
+          </a>
+          <CopyButton text={durableUrl} />
+        </div>
+      )}
+
+      {/* Genblaze provenance manifest */}
+      {manifestUri && (
+        <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
+          <span className="shrink-0 text-[11px] font-mono uppercase tracking-wider text-white/45">
+            Manifest
+          </span>
+          <a
+            href={manifestUri}
             target="_blank"
             rel="noopener noreferrer"
             className="min-w-0 flex-1 truncate font-mono text-[11px] text-sky-400 hover:text-sky-300"
           >
-            {groveUri}
+            {manifestUri}
           </a>
-          <CopyButton text={groveUri} />
+          <CopyButton text={manifestUri} />
         </div>
       )}
     </div>
@@ -160,23 +183,25 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function ShareButton({ title, groveUri }: { title: string; groveUri: string | null }) {
-  const shareUrl = groveUri
-    ? (groveUri.startsWith("lens://") ? `https://api.grove.storage/${groveUri.replace("lens://", "")}` : groveUri)
-    : (typeof window !== "undefined" ? window.location.origin : "https://director.thisyearnofear.com");
+function ShareButton({ title, shareUrl }: { title: string; shareUrl: string | null }) {
+  const resolved =
+    shareUrl ||
+    (typeof window !== "undefined"
+      ? window.location.origin
+      : "https://director.thisyearnofear.com");
 
   const shareText = title
-    ? `I just directed "${title}" with Director's Canvas — an AI agent that turns a one-line brief into a stitched video storyboard using Runway. Try it:`
-    : "I just directed a storyboard with Director's Canvas — an AI agent that turns a one-line brief into a stitched video using Runway. Try it:";
+    ? `I just shipped "${title}" with DevCut — challenge films + Submit Ready cuts for hackathons. Try it:`
+    : "I just shipped a hackathon cut with DevCut — Challenge Cut / Submit Ready for HyperFrames builders. Try it:";
 
   const handleShare = async () => {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: "Director's Canvas", text: shareText, url: shareUrl });
+        await navigator.share({ title: "DevCut", text: shareText, url: resolved });
         return;
       } catch { /* user cancelled or not supported */ }
     }
-    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText + " " + shareUrl)}`;
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText + " " + resolved)}`;
     window.open(tweetUrl, "_blank", "noopener,noreferrer,width=550,height=420");
   };
 
