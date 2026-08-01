@@ -49,6 +49,7 @@ Open <http://localhost:3000> → pick a door → `/director`.
 | --- | --- |
 | [**DevCut thesis**](./docs/devcut-thesis.md) | North star |
 | [Providers](./docs/providers.md) | Inference + AG-UI foundation |
+| [DevCut × HyperFrames](./docs/hyperframes.md) | How we feed HF (BRIEF + assets) |
 | [x402 jobs](./docs/x402.md) | Pay-per-job API for agents |
 | [Hackathon / B2 notes](./docs/hackathon-backblaze.md) | Genblaze + B2 submission notes |
 | [Architecture](./docs/architecture.md) | Pipeline internals |
