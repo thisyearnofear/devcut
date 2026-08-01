@@ -16,9 +16,9 @@ Do **not** put secrets in this file — only status and pointers.
 | `DOMAIN` / `NEXT_PUBLIC_APP_URL` / `X402_RESOURCE_BASE` on nuncio | done |
 | Same vars in local gitignored `.env` | done |
 | B2 CORS allowlist includes both hosts | done (on bucket) |
-| Smoke both hosts in browser | pending (human) |
+| Smoke both hosts in browser | primary `devcut` HTTPS OK (LE cert) |
 | Devpost / Discord pins → `devcut…` | pending (human) |
-| Drop legacy host later | pending |
+| Drop legacy host later | done (director DNS removed; Traefik is `devcut`-only) |
 
 ## Backblaze B2 + Genblaze
 
@@ -55,3 +55,4 @@ Do **not** put secrets in this file — only status and pointers.
 | 2026-08-01 | Dual-host Traefik; B2 bucket+CORS; Genblaze enabled; director-* PM2 reloaded only. |
 | 2026-08-01 | Bucket flipped **public**; anonymous smoke GET HTTP 200. |
 | 2026-08-01 | Deployed release `20260801_143804` with Genblaze/Vault; `devcut` HTTPS 200. |
+| 2026-08-01 | Fixed `ERR_CERT_AUTHORITY_INVALID`: issued Let's Encrypt cert for `devcut.thisyearnofear.com`; dropped director Traefik host (DNS NXDOMAIN). |
