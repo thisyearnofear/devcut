@@ -164,49 +164,67 @@ html {
 
 /*
   ─────────────────────────────────────────────────────────────────────
-  Cinema theme — applied to the /director canvas layout
+  Edit-bay theme — /director canvas (and about) after landing hard-cut
   ─────────────────────────────────────────────────────────────────────
-  Overrides all tokens to a unified deep-black palette so the ThreadsDrawer,
-  canvas, and chat panel share one visual language. Applied via
-  data-theme="cinema" on the layout root in the director page.
+  Same carbon / amber signal / cyan timecode language as the landing.
+  Applied via data-theme="cinema" on the layout root (legacy attr name).
 */
 [data-theme="cinema"] {
-  --background: #121215;
-  --foreground: rgba(255,255,255,0.9);
-  --card: #19191d;
-  --card-foreground: rgba(255,255,255,0.9);
-  --primary: rgba(255,255,255,0.92);
-  --primary-foreground: #111215;
-  --secondary: #232329;
-  --secondary-foreground: rgba(255,255,255,0.72);
-  --muted: #202027;
-  --muted-foreground: rgba(255,255,255,0.5);
-  --accent: rgba(255,255,255,0.12);
-  --accent-foreground: rgba(255,255,255,0.9);
-  --border: rgba(255,255,255,0.12);
-  --input: rgba(255,255,255,0.08);
-  --ring: rgba(190, 194, 255, 0.45);
-  --sidebar: #151519;
-  --sidebar-foreground: rgba(255,255,255,0.82);
-  --sidebar-primary: rgba(255,255,255,0.9);
-  --sidebar-primary-foreground: #111215;
-  --sidebar-accent: rgba(255,255,255,0.08);
-  --sidebar-accent-foreground: rgba(255,255,255,0.78);
-  --sidebar-border: rgba(255,255,255,0.08);
-  --sidebar-ring: rgba(190, 194, 255, 0.38);
-  --sidebar-hover: rgba(255,255,255,0.06);
-  --sidebar-active: rgba(255,255,255,0.09);
-  --sidebar-active-strong: rgba(255,255,255,0.13);
-  --sidebar-muted: rgba(255,255,255,0.42);
-  --destructive: #f87171;
-  --destructive-foreground: #111215;
+  --dc-ink: #050607;
+  --dc-panel: #0c0e10;
+  --dc-rail: #14181c;
+  --dc-signal: #ff9f1c;
+  --dc-signal-soft: rgba(255, 159, 28, 0.18);
+  --dc-cyan: #2de2c5;
+  --dc-cyan-soft: rgba(45, 226, 197, 0.14);
+  --dc-paper: #f4efe4;
+  --dc-mute: rgba(244, 239, 228, 0.58);
+  --dc-dim: rgba(244, 239, 228, 0.32);
+  --dc-cut: #ff3b55;
+  --dc-line: rgba(244, 239, 228, 0.12);
+
+  --background: #050607;
+  --foreground: #f4efe4;
+  --card: #0c0e10;
+  --card-foreground: #f4efe4;
+  --primary: #ff9f1c;
+  --primary-foreground: #050607;
+  --secondary: #14181c;
+  --secondary-foreground: rgba(244, 239, 228, 0.72);
+  --muted: #14181c;
+  --muted-foreground: rgba(244, 239, 228, 0.5);
+  --accent: rgba(255, 159, 28, 0.12);
+  --accent-foreground: #f4efe4;
+  --border: rgba(244, 239, 228, 0.12);
+  --input: rgba(244, 239, 228, 0.08);
+  --ring: rgba(45, 226, 197, 0.45);
+  --sidebar: #0c0e10;
+  --sidebar-foreground: rgba(244, 239, 228, 0.82);
+  --sidebar-primary: #ff9f1c;
+  --sidebar-primary-foreground: #050607;
+  --sidebar-accent: rgba(45, 226, 197, 0.1);
+  --sidebar-accent-foreground: rgba(244, 239, 228, 0.78);
+  --sidebar-border: rgba(244, 239, 228, 0.1);
+  --sidebar-ring: rgba(45, 226, 197, 0.38);
+  --sidebar-hover: rgba(244, 239, 228, 0.06);
+  --sidebar-active: rgba(255, 159, 28, 0.1);
+  --sidebar-active-strong: rgba(255, 159, 28, 0.16);
+  --sidebar-muted: rgba(244, 239, 228, 0.42);
+  --destructive: #ff3b55;
+  --destructive-foreground: #f4efe4;
   color-scheme: dark;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
 }
 
 [data-theme="cinema"] body,
 [data-theme="cinema"] {
-  background: #121215;
-  color: rgba(255,255,255,0.9);
+  background: #050607;
+  color: #f4efe4;
+}
+
+[data-theme="cinema"] .font-display,
+[data-theme="cinema"] .dc-display {
+  font-family: var(--font-display), var(--font-jakarta), system-ui, sans-serif;
 }
 
 /*

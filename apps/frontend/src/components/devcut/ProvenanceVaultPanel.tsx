@@ -59,7 +59,7 @@ export function ProvenanceVaultPanel({ state }: ProvenanceVaultPanelProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a8c4b4]">
+        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-cyan,#2de2c5)]">
           Provenance vault · Backblaze B2
         </p>
         <p className="text-sm font-medium text-white/90">{vault.title}</p>
@@ -134,7 +134,7 @@ export function ProvenanceVaultPanel({ state }: ProvenanceVaultPanelProps) {
           type="button"
           disabled={busy || !(vault.jobManifestUri || vault.clipManifestUri)}
           onClick={onVerify}
-          className="rounded-full bg-[#c5d4c8] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white disabled:opacity-40"
+          className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white disabled:opacity-40"
         >
           {busy ? "Verifying…" : "Verify manifest"}
         </button>
@@ -174,7 +174,7 @@ export function ProvenanceVaultPanel({ state }: ProvenanceVaultPanelProps) {
                     href={s.stillUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[#a8c4b4] hover:underline"
+                    className="text-[var(--dc-cyan,#2de2c5)] hover:underline"
                   >
                     still
                   </a>

@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "motion/react";
 import {
   DEVCUT,
   DEVCUT_CHALLENGE_EXAMPLES,
@@ -12,14 +14,107 @@ import {
   type DevCutDoorId,
 } from "@/lib/devcut";
 import { AgentPaymentsPanel } from "@/components/devcut/AgentPaymentsPanel";
+import { ClipDoors } from "@/components/landing/ClipDoors";
+import { useCutToCanvas } from "@/components/landing/CutToCanvas";
+import { useCutSound } from "@/components/landing/useCutSound";
+import "./landing.css";
+
+const WaveGrid = dynamic(
+  () => import("@/components/landing/WaveGrid").then((m) => m.WaveGrid),
+  { ssr: false },
+);
+
+const StoryStrip = dynamic(
+  () => import("@/components/landing/StoryStrip").then((m) => m.StoryStrip),
+  { ssr: false },
+);
+
+const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+
+function formatTimecode(ms: number) {
+  const total = Math.floor(ms / 10);
+  const frames = total % 100;
+  const secs = Math.floor(total / 100) % 60;
+  const mins = Math.floor(total / 6000) % 60;
+  const hours = Math.floor(total / 360000);
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+  return `${pad(hours)}:${pad(mins)}:${pad(secs)}:${pad(frames)}`;
+}
+
+function LeaderCountdown({ onDone }: { onDone: () => void }) {
+  const [n, setN] = useState(3);
+  const finish = useCallback(() => onDone(), [onDone]);
+
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      finish();
+      return;
+    }
+    if (n < 0) {
+      finish();
+      return;
+    }
+    const t = window.setTimeout(() => setN((v) => v - 1), n === 0 ? 280 : 420);
+    return () => window.clearTimeout(t);
+  }, [n, finish]);
+
+  if (n < 0) return null;
+
+  return (
+    <motion.div
+      className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[var(--dc-ink)]"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: n === 0 ? 0 : 1 }}
+      transition={{ duration: 0.28, ease: EASE_OUT }}
+      aria-hidden
+    >
+      <motion.span
+        key={n}
+        className="dc-display text-[clamp(5rem,22vw,12rem)] font-bold leading-none tracking-tight text-[var(--dc-signal)]"
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2, ease: EASE_OUT }}
+      >
+        {n === 0 ? "CUT" : n}
+      </motion.span>
+    </motion.div>
+  );
+}
 
 /**
- * DevCut landing — one composition, three doors.
- * Brand first; no generic cinema playground.
+ * DevCut landing — frontier motion: wave field, clip doors, Challenge Cut strip.
  */
 export function LandingPage() {
   const [door, setDoor] = useState<DevCutDoorId>("challenge");
   const [brief, setBrief] = useState(DEVCUT_GOLDEN_CHALLENGE.brief);
+  const [clock, setClock] = useState(0);
+  const [introDone, setIntroDone] = useState(false);
+  const markIntroDone = useCallback(() => setIntroDone(true), []);
+  const { armed, toggle: toggleSound, playCut, playRec, playCanvasCut } =
+    useCutSound();
+  const { cutTo, Overlay, busy: cutting } = useCutToCanvas({
+    playCut: playCanvasCut,
+  });
+
+  useEffect(() => {
+    if (!introDone) return;
+    playRec();
+  }, [introDone, playRec]);
+
+  useEffect(() => {
+    if (!introDone) return;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      setClock(t - start);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [introDone]);
 
   const examples = useMemo(
     () => (door === "submit" ? DEVCUT_SUBMIT_EXAMPLES : DEVCUT_CHALLENGE_EXAMPLES),
@@ -46,165 +141,242 @@ export function LandingPage() {
     return `/director?mode=submit&demo=hf&brief=${encodeURIComponent(payload)}`;
   }, []);
 
-  return (
-    <div className="min-h-svh bg-[#0c0f0e] text-[#e8ece9]">
-      {/* Atmosphere — cool ink, not purple glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 opacity-80"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 50% -10%, #1a3a32 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 100% 100%, #1a2218 0%, transparent 50%)",
-        }}
-      />
+  const selectDoor = useCallback(
+    (id: DevCutDoorId) => {
+      playCut();
+      setDoor(id);
+      if (id === "challenge") setBrief(DEVCUT_CHALLENGE_EXAMPLES[0].brief);
+      if (id === "submit") setBrief(DEVCUT_SUBMIT_EXAMPLES[0].brief);
+    },
+    [playCut],
+  );
 
-      <div className="relative mx-auto flex min-h-svh max-w-5xl flex-col px-5 pb-16 pt-6 sm:px-8">
-        <header className="flex items-center justify-between gap-4">
-          <p className="font-mono text-sm font-medium tracking-[0.04em] text-[#c5d4c8]">
-            {DEVCUT.name}
-          </p>
-          <nav className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-[0.14em] text-white/45">
-            <Link href="/about" className="hover:text-white/80">
+  return (
+    <div data-devcut-landing className="min-h-svh overflow-x-hidden">
+      {Overlay}
+      <section className="relative flex min-h-svh flex-col">
+        {!introDone && <LeaderCountdown onDone={markIntroDone} />}
+
+        <div className="absolute inset-0 overflow-hidden" aria-hidden>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/devcut-hero-bay.jpg"
+            alt=""
+            className="h-full w-full scale-105 object-cover object-center opacity-70"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,6,7,0.62)_0%,rgba(5,6,7,0.4)_38%,rgba(5,6,7,0.92)_78%,#050607_100%)]" />
+          {introDone ? <WaveGrid className="z-[1]" /> : null}
+          <div className="dc-grain pointer-events-none absolute -inset-[8%] z-[2] opacity-[0.06] mix-blend-overlay bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E')]" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-[2] w-5 dc-sprocket opacity-70 sm:w-7" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-[2] w-5 dc-sprocket opacity-70 sm:w-7" />
+          <div className="pointer-events-none absolute inset-x-0 top-[42%] z-[2] h-px overflow-hidden">
+            <div className="dc-playhead h-px w-1/5 bg-[linear-gradient(90deg,transparent,var(--dc-cyan),transparent)] shadow-[0_0_18px_var(--dc-cyan)]" />
+          </div>
+        </div>
+
+        <header className="relative z-10 flex items-center justify-between gap-4 px-5 pt-5 sm:px-8 sm:pt-6">
+          <div className="dc-mono flex items-center gap-3 text-[11px] uppercase tracking-[0.16em] text-[var(--dc-mute)]">
+            <span className="inline-flex items-center gap-2 text-[var(--dc-signal)]">
+              <span className="dc-rec inline-block size-2 rounded-full bg-[var(--dc-cut)]" />
+              Rec
+            </span>
+            <span className="text-[var(--dc-cyan)] tabular-nums">{formatTimecode(clock)}</span>
+          </div>
+          <nav className="dc-mono flex items-center gap-4 text-[11px] uppercase tracking-[0.14em] text-[var(--dc-mute)]">
+            <button
+              type="button"
+              onClick={toggleSound}
+              className="transition-colors duration-200 hover:text-[var(--dc-paper)]"
+              aria-pressed={armed}
+              title={armed ? "Mute cut sound" : "Arm cut sound"}
+            >
+              {armed ? "Sound on" : "Sound off"}
+            </button>
+            <Link
+              href="/about"
+              className="transition-colors duration-200 hover:text-[var(--dc-paper)]"
+            >
               About
             </Link>
-            <Link href={goldenHref} className="hover:text-white/80">
+            <a
+              href="#grammar"
+              className="transition-colors duration-200 hover:text-[var(--dc-paper)]"
+            >
+              Grammar
+            </a>
+            <button
+              type="button"
+              onClick={() => cutTo(goldenHref, "golden")}
+              disabled={cutting}
+              className="hidden transition-colors duration-200 hover:text-[var(--dc-paper)] sm:inline"
+            >
               Golden cut
-            </Link>
-            <Link href={hfDemoHref} className="hover:text-white/80">
-              HF demo
-            </Link>
+            </button>
           </nav>
         </header>
 
-        {/* Hero — brand + one line + doors */}
-        <section className="mt-16 flex flex-1 flex-col justify-center gap-10 sm:mt-20">
-          <div className="max-w-2xl space-y-5">
-            <h1 className="font-mono text-[clamp(2.5rem,8vw,4.5rem)] font-medium leading-[0.95] tracking-tight text-[#f2f6f3]">
+        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-end px-5 pb-14 pt-24 sm:px-8 sm:pb-20">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={introDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
+            transition={{ duration: 0.45, ease: EASE_OUT }}
+            className="max-w-3xl"
+          >
+            <p className="dc-mono mb-4 text-[11px] uppercase tracking-[0.22em] text-[var(--dc-cyan)]">
+              Hackathon video desk
+            </p>
+            <h1 className="dc-display dc-brand text-[clamp(3.25rem,14vw,7.5rem)] font-bold leading-[0.88] tracking-[-0.04em] text-[var(--dc-paper)]">
               {DEVCUT.name}
             </h1>
-            <p className="max-w-xl text-lg leading-relaxed text-white/65 sm:text-xl">
-              {DEVCUT.tagline}. Challenge films for organizers. Submit-ready cuts for
-              HyperFrames builders. Metered jobs for agents.
+            <p className="dc-display mt-5 max-w-xl text-[clamp(1.35rem,3.4vw,2rem)] font-medium leading-tight tracking-[-0.02em] text-[var(--dc-paper)]">
+              Ship like it&apos;s 3 AM in the edit bay.
             </p>
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <Link
-                href={goldenHref}
-                className="inline-flex items-center rounded-full bg-[#c5d4c8] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white"
+            <p className="mt-4 max-w-lg text-base leading-relaxed text-[var(--dc-mute)] sm:text-lg">
+              Challenge films for organizers. Submit-ready stitches for HyperFrames builders.
+              Metered jobs for agents.
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => cutTo(goldenHref, "golden")}
+                disabled={cutting}
+                data-cuelume-press
+                data-cuelume-release
+                className="dc-btn inline-flex items-center bg-[var(--dc-signal)] px-5 py-3 dc-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-50"
               >
                 Run golden Challenge Cut
-              </Link>
-              <Link
-                href={hfDemoHref}
-                className="inline-flex items-center rounded-full border border-[#7a9e88]/50 bg-[#7a9e88]/15 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/25"
+              </button>
+              <button
+                type="button"
+                onClick={() => cutTo(hfDemoHref, "hf")}
+                disabled={cutting}
+                data-cuelume-press
+                data-cuelume-release
+                className="dc-btn inline-flex items-center border border-[var(--dc-cyan)]/45 bg-[var(--dc-cyan-soft)] px-5 py-3 dc-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--dc-cyan)] hover:border-[var(--dc-cyan)] hover:bg-[var(--dc-cyan)]/20 disabled:opacity-50"
               >
                 HyperFrames demo
-              </Link>
-              <p className="max-w-xs text-xs leading-5 text-white/40">
-                Partner paths — Genblaze+B2 judging spec, or Submit Ready → HF kit.
+              </button>
+            </div>
+          </motion.div>
+
+          <motion.a
+            href="#desk"
+            initial={{ opacity: 0 }}
+            animate={introDone ? { opacity: 1 } : { opacity: 0 }}
+            transition={{ delay: 0.2, duration: 0.35, ease: EASE_OUT }}
+            className="dc-mono mt-12 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
+          >
+            <span className="inline-block h-8 w-px bg-[var(--dc-signal)]" />
+            Open the desk
+          </motion.a>
+        </div>
+      </section>
+
+      <section id="desk" className="relative border-t border-[var(--dc-line)] bg-[var(--dc-ink)]">
+        <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-signal)]">
+                Desk
               </p>
+              <h2 className="dc-display mt-1 text-2xl font-semibold tracking-tight text-[var(--dc-paper)] sm:text-3xl">
+                Pick a door. Commission the cut.
+              </h2>
             </div>
           </div>
 
-          {/* Three doors */}
-          <div className="grid gap-3 md:grid-cols-3">
-            {DEVCUT_DOORS.map((d) => {
-              const selected = door === d.id;
-              return (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => {
-                    setDoor(d.id);
-                    if (d.id === "challenge") setBrief(DEVCUT_CHALLENGE_EXAMPLES[0].brief);
-                    if (d.id === "submit") setBrief(DEVCUT_SUBMIT_EXAMPLES[0].brief);
-                  }}
-                  className={`rounded-2xl border px-4 py-4 text-left transition-colors ${
-                    selected
-                      ? "border-[#7a9e88]/55 bg-[#7a9e88]/10"
-                      : "border-white/10 bg-white/[0.02] hover:border-white/20"
-                  }`}
-                >
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
-                    {d.label}
-                  </p>
-                  <p className="mt-2 text-base font-medium text-white/90">{d.title}</p>
-                  <p className="mt-1.5 text-sm leading-5 text-white/55">{d.body}</p>
-                </button>
-              );
-            })}
-          </div>
+          <ClipDoors door={door} onSelect={selectDoor} />
 
-          {/* Active door workspace */}
-          <div className="rounded-2xl border border-white/10 bg-black/25 p-5 sm:p-6">
-            {door === "agent" ? (
-              <AgentPaymentsPanel embedded />
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#9bb5a4]">
-                      {activeDoor.title}
-                    </p>
-                    <p className="mt-1 text-sm text-white/55">{activeDoor.body}</p>
+          {/* One beat: brief + CTA flush under the rail */}
+          <div className="border-x border-b border-[var(--dc-line)] bg-[var(--dc-panel)]">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={door}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: EASE_OUT }}
+              >
+                {door === "agent" ? (
+                  <div className="p-5 sm:p-6">
+                    <AgentPaymentsPanel embedded />
                   </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {examples.map((ex) => (
-                    <button
-                      key={ex.label}
-                      type="button"
-                      onClick={() => setBrief(ex.brief)}
-                      className={`rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors ${
-                        brief === ex.brief
-                          ? "border-[#7a9e88]/50 bg-[#7a9e88]/15 text-[#c5d4c8]"
-                          : "border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"
-                      }`}
-                    >
-                      {ex.label}
-                    </button>
-                  ))}
-                </div>
-
-                <textarea
-                  value={brief}
-                  onChange={(e) => setBrief(e.target.value)}
-                  rows={4}
-                  className="w-full resize-y rounded-xl border border-white/10 bg-black/40 px-4 py-3 font-mono text-sm leading-6 text-white/85 outline-none placeholder:text-white/30 focus:border-[#7a9e88]/45"
-                  placeholder={
-                    door === "challenge"
-                      ? "Paste prize brief, Devpost URL, or judging criteria…"
-                      : "Paste product URL, GitHub repo, or HyperFrames project notes…"
-                  }
-                />
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link
-                    href={directorHref}
-                    className="inline-flex items-center rounded-full bg-[#c5d4c8] px-5 py-2.5 font-mono text-xs uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white"
-                  >
-                    {door === "challenge" ? "Commission Challenge Cut" : "Run Submit Ready"}
-                  </Link>
-                  <p className="font-mono text-[11px] text-white/40">
-                    Opens the live canvas · MOCK without a Runway key
-                  </p>
-                </div>
-              </div>
-            )}
+                ) : (
+                  <div className="flex flex-col gap-0">
+                    <div className="flex flex-wrap items-center gap-2 border-b border-[var(--dc-line)] px-4 py-2.5">
+                      <span className="dc-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-dim)]">
+                        Seed
+                      </span>
+                      {examples.map((ex) => (
+                        <button
+                          key={ex.label}
+                          type="button"
+                          onClick={() => setBrief(ex.brief)}
+                          className={`dc-btn border px-2.5 py-1 dc-mono text-[10px] uppercase tracking-[0.1em] ${
+                            brief === ex.brief
+                              ? "border-[var(--dc-signal)]/55 bg-[var(--dc-signal-soft)] text-[var(--dc-signal)]"
+                              : "border-transparent text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
+                          }`}
+                        >
+                          {ex.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-stretch sm:gap-4">
+                      <textarea
+                        value={brief}
+                        onChange={(e) => setBrief(e.target.value)}
+                        rows={3}
+                        className="min-h-[5.5rem] w-full flex-1 resize-y border border-[var(--dc-line)] bg-black/50 px-3 py-2.5 dc-mono text-sm leading-6 text-[var(--dc-paper)] outline-none placeholder:text-[var(--dc-dim)] focus:border-[var(--dc-cyan)]/50 sm:min-h-0"
+                        placeholder={
+                          door === "challenge"
+                            ? "Prize brief, Devpost URL, or judging criteria…"
+                            : "Product URL, GitHub, or HyperFrames notes…"
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => cutTo(directorHref, door)}
+                        disabled={cutting || !brief.trim()}
+                        data-cuelume-press
+                        data-cuelume-release
+                        className="dc-btn inline-flex shrink-0 items-center justify-center self-stretch bg-[var(--dc-signal)] px-5 py-3 dc-mono text-xs font-medium uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40 sm:min-w-[11rem]"
+                      >
+                        {door === "challenge" ? "Commission cut" : "Run Submit Ready"}
+                      </button>
+                    </div>
+                    <p className="border-t border-[var(--dc-line)] px-4 py-2 dc-mono text-[10px] text-[var(--dc-dim)]">
+                      Hard-cut to canvas · MOCK without a Runway key
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* HyperFrames complement — prove the wedge */}
-        <section className="mt-20 border-t border-white/10 pt-12">
-          <h2 className="font-mono text-sm uppercase tracking-[0.14em] text-white/50">
+      <StoryStrip
+        goldenHref={goldenHref}
+        hfDemoHref={hfDemoHref}
+        onCut={(href: string, mode: "golden" | "hf") => cutTo(href, mode)}
+      />
+
+      <section className="border-t border-[var(--dc-line)] bg-[var(--dc-rail)]">
+        <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
+          <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+            Complement, don&apos;t compete
+          </p>
+          <h2 className="dc-display mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-[var(--dc-paper)] sm:text-4xl">
             How we feed HyperFrames
           </h2>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-white/70">
-            HyperFrames owns code→video. DevCut fills the mid-hack gap: consistent Runway
-            heroes, a Devpost-shaped stitch, and a handoff kit builders can paste into an HF
-            project — not another authoring tool.
+          <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--dc-mute)]">
+            HyperFrames owns code→video. DevCut fills the mid-hack gap: consistent Runway heroes, a
+            Devpost-shaped stitch, and a handoff kit builders paste into an HF project.
           </p>
-          <ol className="mt-8 grid gap-4 md:grid-cols-3">
+
+          <ol className="mt-12 grid gap-8 md:grid-cols-3 md:gap-6">
             {[
               {
                 step: "01",
@@ -221,21 +393,28 @@ export function LandingPage() {
                 title: "Finish in HyperFrames",
                 body: "Paste BRIEF, stage media, keep HTML composition + render where it belongs.",
               },
-            ].map((row) => (
-              <li
-                key={row.step}
-                className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4"
-              >
-                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a8c4b4]">
+            ].map((row, i) => (
+              <li key={row.step} className="relative">
+                {i < 2 && (
+                  <span
+                    aria-hidden
+                    className="absolute top-4 hidden h-px w-8 bg-[var(--dc-line)] md:block"
+                    style={{ right: "-1rem" }}
+                  />
+                )}
+                <p className="dc-mono text-[clamp(2.5rem,5vw,3.5rem)] font-medium leading-none tracking-tight text-[var(--dc-signal)]/35">
                   {row.step}
                 </p>
-                <p className="mt-2 text-sm font-medium text-white/90">{row.title}</p>
-                <p className="mt-1 text-xs leading-5 text-white/55">{row.body}</p>
+                <p className="dc-display mt-3 text-lg font-semibold text-[var(--dc-paper)]">
+                  {row.title}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[var(--dc-mute)]">{row.body}</p>
               </li>
             ))}
           </ol>
-          <p className="mt-6 font-mono text-[11px] text-white/40">
-            <Link href="/about" className="underline-offset-2 hover:text-white/70 hover:underline">
+
+          <p className="dc-mono mt-10 text-[11px] text-[var(--dc-dim)]">
+            <Link href="/about" className="hover:text-[var(--dc-mute)]">
               About
             </Link>
             {" · "}
@@ -243,48 +422,49 @@ export function LandingPage() {
               href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/hyperframes.md"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline-offset-2 hover:text-white/70 hover:underline"
+              className="hover:text-[var(--dc-mute)]"
             >
               DevCut × HyperFrames
             </a>
           </p>
-        </section>
+        </div>
+      </section>
 
-        {/* One supporting section — not a dashboard */}
-        <section className="mt-16 grid gap-8 border-t border-white/10 pt-12 md:grid-cols-2">
+      <section className="border-t border-[var(--dc-line)]">
+        <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-2">
           <div>
-            <h2 className="font-mono text-sm uppercase tracking-[0.14em] text-white/50">
+            <h2 className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-signal)]">
               Why this exists
             </h2>
-            <p className="mt-3 text-base leading-7 text-white/70">
-              Hackathon READMEs stay abstract. HyperFrames already owns code→video. DevCut owns
-              the gap: generative heroes + packaging so organizers show the bar and builders ship
-              a Devpost cut without a video team.
+            <p className="mt-4 text-base leading-7 text-[var(--dc-mute)]">
+              Hackathon READMEs stay abstract. HyperFrames already owns code→video. DevCut owns the
+              gap: generative heroes + packaging so organizers show the bar and builders ship a
+              Devpost cut without a video team.
             </p>
           </div>
           <div>
-            <h2 className="font-mono text-sm uppercase tracking-[0.14em] text-white/50">
+            <h2 className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cut)]">
               What we refuse
             </h2>
-            <p className="mt-3 text-base leading-7 text-white/70">
+            <p className="mt-4 text-base leading-7 text-[var(--dc-mute)]">
               Generic film studios. Sci-fi playground demos. Competing with HyperFrames authoring.
               BYOK as the hero UX — x402 jobs are the default path we&apos;re building toward.
             </p>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <footer className="mt-16 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6 font-mono text-[11px] uppercase tracking-[0.12em] text-white/35">
-          <span>{DEVCUT.name}</span>
-          <a
-            href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/devcut-thesis.md"
-            className="hover:text-white/60"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Product thesis
-          </a>
-        </footer>
-      </div>
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--dc-line)] px-5 py-6 sm:px-8">
+        <span className="dc-display text-sm font-semibold tracking-tight">{DEVCUT.name}</span>
+        <a
+          href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/devcut-thesis.md"
+          className="dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Product thesis
+        </a>
+      </footer>
     </div>
   );
 }

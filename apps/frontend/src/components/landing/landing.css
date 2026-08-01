@@ -1,0 +1,144 @@
+/* DevCut landing — 3am edit bay. Tokens mirrored on [data-theme="cinema"] for /director. */
+
+[data-devcut-landing] {
+  --dc-ink: #050607;
+  --dc-panel: #0c0e10;
+  --dc-rail: #14181c;
+  --dc-signal: #ff9f1c;
+  --dc-signal-soft: rgba(255, 159, 28, 0.18);
+  --dc-cyan: #2de2c5;
+  --dc-cyan-soft: rgba(45, 226, 197, 0.14);
+  --dc-paper: #f4efe4;
+  --dc-mute: rgba(244, 239, 228, 0.58);
+  --dc-dim: rgba(244, 239, 228, 0.32);
+  --dc-cut: #ff3b55;
+  --dc-line: rgba(244, 239, 228, 0.12);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-inout: cubic-bezier(0.77, 0, 0.175, 1);
+  color: var(--dc-paper);
+  background: var(--dc-ink);
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+}
+
+[data-devcut-landing] .dc-display {
+  font-family: var(--font-display), var(--font-jakarta), system-ui, sans-serif;
+}
+
+[data-devcut-landing] .dc-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+@keyframes dc-rec-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes dc-playhead {
+  from {
+    transform: translateX(-8%);
+  }
+  to {
+    transform: translateX(108%);
+  }
+}
+
+@keyframes dc-grain {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  10% {
+    transform: translate(-1%, 1%);
+  }
+  30% {
+    transform: translate(1%, -1%);
+  }
+  50% {
+    transform: translate(-1%, 0.5%);
+  }
+  70% {
+    transform: translate(0.5%, -1%);
+  }
+  90% {
+    transform: translate(1%, 0.5%);
+  }
+}
+
+@keyframes dc-track-jitter {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-0.4px, 0.3px);
+  }
+  40% {
+    transform: translate(0.5px, -0.2px);
+  }
+  60% {
+    transform: translate(-0.3px, -0.4px);
+  }
+  80% {
+    transform: translate(0.3px, 0.2px);
+  }
+}
+
+[data-devcut-landing] .dc-rec {
+  animation: dc-rec-blink 1.4s steps(1, end) infinite;
+}
+
+[data-devcut-landing] .dc-playhead {
+  animation: dc-playhead 7.5s linear infinite;
+}
+
+[data-devcut-landing] .dc-grain {
+  animation: dc-grain 0.45s steps(2) infinite;
+}
+
+[data-devcut-landing] .dc-brand {
+  text-shadow:
+    -1.5px 0 rgba(255, 59, 85, 0.45),
+    1.5px 0 rgba(45, 226, 197, 0.45);
+}
+
+[data-devcut-landing] .dc-brand:hover {
+  animation: dc-track-jitter 0.28s steps(2) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-devcut-landing] .dc-rec,
+  [data-devcut-landing] .dc-playhead,
+  [data-devcut-landing] .dc-grain,
+  [data-devcut-landing] .dc-brand:hover {
+    animation: none;
+  }
+}
+
+[data-devcut-landing] .dc-btn {
+  transition:
+    transform 140ms var(--ease-out),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+[data-devcut-landing] .dc-btn:active {
+  transform: scale(0.97);
+}
+
+[data-devcut-landing] .dc-sprocket {
+  background-image: radial-gradient(
+    circle at 50% 50%,
+    transparent 38%,
+    var(--dc-ink) 40%,
+    var(--dc-ink) 58%,
+    transparent 60%
+  );
+  background-size: 100% 18px;
+  background-repeat: repeat-y;
+}

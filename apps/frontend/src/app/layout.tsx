@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Space_Mono, Syne } from "next/font/google";
 import { CopilotKitProviderShell } from "@/components/copilot/CopilotKitProviderShell";
 import "./globals.css";
 // v2 owns its own stylesheet. Do NOT import @copilotkit/react-ui/styles.css —
@@ -15,8 +15,15 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
 });
 
-const splineMono = Spline_Sans_Mono({
+const syne = Syne({
   subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+});
+
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
   display: "swap",
   variable: "--font-mono",
 });
@@ -47,9 +54,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${jakarta.variable} ${splineMono.variable}`}>
+    <html lang="en" className={`${jakarta.variable} ${syne.variable} ${spaceMono.variable}`}>
       <head />
-      <body className={`${jakarta.variable} ${splineMono.variable} subpixel-antialiased`}>
+      <body
+        className={`${jakarta.variable} ${syne.variable} ${spaceMono.variable} subpixel-antialiased`}
+      >
         <CopilotKitProviderShell>{children}</CopilotKitProviderShell>
       </body>
     </html>

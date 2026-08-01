@@ -78,7 +78,7 @@ export function JobOutcomePanel({
   if (exportStatus === "stitching") {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4">
-        <span className="inline-block size-4 animate-spin rounded-full border-2 border-[#c5d4c8] border-t-transparent" />
+        <span className="inline-block size-4 animate-spin rounded-full border-2 border-[var(--dc-signal,#ff9f1c)] border-t-transparent" />
         <div className="min-w-0">
           <p className="text-sm font-medium text-white/88">Stitching final cut…</p>
           <p className="text-xs text-white/45">
@@ -135,11 +135,11 @@ export function JobOutcomePanel({
   ];
 
   return (
-    <div className="flex flex-col gap-0 overflow-hidden rounded-xl border border-[#7a9e88]/35 bg-[#0c0f0e]">
+    <div className="flex flex-col gap-0 overflow-hidden rounded-xl border border-[var(--dc-signal,#ff9f1c)]/35 bg-[var(--dc-ink,#050607)]">
       <div className="border-b border-white/10 px-4 pt-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a8c4b4]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-cyan,#2de2c5)]">
               Job complete
             </p>
             <p className="mt-1 text-sm font-medium text-white/90">
@@ -174,13 +174,13 @@ export function JobOutcomePanel({
                 onClick={() => setTab(t.id)}
                 className={`min-w-0 flex-1 rounded-t-lg border border-b-0 px-3 py-2.5 text-left transition-colors disabled:opacity-35 ${
                   active
-                    ? "border-[#7a9e88]/40 bg-[#7a9e88]/10"
+                    ? "border-[var(--dc-signal,#ff9f1c)]/40 bg-[var(--dc-signal,#ff9f1c)]/10"
                     : "border-transparent bg-transparent hover:bg-white/[0.03]"
                 }`}
               >
                 <p
                   className={`font-mono text-[10px] uppercase tracking-[0.12em] ${
-                    active ? "text-[#c5d4c8]" : "text-white/40"
+                    active ? "text-[var(--dc-signal,#ff9f1c)]" : "text-white/40"
                   }`}
                 >
                   {t.label}
@@ -208,7 +208,7 @@ export function JobOutcomePanel({
               <button
                 type="button"
                 onClick={() => onDownload(finalVideoUrl, filename)}
-                className="rounded-full bg-[#c5d4c8] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white"
+                className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white"
               >
                 Download MP4
               </button>
@@ -216,7 +216,7 @@ export function JobOutcomePanel({
                 <button
                   type="button"
                   onClick={() => setTab("handoff")}
-                  className="rounded-full border border-[#7a9e88]/45 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/15"
+                  className="rounded-full border border-[var(--dc-signal,#ff9f1c)]/45 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-signal,#ff9f1c)] hover:bg-[var(--dc-signal,#ff9f1c)]/15"
                 >
                   Open HyperFrames kit
                 </button>
@@ -262,7 +262,7 @@ export function JobOutcomePanel({
               <button
                 type="button"
                 onClick={() => downloadBuilderKitZip(builderKit)}
-                className="rounded-full bg-[#c5d4c8] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white"
+                className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white"
               >
                 Download HF kit (.zip)
               </button>
@@ -414,7 +414,7 @@ function SharePack({
           <button
             type="button"
             onClick={onDownloadKit}
-            className="rounded-full border border-[#7a9e88]/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/15"
+            className="rounded-full border border-[var(--dc-signal,#ff9f1c)]/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-signal,#ff9f1c)] hover:bg-[var(--dc-signal,#ff9f1c)]/15"
           >
             Download HF kit
           </button>

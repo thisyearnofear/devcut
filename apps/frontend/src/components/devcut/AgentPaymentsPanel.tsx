@@ -143,7 +143,7 @@ export function AgentPaymentsPanel({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#9bb5a4]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#2de2c5]">
             Agent job
           </p>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-white/65">
@@ -152,7 +152,7 @@ export function AgentPaymentsPanel({
             {catalog ? (
               <>
                 {" "}
-                Settle mode <code className="text-[#c5d4c8]">{catalog.mode}</code>
+                Settle mode <code className="text-[#ff9f1c]">{catalog.mode}</code>
                 {catalog.mode === "demo" ? " (demo signature accepted)." : "."}
               </>
             ) : null}
@@ -182,15 +182,15 @@ export function AgentPaymentsPanel({
               key={s.id}
               type="button"
               onClick={() => setSku(s.id)}
-              className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+              className={`rounded-xl border px-3 py-3 text-left transition-[border-color,background-color] duration-180 ease-out ${
                 sku === s.id
-                  ? "border-[#7a9e88]/50 bg-[#7a9e88]/10"
+                  ? "border-[#ff9f1c]/50 bg-[#ff9f1c]/10"
                   : "border-white/10 bg-white/[0.02] hover:border-white/20"
               }`}
             >
               <div className="flex items-baseline justify-between gap-2">
                 <p className="text-sm font-medium text-white/90">{s.title}</p>
-                <p className="font-mono text-[11px] text-[#c5d4c8]">{s.price}</p>
+                <p className="font-mono text-[11px] text-[#ff9f1c]">{s.price}</p>
               </div>
               <p className="mt-1 font-mono text-[10px] text-white/40">{s.id}</p>
               <p className="mt-2 text-xs leading-5 text-white/55">{s.description}</p>
@@ -203,7 +203,7 @@ export function AgentPaymentsPanel({
         value={brief}
         onChange={(e) => setBrief(e.target.value)}
         rows={3}
-        className="w-full resize-y rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs leading-5 text-white/85 outline-none focus:border-[#7a9e88]/40"
+        className="w-full resize-y rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs leading-5 text-white/85 outline-none focus:border-[#2de2c5]/40"
         placeholder="Brief for the paid job…"
       />
 
@@ -212,14 +212,14 @@ export function AgentPaymentsPanel({
           type="button"
           disabled={busy || !catalog}
           onClick={startJob}
-          className="rounded-full bg-[#c5d4c8] px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white disabled:opacity-40"
+          className="rounded-full bg-[#ff9f1c] px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#050607] transition-transform duration-140 ease-out hover:bg-[#f4efe4] active:scale-[0.97] disabled:opacity-40"
         >
           {busy ? "Starting…" : `Start job${selected ? ` · ${selected.price}` : ""}`}
         </button>
         {receipt && (
           <Link
             href={receipt.canvas_path}
-            className="rounded-full border border-[#7a9e88]/50 bg-[#7a9e88]/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/25"
+            className="rounded-full border border-[#2de2c5]/50 bg-[#2de2c5]/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#2de2c5] hover:bg-[#2de2c5]/25"
           >
             Open canvas
           </Link>
@@ -227,7 +227,7 @@ export function AgentPaymentsPanel({
       </div>
 
       {receipt && (
-        <p className="rounded-lg border border-[#7a9e88]/25 bg-[#7a9e88]/10 px-3 py-2 font-mono text-[11px] text-[#c5d4c8]">
+        <p className="rounded-lg border border-[#2de2c5]/25 bg-[#2de2c5]/10 px-3 py-2 font-mono text-[11px] text-[#2de2c5]">
           Unlocked · {receipt.title} · job {receipt.job_id.slice(0, 8)} — canvas has mode prompt +
           will attach HyperFrames kit after stitch.
         </p>

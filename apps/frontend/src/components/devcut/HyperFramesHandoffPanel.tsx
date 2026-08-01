@@ -37,13 +37,13 @@ export function HyperFramesHandoffPanel({
       className={
         compact
           ? "flex flex-col gap-4"
-          : "flex flex-col gap-4 rounded-xl border border-[#7a9e88]/35 bg-[#7a9e88]/[0.07] p-4"
+          : "flex flex-col gap-4 rounded-xl border border-[var(--dc-signal,#ff9f1c)]/35 bg-[var(--dc-signal,#ff9f1c)]/[0.07] p-4"
       }
     >
       {!compact && (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a8c4b4]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-cyan,#2de2c5)]">
               HyperFrames handoff
             </p>
             <p className="text-sm font-medium text-white/90">
@@ -58,7 +58,7 @@ export function HyperFramesHandoffPanel({
           <button
             type="button"
             onClick={() => downloadBuilderKitZip(kit)}
-            className="shrink-0 rounded-full bg-[#c5d4c8] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white"
+            className="shrink-0 rounded-full bg-[var(--dc-signal,#ff9f1c)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white"
           >
             Download kit.zip
           </button>
@@ -110,7 +110,7 @@ export function HyperFramesHandoffPanel({
                   href={a.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-auto truncate text-[#a8c4b4] hover:underline"
+                  className="ml-auto truncate text-[var(--dc-cyan,#2de2c5)] hover:underline"
                 >
                   open
                 </a>

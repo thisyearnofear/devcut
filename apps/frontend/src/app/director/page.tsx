@@ -387,7 +387,7 @@ function DirectorChat({
                 onClick={() => onSend(s)}
                 className="block w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-xs leading-relaxed text-white/70 transition-colors hover:border-white/25 hover:text-white/90"
               >
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#9bb5a4]">
+                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan,#2de2c5)]">
                   {SUGGESTION_LABELS[i]}
                 </span>
                 <span className="mt-1 block line-clamp-2 text-white/60">
@@ -1287,17 +1287,17 @@ function DevCutEmptyState({
       </div>
 
       <div className="max-w-2xl space-y-3 text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/55">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--dc-cyan,#2de2c5)]">
           {DEVCUT.name}
         </p>
-        <h2 className="text-2xl font-semibold tracking-tight text-white/92 md:text-3xl">
+        <h2 className="dc-display text-2xl font-semibold tracking-tight text-[var(--dc-paper,#f4efe4)] md:text-3xl">
           {DEVCUT.tagline}
         </h2>
         <p className="mx-auto max-w-xl text-sm leading-6 text-white/65">
           DevCut feeds HyperFrames — generative heroes + hackathon packaging. HyperFrames keeps
           HTML composition. Pick a door to start.
         </p>
-        <p className="mx-auto max-w-lg font-mono text-[10px] uppercase tracking-[0.12em] text-amber-200/55">
+        <p className="mx-auto max-w-lg font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-signal,#ff9f1c)]/70">
           No keys yet? MOCK runs the full desk — stills/clips are placeholders; kit.zip still
           ships BRIEF.md
         </p>
@@ -1311,7 +1311,7 @@ function DevCutEmptyState({
               const challenge = DEVCUT_DOORS.find((d) => d.id === "challenge")!;
               onStart(`${challenge.prompt} ${DEVCUT_GOLDEN_CHALLENGE.brief}`);
             }}
-            className="rounded-full bg-[#c5d4c8] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white disabled:opacity-40"
+            className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-[var(--dc-paper,#f4efe4)] disabled:opacity-40"
           >
             Run golden Challenge Cut
           </button>
@@ -1324,7 +1324,7 @@ function DevCutEmptyState({
               const submit = DEVCUT_DOORS.find((d) => d.id === "submit")!;
               onStart(`${submit.prompt} ${DEVCUT_HF_DEMO.brief}`);
             }}
-            className="rounded-full border border-sky-400/40 bg-sky-500/10 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-sky-100/90 hover:bg-sky-500/20 disabled:opacity-40"
+            className="rounded-full border border-[var(--dc-cyan,#2de2c5)]/45 bg-[var(--dc-cyan-soft,rgba(45,226,197,0.14))] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan,#2de2c5)] hover:bg-[var(--dc-cyan,#2de2c5)]/20 disabled:opacity-40"
           >
             HyperFrames demo
           </button>
@@ -1346,10 +1346,10 @@ function DevCutEmptyState({
               className={`rounded-xl border px-4 py-4 text-left transition-colors ${
                 selected
                   ? d.id === "submit"
-                    ? "border-sky-400/45 bg-sky-500/10"
+                    ? "border-[var(--dc-cyan)]/45 bg-[var(--dc-cyan-soft)]"
                     : d.id === "agent"
-                      ? "border-amber-400/40 bg-amber-500/10"
-                      : "border-[#7a9e88]/50 bg-[#7a9e88]/10"
+                      ? "border-[var(--dc-signal)]/45 bg-[var(--dc-signal-soft)]"
+                      : "border-[var(--dc-signal)]/50 bg-[var(--dc-signal-soft)]"
                   : "border-white/10 bg-white/[0.03] hover:border-white/20"
               }`}
             >
@@ -1376,7 +1376,7 @@ function DevCutEmptyState({
                   onClick={() => setDraft(ex.brief)}
                   className={`rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] ${
                     draft === ex.brief
-                      ? "border-[#7a9e88]/45 text-[#c5d4c8]"
+                      ? "border-[var(--dc-signal,#ff9f1c)]/45 text-[var(--dc-signal,#ff9f1c)]"
                       : "border-white/10 text-white/45 hover:text-white/75"
                   }`}
                 >
@@ -1394,9 +1394,9 @@ function DevCutEmptyState({
               type="button"
               disabled={isRunning || !draft.trim()}
               onClick={() => onStart(`${active.prompt} ${draft.trim()}`)}
-              className="rounded-full bg-white/90 px-5 py-2 font-mono text-xs uppercase tracking-[0.12em] text-black hover:bg-white disabled:opacity-40"
+              className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-5 py-2 font-mono text-xs uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-[var(--dc-paper,#f4efe4)] disabled:opacity-40"
             >
-              {door === "challenge" ? "Start Challenge Cut" : "Start Submit Ready"}
+              {door === "challenge" ? "Commission cut" : "Run Submit Ready"}
             </button>
           </div>
         )}

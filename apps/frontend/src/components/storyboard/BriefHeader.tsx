@@ -49,18 +49,18 @@ export function BriefHeader({
           : null;
   const modeBadgeClass =
     jobMode === "submit"
-      ? "border-sky-400/35 bg-sky-500/10 text-sky-100/90"
+      ? "border-[var(--dc-cyan)]/40 bg-[var(--dc-cyan-soft)] text-[var(--dc-cyan)]"
       : jobMode === "agent"
-        ? "border-amber-400/35 bg-amber-500/10 text-amber-100/85"
-        : "border-[#7a9e88]/40 bg-[#7a9e88]/10 text-[#c5d4c8]";
+        ? "border-[var(--dc-signal)]/40 bg-[var(--dc-signal-soft)] text-[var(--dc-signal)]"
+        : "border-[var(--dc-signal)]/40 bg-[var(--dc-signal-soft)] text-[var(--dc-signal)]";
 
   return (
-    <header className="flex flex-col gap-3 border-b border-white/[0.06] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+    <header className="flex flex-col gap-3 border-b border-[var(--dc-line,rgba(244,239,228,0.12))] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
       {/* Title / logline */}
       <div className="min-w-0 flex-1">
         {storyboard.title ? (
           <>
-            <h1 className="truncate font-mono text-xs font-medium uppercase tracking-[0.16em] text-white/78">
+            <h1 className="dc-display truncate text-sm font-semibold tracking-tight text-[var(--dc-paper,#f4efe4)]">
               {storyboard.title}
             </h1>
             {storyboard.logline && (
@@ -70,7 +70,7 @@ export function BriefHeader({
             )}
           </>
         ) : (
-          <h1 className="font-mono text-xs font-medium uppercase tracking-[0.16em] text-white/65">
+          <h1 className="dc-display text-sm font-semibold tracking-tight text-[var(--dc-paper,#f4efe4)]">
             {DEVCUT.name}
           </h1>
         )}
@@ -93,7 +93,7 @@ export function BriefHeader({
           </div>
         )}
         {paidSku && (
-          <span className="rounded-full border border-[#7a9e88]/40 bg-[#7a9e88]/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8]">
+          <span className="rounded-full border border-[var(--dc-cyan)]/40 bg-[var(--dc-cyan-soft)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan)]">
             x402 · {paidSku}
           </span>
         )}
