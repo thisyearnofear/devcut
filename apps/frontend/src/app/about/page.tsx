@@ -1,413 +1,296 @@
 import Link from "next/link";
-import { ArrowLeft, Clapperboard, Film, KeyRound, Sparkles, Zap } from "lucide-react";
+import { DEVCUT, DEVCUT_DOORS } from "@/lib/devcut";
 import { AboutToc, type TocItem } from "./toc";
+import "@/components/landing/landing.css";
 
 export const metadata = {
-  title: "About — DevCut",
-  description:
-    "DevCut is the Runway desk for developers: Challenge Cuts, Submit Ready for HyperFrames builders, x402 jobs for agents.",
+  title: `About — ${DEVCUT.name}`,
+  description: DEVCUT.description,
 };
 
 const tocItems: TocItem[] = [
   { id: "overview", label: "Overview" },
-  { id: "how-it-works", label: "How it works" },
-  { id: "runway", label: "Runway API" },
-  { id: "consistency", label: "Character consistency" },
-  { id: "byok", label: "BYOK + budget" },
+  { id: "pipeline", label: "Pipeline" },
+  { id: "runway", label: "Runway" },
+  { id: "access", label: "Access" },
   { id: "stack", label: "Stack" },
-  { id: "quickstart", label: "Quickstart" },
-  { id: "docs", label: "Docs" },
+  { id: "run", label: "Run locally" },
 ];
 
-function Section({
-  id,
-  eyebrow,
-  title,
-  subtitle,
-  children,
-}: {
-  id?: string;
-  eyebrow?: string;
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section id={id} className="mt-16 scroll-mt-12 first:mt-0">
-      {eyebrow && (
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-accent">
-          {eyebrow}
-        </p>
-      )}
-      <h2 className="text-2xl font-semibold text-foreground">{title}</h2>
-      {subtitle && (
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{subtitle}</p>
-      )}
-      <div className="mt-6">{children}</div>
-    </section>
-  );
-}
+const pipeline = [
+  { step: "01", title: "Brief", body: "Agent breaks one line into 3–6 cinematic shots." },
+  { step: "02", title: "Stills", body: "Shot 0 → gen4_image; 1+ → gen4_image_turbo with character anchor." },
+  { step: "03", title: "Motion", body: "Each still → gen4.5 image→video; first frame = that shot’s ref." },
+  { step: "04", title: "Stitch", body: "FFmpeg concat → MP4 + HyperFrames handoff kit." },
+];
+
+const stack = [
+  ["Agent", "LangGraph + CopilotKit / AG-UI"],
+  ["Planner", "NVIDIA NIM → Venice → Gemini"],
+  ["Video", "Runway Gen-4 / Turbo / Gen-4.5"],
+  ["UI", "Next.js storyboard canvas"],
+  ["BFF", "Hono · x402 · BYOK"],
+  ["Export", "FFmpeg · optional B2 / Genblaze"],
+  ["MCP", "mcp-use → Claude / ChatGPT"],
+];
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className="rounded-md border bg-muted px-1.5 py-0.5 font-mono text-[0.8em] break-all">
+    <code className="border border-[var(--dc-line)] bg-black/50 px-1.5 py-0.5 dc-mono text-[0.85em] text-[var(--dc-cyan)]">
       {children}
     </code>
   );
 }
 
-const pipeline = [
-  {
-    icon: Clapperboard,
-    step: "1. Brief",
-    body: "You type a one-line brief. The agent decomposes it into 3–6 shots with cinematic prompts — subject, action, lighting, mood.",
-  },
-  {
-    icon: Sparkles,
-    step: "2. Reference stills",
-    body: "Shot 0 calls Runway gen4_image. Shots 1+ call gen4_image_turbo with shot 0's image as a character anchor — 2–4× cheaper, <10 s each.",
-  },
-  {
-    icon: Film,
-    step: "3. Animation",
-    body: "Each reference still is animated via Runway gen4.5 (image→video). The shot's own reference is the first frame, so visual style carries directly into motion.",
-  },
-  {
-    icon: Zap,
-    step: "4. Export",
-    body: "FFmpeg concatenates all clips into a single MP4, served directly from the frontend. One button. No NLE required.",
-  },
-];
-
-const stack = [
-  { layer: "Agent", tech: "LangGraph + CopilotKit / AG-UI" },
-  { layer: "Planner", tech: "NVIDIA NIM → Venice → Gemini" },
-  { layer: "Video", tech: "Runway Gen-4 Image / Gen-4 Image Turbo / Gen-4.5" },
-  { layer: "Transport", tech: "AG-UI + CopilotKit Intelligence (durable threads)" },
-  { layer: "UI", tech: "Next.js + React + useFrontendTool (A2UI pattern)" },
-  { layer: "BFF", tech: "Hono — CopilotKit runtime + x402 + BYOK injection" },
-  { layer: "Export", tech: "FFmpeg concat · optional B2 / Genblaze" },
-  { layer: "MCP", tech: "mcp-use server — exposes the director to Claude / ChatGPT" },
-];
-
-const docs = [
-  { label: "Concept", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/concept.md" },
-  { label: "Architecture", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/architecture.md" },
-  { label: "Setup", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/setup.md" },
-  { label: "Deployment", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/deployment.md" },
-  { label: "Customization", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/customization.md" },
-  { label: "Roadmap", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/roadmap.md" },
-  { label: "Runway notes", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/hackathons.md" },
-];
-
-const externalDocs = [
-  { label: "NVIDIA NIM", href: "https://docs.api.nvidia.com/" },
-  { label: "Venice API", href: "https://docs.venice.ai/overview/about-venice" },
-  { label: "Runway API docs", href: "https://docs.dev.runwayml.com" },
-  { label: "CopilotKit docs", href: "https://docs.copilotkit.ai" },
-  { label: "LangChain Deep Agents", href: "https://github.com/langchain-ai/deepagents" },
-  { label: "Gemini API", href: "https://ai.google.dev/gemini-api/docs" },
-  { label: "Model Context Protocol", href: "https://modelcontextprotocol.io" },
-];
-
 export default function AboutPage() {
   return (
-    <div data-theme="cinema" className="min-h-svh bg-background text-foreground">
-      <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-10 md:px-12 md:py-16 lg:flex-row lg:gap-12">
-      <main className="min-w-0 flex-1">
-        <Link
-          href="/"
-          className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-accent"
-        >
-          <ArrowLeft size={14} aria-hidden />
-          Back to canvas
-        </Link>
-
-        <header id="overview" className="scroll-mt-12">
-          <p className="mb-3 text-xs font-medium uppercase tracking-widest text-accent">
-            Product thesis
-          </p>
-          <h1 className="text-4xl font-semibold leading-tight text-foreground md:text-5xl">
-            DevCut
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            The Runway desk for developers. Spec a Challenge Cut so builders can&apos;t misread the
-            bar. Run Submit Ready from a HyperFrames project, repo, or product URL into a
-            launch-ready MP4. Agents pay per job via x402. Same storyboard engine — developer-shaped
-            product.
-          </p>
-          <p className="mt-3 text-sm text-muted-foreground">
-            <a
-              className="underline underline-offset-2 hover:text-foreground"
-              href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/devcut-thesis.md"
-              target="_blank"
-              rel="noopener noreferrer"
+    <div data-devcut-landing className="min-h-svh">
+      <header className="border-b border-[var(--dc-line)]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <Link href="/" className="dc-display dc-brand text-sm font-semibold tracking-tight">
+            {DEVCUT.name}
+          </Link>
+          <nav className="dc-mono flex items-center gap-4 text-[10px] uppercase tracking-[0.14em] text-[var(--dc-mute)]">
+            <Link href="/#desk" className="hover:text-[var(--dc-paper)]">
+              Desk
+            </Link>
+            <Link href="/director" className="hover:text-[var(--dc-paper)]">
+              Canvas
+            </Link>
+            <Link
+              href="/#desk"
+              className="dc-btn bg-[var(--dc-signal)] px-3 py-1.5 text-[var(--dc-ink)] hover:bg-[var(--dc-paper)]"
             >
-              Read the north-star thesis
-            </a>
-          </p>
-        </header>
+              Commission
+            </Link>
+          </nav>
+        </div>
+      </header>
 
-        <Section
-          id="how-it-works"
-          eyebrow="Pipeline"
-          title="How it works"
-          subtitle="A single brief flows through four stages. Every Runway call returns a state mutation — that's why the canvas paints live."
-        >
-          <ol className="space-y-4">
-            {pipeline.map(({ icon: Icon, step, body }) => (
-              <li key={step} className="flex gap-4 rounded-xl border bg-card p-5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
-                  <Icon size={18} aria-hidden />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{step}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Section>
-
-        <Section
-          id="runway"
-          eyebrow="Runway API"
-          title="What makes the Runway usage non-trivial"
-          subtitle="Standard integrations call image_to_video once and return a URL. Director's Canvas does something structurally different."
-        >
-          <div className="space-y-4">
-            <div className="rounded-xl border bg-card p-5">
-              <p className="text-sm font-semibold text-foreground">Context-aware model selection</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                The agent picks the right model automatically.{" "}
-                <Code>gen4_image</Code> for shot 0 (no prior refs available).{" "}
-                <Code>gen4_image_turbo</Code> for shots 1+ (refs available,
-                2–4× cheaper, &lt;10 s). <Code>gen4.5</Code> for all
-                image→video animation. No user decision required.
-              </p>
-            </div>
-            <div className="rounded-xl border bg-card p-5">
-              <p className="text-sm font-semibold text-foreground">Chained state across N calls</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Shot 0 runs synchronously first. Its reference URL is promoted
-                to <Code>storyboard.style_ref_url</Code> and passed as{" "}
-                <Code>character1</Code> to every subsequent{" "}
-                <Code>gen4_image_turbo</Code> call. Shots 1+ run in parallel
-                (bounded to 4 concurrent) with that anchor in place.
-              </p>
-            </div>
-            <div className="rounded-xl border bg-card p-5">
-              <p className="text-sm font-semibold text-foreground">Agent-directed iteration</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                &ldquo;Regenerate shot 3 — make it more dramatic.&rdquo; The
-                agent rewrites the prompt, re-calls Runway, and patches only
-                that shot&apos;s state. The rest of the storyboard is
-                untouched.
-              </p>
-            </div>
-            <div className="rounded-xl border bg-card p-5">
-              <p className="text-sm font-semibold text-foreground">Full pipeline to a deliverable</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                The agent doesn&apos;t stop at a URL. It calls FFmpeg to
-                concat all clips into a single MP4 and serves it directly from
-                the frontend. The output is something you can actually share.
-              </p>
-            </div>
-          </div>
-        </Section>
-
-        <Section
-          id="consistency"
-          eyebrow="Cross-shot consistency"
-          title="How character consistency works"
-          subtitle="The astronaut in shot 4 looks like the astronaut in shot 1 — not because the user re-uploaded anything."
-        >
-          <div className="rounded-xl border bg-card p-5 text-sm leading-relaxed text-muted-foreground space-y-3">
-            <p>
-              <Code>gen4_image_turbo</Code> accepts up to 3{" "}
-              <Code>referenceImages</Code>. Director&apos;s Canvas exploits
-              this to keep characters and visual style coherent across shots:
+      <div className="mx-auto flex max-w-6xl flex-col gap-10 px-5 py-10 sm:px-8 sm:py-14 lg:flex-row lg:gap-14">
+        <main className="min-w-0 flex-1">
+          <header id="overview" className="scroll-mt-16 border-b border-[var(--dc-line)] pb-10">
+            <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-signal)]">
+              Product
             </p>
-            <ul className="ml-4 list-disc space-y-1">
+            <h1 className="dc-display mt-2 text-4xl font-semibold tracking-tight text-[var(--dc-paper)] sm:text-5xl">
+              {DEVCUT.name}
+            </h1>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[var(--dc-mute)]">
+              {DEVCUT.tagline}. Spec a Challenge Cut, run Submit Ready into HyperFrames, or meter
+              agent jobs via x402 — same Runway storyboard, developer-shaped doors.
+            </p>
+            <ul className="mt-6 grid gap-3 sm:grid-cols-3">
+              {DEVCUT_DOORS.map((d) => (
+                <li
+                  key={d.id}
+                  className="border border-[var(--dc-line)] bg-[var(--dc-panel)] px-3 py-3"
+                >
+                  <p className="dc-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-cyan)]">
+                    {d.title}
+                  </p>
+                  <p className="mt-1.5 text-xs leading-5 text-[var(--dc-mute)]">{d.body}</p>
+                </li>
+              ))}
+            </ul>
+          </header>
+
+          <section id="pipeline" className="scroll-mt-16 border-b border-[var(--dc-line)] py-10">
+            <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+              Pipeline
+            </p>
+            <h2 className="dc-display mt-2 text-2xl font-semibold text-[var(--dc-paper)]">
+              Brief → stills → motion → stitch
+            </h2>
+            <ol className="mt-6 grid gap-0 sm:grid-cols-2 lg:grid-cols-4">
+              {pipeline.map((row) => (
+                <li
+                  key={row.step}
+                  className="border border-[var(--dc-line)] bg-[var(--dc-panel)] p-4 sm:-ml-px sm:first:ml-0"
+                >
+                  <p className="dc-mono text-[10px] text-[var(--dc-signal)]">{row.step}</p>
+                  <p className="dc-display mt-1 text-sm font-semibold text-[var(--dc-paper)]">
+                    {row.title}
+                  </p>
+                  <p className="mt-1.5 text-xs leading-5 text-[var(--dc-mute)]">{row.body}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section id="runway" className="scroll-mt-16 border-b border-[var(--dc-line)] py-10">
+            <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+              Runway
+            </p>
+            <h2 className="dc-display mt-2 text-2xl font-semibold text-[var(--dc-paper)]">
+              Not a one-shot URL wrapper
+            </h2>
+            <ul className="mt-5 space-y-3 text-sm leading-6 text-[var(--dc-mute)]">
               <li>
-                <strong className="text-foreground">character1</strong> — shot
-                0&apos;s reference still (the primary anchor, always first)
+                <span className="text-[var(--dc-paper)]">Model pick</span> —{" "}
+                <Code>gen4_image</Code> for shot 0; <Code>gen4_image_turbo</Code> for the rest
+                (cheaper, &lt;10s); <Code>gen4.5</Code> for animation.
               </li>
               <li>
-                <strong className="text-foreground">style1</strong> — the
-                immediately preceding shot&apos;s reference (local continuity)
+                <span className="text-[var(--dc-paper)]">Character lock</span> — shot 0 becomes{" "}
+                <Code>character1</Code>; prior stills feed <Code>style1</Code> /{" "}
+                <Code>style2</Code>. Prompt can address <Code>@character1</Code>.
               </li>
               <li>
-                <strong className="text-foreground">style2</strong> — the shot
-                two positions back (extra reinforcement for longer storyboards)
+                <span className="text-[var(--dc-paper)]">Live canvas</span> — every Runway call
+                mutates AG-UI state; regenerate one shot without redoing the board.
+              </li>
+              <li>
+                <span className="text-[var(--dc-paper)]">Deliverable</span> — stitch to MP4, share
+                a <Code>/cut</Code> watch link, hand off BRIEF + assets to HyperFrames.
               </li>
             </ul>
-            <p>
-              The prompt can address the anchor explicitly:{" "}
-              <Code>@character1 walks through the airlock</Code>. The{" "}
-              <span className="font-medium text-violet-600">Consistent</span>{" "}
-              pill in the canvas header lights up once the anchor is set.
+          </section>
+
+          <section id="access" className="scroll-mt-16 border-b border-[var(--dc-line)] py-10">
+            <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+              Access
             </p>
-          </div>
-        </Section>
+            <h2 className="dc-display mt-2 text-2xl font-semibold text-[var(--dc-paper)]">
+              BYOK, budget, MOCK
+            </h2>
+            <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+              <div className="border border-[var(--dc-line)] bg-[var(--dc-panel)] p-4">
+                <dt className="dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-signal)]">
+                  BYOK
+                </dt>
+                <dd className="mt-2 text-xs leading-5 text-[var(--dc-mute)]">
+                  Paste a Runway key on the canvas. Stored locally, sent as{" "}
+                  <Code>X-Runway-Api-Key</Code>, never logged.
+                </dd>
+              </div>
+              <div className="border border-[var(--dc-line)] bg-[var(--dc-panel)] p-4">
+                <dt className="dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-signal)]">
+                  Budget
+                </dt>
+                <dd className="mt-2 text-xs leading-5 text-[var(--dc-mute)]">
+                  Shared key: ~20 Runway calls / thread. Hits zero → clear error + add your key.
+                </dd>
+              </div>
+              <div className="border border-[var(--dc-line)] bg-[var(--dc-panel)] p-4">
+                <dt className="dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-signal)]">
+                  MOCK
+                </dt>
+                <dd className="mt-2 text-xs leading-5 text-[var(--dc-mute)]">
+                  No key? Full pipeline with placeholder media — same desk, zero credits.
+                </dd>
+              </div>
+            </dl>
+          </section>
 
-        <Section
-          id="byok"
-          eyebrow="Access"
-          title="BYOK + budget guard"
-        >
-          <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
-            <div className="rounded-xl border bg-card p-5">
-              <p className="font-semibold text-foreground">Bring Your Own Key</p>
-              <p className="mt-2">
-                Click <strong>Add Key</strong> in the canvas header to enter
-                your Runway API key. It&apos;s stored in localStorage, sent as{" "}
-                <Code>X-Runway-Api-Key</Code> on every request, and injected
-                into the agent via LangGraph configurable. It is never logged.
-                When your key is active, charges go to your Runway account and
-                the per-thread budget check is skipped.
-              </p>
+          <section id="stack" className="scroll-mt-16 border-b border-[var(--dc-line)] py-10">
+            <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+              Stack
+            </p>
+            <h2 className="dc-display mt-2 text-2xl font-semibold text-[var(--dc-paper)]">
+              What’s under the desk
+            </h2>
+            <div className="mt-5 overflow-hidden border border-[var(--dc-line)]">
+              <table className="w-full text-left text-sm">
+                <tbody>
+                  {stack.map(([layer, tech], i) => (
+                    <tr
+                      key={layer}
+                      className={i % 2 === 0 ? "bg-[var(--dc-panel)]" : "bg-black/30"}
+                    >
+                      <td className="w-28 px-4 py-2.5 dc-mono text-[11px] uppercase tracking-[0.1em] text-[var(--dc-cyan)]">
+                        {layer}
+                      </td>
+                      <td className="px-4 py-2.5 text-[var(--dc-mute)]">{tech}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="rounded-xl border bg-card p-5">
-              <p className="font-semibold text-foreground">Per-thread budget guard</p>
-              <p className="mt-2">
-                When using the shared server key, the BFF injects{" "}
-                <Code>runway_calls_remaining</Code> into every request. The
-                agent checks this before each Runway call and raises{" "}
-                <Code>BudgetExceededError</Code> when it hits 0 (default: 20
-                calls ≈ 10 shots). The error surfaces in chat with a clear
-                message and a prompt to add your own key.
-              </p>
-            </div>
-            <div className="rounded-xl border bg-card p-5">
-              <p className="font-semibold text-foreground">MOCK mode</p>
-              <p className="mt-2">
-                No <Code>RUNWAY_API_KEY</Code> set? The full pipeline runs with
-                deterministic placeholder media — same canvas, same status
-                pills, same export flow. Anyone can try it without burning
-                credits.
-              </p>
-            </div>
-          </div>
-        </Section>
+          </section>
 
-        <Section
-          id="stack"
-          eyebrow="Technology"
-          title="Stack"
-        >
-          <div className="overflow-hidden rounded-xl border border-border">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Layer</th>
-                  <th className="px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Technology</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stack.map(({ layer, tech }, i) => (
-                  <tr key={layer} className={i % 2 === 0 ? "bg-card" : "bg-background"}>
-                    <td className="px-4 py-3 font-mono text-[12px] text-foreground">{layer}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{tech}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Section>
-
-        <Section
-          id="quickstart"
-          eyebrow="Get running"
-          title="Quickstart"
-        >
-          <ol className="space-y-3">
-            {[
-              {
-                title: "Init CopilotKit Intelligence",
-                body: "npx @copilotkit/cli@latest init",
-                note: "Select Intelligence when prompted. This sets up the Postgres-backed thread store.",
-              },
-              {
-                title: "Add your keys",
-                body: "cp .env.example .env && cp .env apps/agent/.env",
-                note: "Set GEMINI_API_KEY in both files. Optionally set RUNWAY_API_KEY — without it the director runs in MOCK mode (same UI, deterministic placeholder media, no credits burned).",
-              },
-              {
-                title: "Install + run",
-                body: "npm install && npm run dev",
-                note: "Boots the Docker infra (Postgres + Redis + Intelligence), then UI + BFF + agent. Open localhost:3000 → /director.",
-              },
-            ].map((step, idx) => (
-              <li key={step.title} className="rounded-xl border bg-card p-5">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border bg-background text-xs font-semibold text-foreground">
-                    {idx + 1}
+          <section id="run" className="scroll-mt-16 py-10">
+            <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+              Local
+            </p>
+            <h2 className="dc-display mt-2 text-2xl font-semibold text-[var(--dc-paper)]">
+              Three commands
+            </h2>
+            <ol className="mt-5 space-y-3">
+              {[
+                {
+                  n: "1",
+                  cmd: "npx @copilotkit/cli@latest init",
+                  note: "Intelligence + Postgres thread store",
+                },
+                {
+                  n: "2",
+                  cmd: "cp .env.example .env && cp .env apps/agent/.env",
+                  note: "GEMINI_API_KEY required · RUNWAY_API_KEY optional (MOCK without it)",
+                },
+                {
+                  n: "3",
+                  cmd: "npm install && npm run dev",
+                  note: "Open /director — or commission from /#desk",
+                },
+              ].map((row) => (
+                <li
+                  key={row.n}
+                  className="flex flex-col gap-1 border border-[var(--dc-line)] bg-[var(--dc-panel)] px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4"
+                >
+                  <span className="dc-mono shrink-0 text-[10px] text-[var(--dc-signal)]">
+                    {row.n}
                   </span>
-                  <h3 className="text-base font-semibold text-foreground">{step.title}</h3>
-                </div>
-                <pre className="mt-3 overflow-x-auto rounded-md border bg-muted px-4 py-3 font-mono text-sm text-foreground">
-                  {step.body}
-                </pre>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{step.note}</p>
-              </li>
-            ))}
-          </ol>
-          <div className="mt-4 flex items-start gap-3 rounded-xl border bg-card p-4">
-            <KeyRound size={16} className="mt-0.5 shrink-0 text-accent" aria-hidden />
-            <p className="text-sm text-muted-foreground">
-              No Runway key? That&apos;s fine — MOCK mode runs the full pipeline
-              with placeholder media. Add your key via the{" "}
-              <strong className="text-foreground">Add Key</strong> button in the
-              canvas header at any time.
+                  <pre className="min-w-0 flex-1 overflow-x-auto dc-mono text-xs text-[var(--dc-paper)]">
+                    {row.cmd}
+                  </pre>
+                  <span className="shrink-0 text-[11px] text-[var(--dc-dim)]">{row.note}</span>
+                </li>
+              ))}
+            </ol>
+
+            <p className="mt-8 dc-mono text-[11px] text-[var(--dc-dim)]">
+              Docs ·{" "}
+              <a
+                href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/devcut-thesis.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--dc-mute)] hover:text-[var(--dc-paper)]"
+              >
+                Thesis
+              </a>
+              {" · "}
+              <a
+                href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/architecture.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--dc-mute)] hover:text-[var(--dc-paper)]"
+              >
+                Architecture
+              </a>
+              {" · "}
+              <a
+                href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/hyperframes.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--dc-mute)] hover:text-[var(--dc-paper)]"
+              >
+                HyperFrames
+              </a>
+              {" · "}
+              <a
+                href="https://docs.dev.runwayml.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--dc-mute)] hover:text-[var(--dc-paper)]"
+              >
+                Runway API
+              </a>
             </p>
-          </div>
-        </Section>
+          </section>
+        </main>
 
-        <Section id="docs" eyebrow="Reference" title="Documentation">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <h3 className="mb-3 text-sm font-semibold text-foreground">In this repo</h3>
-              <ul className="space-y-2">
-                {docs.map((d) => (
-                  <li key={d.href}>
-                    <a
-                      href={d.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block rounded-md border bg-card px-3 py-2 text-sm text-foreground hover:border-accent/40 hover:text-accent"
-                    >
-                      {d.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="mb-3 text-sm font-semibold text-foreground">External</h3>
-              <ul className="space-y-2">
-                {externalDocs.map((d) => (
-                  <li key={d.href}>
-                    <a
-                      href={d.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block rounded-md border bg-card px-3 py-2 text-sm text-foreground hover:border-accent/40 hover:text-accent"
-                    >
-                      {d.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </Section>
-
-        <footer className="mt-16 border-t pt-8 text-sm text-muted-foreground">
-          <p>Built on the Runway API.</p>
-        </footer>
-      </main>
-      <AboutToc items={tocItems} />
+        <AboutToc items={tocItems} />
       </div>
     </div>
   );

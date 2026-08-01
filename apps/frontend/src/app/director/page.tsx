@@ -53,16 +53,19 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
   useEffect(() => setMounted(true), []);
   if (!mounted) {
     return (
-      <div data-theme="cinema" className="flex min-h-svh items-center justify-center bg-background px-6 text-center">
+      <div data-theme="cinema" className="flex min-h-svh items-center justify-center bg-[var(--dc-ink,#050607)] px-6 text-center">
         <div className="space-y-3">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/60">
+          <p className="dc-mono text-xs uppercase tracking-[0.18em] text-[var(--dc-mute)]">
             Loading {DEVCUT.name}
+          </p>
+          <p className="dc-display text-lg font-semibold text-[var(--dc-paper)]">
+            Opening the canvas…
           </p>
           <div className="mx-auto flex w-fit items-center gap-1.5">
             {[0, 1, 2].map((i) => (
               <span
                 key={i}
-                className="size-1.5 rounded-full bg-white/50 animate-pulse"
+                className="size-1.5 rounded-full bg-[var(--dc-signal)] animate-pulse"
                 style={{ animationDelay: `${i * 150}ms` }}
               />
             ))}
@@ -1000,17 +1003,17 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   return (
     <>
       {/* ── Layout: canvas left, chat right ── */}
-      <div className="flex min-h-svh flex-col overflow-y-auto bg-background lg:h-dvh lg:flex-row lg:overflow-hidden">
-        <div className="sticky top-0 z-20 grid grid-cols-2 gap-1 border-b border-white/10 bg-background/95 p-2 backdrop-blur lg:hidden">
+      <div className="flex min-h-svh flex-col overflow-y-auto bg-[var(--dc-ink)] lg:h-dvh lg:flex-row lg:overflow-hidden">
+        <div className="sticky top-0 z-20 grid grid-cols-2 gap-0 border-b border-[var(--dc-line)] bg-[var(--dc-ink)]/95 backdrop-blur lg:hidden">
           {(["canvas", "chat"] as const).map((panel) => (
             <button
               key={panel}
               type="button"
               onClick={() => setMobilePanel(panel)}
-              className={`rounded-lg px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] transition ${
+              className={`px-3 py-2.5 dc-mono text-[11px] uppercase tracking-[0.12em] transition ${
                 mobilePanel === panel
-                  ? "bg-white/12 text-white"
-                  : "text-white/62 hover:bg-white/[0.06] hover:text-white/85"
+                  ? "bg-[var(--dc-signal-soft)] text-[var(--dc-signal)]"
+                  : "text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
               }`}
             >
               {panel === "canvas" ? `Canvas ${progress.ready}/${progress.total || 0}` : "Chat"}
@@ -1047,13 +1050,13 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
             <div className="relative flex flex-1 flex-col gap-3 overflow-auto">
               {/* Pipeline action bar */}
               {readyShots < totalShots && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/12 bg-white/[0.06] px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 border border-[var(--dc-line)] bg-[var(--dc-panel)] px-4 py-3">
                   <div>
-                    <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/65">
+                    <p className="dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-mute)]">
                       Progress · {readyShots}/{totalShots} shots ready
                     </p>
-                    <p className="mt-1 text-sm text-white/72">
-                      Next: generate the remaining media, then export the final cut.
+                    <p className="mt-1 text-sm text-[var(--dc-dim)]">
+                      Generate remaining media, then stitch the cut.
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -1061,16 +1064,16 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                       type="button"
                       disabled={isRunning}
                       onClick={() => injectPrompt("Generate all references and all videos for every shot now. Call generate_all_references then generate_all_videos.")}
-                      className="rounded-full border border-white/22 bg-white/12 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/82 transition-colors hover:bg-white/20 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="border border-transparent bg-[var(--dc-signal)] px-4 py-1.5 dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:cursor-not-allowed disabled:opacity-30"
                     >
-                      Generate remaining media
+                      Generate remaining
                     </button>
                     {readyShots > 0 && state.shots.some((s) => s.ref_image_url && !s.video_url) && (
                       <button
                         type="button"
                         disabled={isRunning}
                         onClick={() => injectPrompt("Generate all remaining videos now. Call generate_all_videos.")}
-                        className="rounded-full border border-white/12 px-3 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-white/65 transition-colors hover:text-white/85 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="border border-[var(--dc-line)] px-3 py-1.5 dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-mute)] hover:text-[var(--dc-paper)] disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         Animate remaining
                       </button>
@@ -1303,30 +1306,24 @@ function DevCutEmptyState({
   const examples = door === "submit" ? DEVCUT_SUBMIT_EXAMPLES : DEVCUT_CHALLENGE_EXAMPLES;
 
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-center gap-8 px-3 py-8 sm:px-6 lg:py-0">
-      <div className="w-full max-w-2xl rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-left sm:hidden">
-        <p className="text-xs leading-5 text-amber-300/80">
-          {DEVCUT.name} is optimised for desktop. You can start a job on mobile; the canvas
-          works best on a larger screen.
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-6 px-3 py-8 sm:px-6 lg:py-0">
+      <div className="w-full max-w-2xl border border-[var(--dc-signal)]/25 bg-[var(--dc-signal-soft)] px-4 py-3 text-left sm:hidden">
+        <p className="text-xs leading-5 text-[var(--dc-signal)]">
+          Desktop preferred — mobile works; canvas is denser on a larger screen.
         </p>
       </div>
 
-      <div className="max-w-2xl space-y-3 text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--dc-cyan,#2de2c5)]">
-          {DEVCUT.name}
+      <div className="max-w-2xl space-y-2 text-center">
+        <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+          {DEVCUT.name} · canvas
         </p>
-        <h2 className="dc-display text-2xl font-semibold tracking-tight text-[var(--dc-paper,#f4efe4)] md:text-3xl">
-          {DEVCUT.tagline}
+        <h2 className="dc-display text-2xl font-semibold tracking-tight text-[var(--dc-paper)] md:text-3xl">
+          Pick a door. Commission the cut.
         </h2>
-        <p className="mx-auto max-w-xl text-sm leading-6 text-white/65">
-          DevCut feeds HyperFrames — Runway heroes + packaging. HyperFrames keeps
-          HTML composition. Pick a door to start.
+        <p className="mx-auto max-w-lg text-sm leading-6 text-[var(--dc-mute)]">
+          Runway heroes + packaging here. HyperFrames keeps HTML composition.
         </p>
-        <p className="mx-auto max-w-lg font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-signal,#ff9f1c)]/70">
-          No keys yet? MOCK runs the full desk — stills/clips are placeholders; kit.zip still
-          ships BRIEF.md
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
           <button
             type="button"
             disabled={isRunning}
@@ -1336,7 +1333,7 @@ function DevCutEmptyState({
               const challenge = DEVCUT_DOORS.find((d) => d.id === "challenge")!;
               onStart(`${challenge.prompt} ${DEVCUT_GOLDEN_CHALLENGE.brief}`);
             }}
-            className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-[var(--dc-paper,#f4efe4)] disabled:opacity-40"
+            className="border border-transparent bg-[var(--dc-signal)] px-4 py-2 dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40"
           >
             Run golden cut
           </button>
@@ -1349,15 +1346,18 @@ function DevCutEmptyState({
               const submit = DEVCUT_DOORS.find((d) => d.id === "submit")!;
               onStart(`${submit.prompt} ${DEVCUT_HF_DEMO.brief}`);
             }}
-            className="rounded-full border border-[var(--dc-cyan,#2de2c5)]/45 bg-[var(--dc-cyan-soft,rgba(45,226,197,0.14))] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan,#2de2c5)] hover:bg-[var(--dc-cyan,#2de2c5)]/20 disabled:opacity-40"
+            className="border border-[var(--dc-cyan)]/45 bg-[var(--dc-cyan-soft)] px-4 py-2 dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan)] hover:bg-[var(--dc-cyan)]/20 disabled:opacity-40"
           >
             HyperFrames demo
           </button>
+          <p className="w-full dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-dim)]">
+            No key? MOCK stills — kit.zip still ships BRIEF.md
+          </p>
         </div>
       </div>
 
-      <div className="grid w-full max-w-3xl gap-3 md:grid-cols-3">
-        {DEVCUT_DOORS.map((d) => {
+      <div className="grid w-full max-w-3xl gap-0 border border-[var(--dc-line)] md:grid-cols-3">
+        {DEVCUT_DOORS.map((d, i) => {
           const selected = door === d.id;
           return (
             <button
@@ -1368,61 +1368,70 @@ function DevCutEmptyState({
                 if (d.id === "challenge") setDraft(DEVCUT_GOLDEN_CHALLENGE.brief);
                 if (d.id === "submit") setDraft(DEVCUT_SUBMIT_EXAMPLES[0].brief);
               }}
-              className={`rounded-xl border px-4 py-4 text-left transition-colors ${
+              className={`px-4 py-4 text-left transition-colors md:border-l md:first:border-l-0 ${
+                i > 0 ? "border-t border-[var(--dc-line)] md:border-t-0" : ""
+              } ${
                 selected
                   ? d.id === "submit"
-                    ? "border-[var(--dc-cyan)]/45 bg-[var(--dc-cyan-soft)]"
-                    : d.id === "agent"
-                      ? "border-[var(--dc-signal)]/45 bg-[var(--dc-signal-soft)]"
-                      : "border-[var(--dc-signal)]/50 bg-[var(--dc-signal-soft)]"
-                  : "border-white/10 bg-white/[0.03] hover:border-white/20"
+                    ? "bg-[var(--dc-cyan-soft)]"
+                    : "bg-[var(--dc-signal-soft)]"
+                  : "bg-[var(--dc-panel)] hover:bg-white/[0.03]"
               }`}
             >
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
+              <p className="dc-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-dim)]">
                 {d.label}
               </p>
-              <p className="mt-2 text-sm font-medium text-white/90">{d.title}</p>
-              <p className="mt-1 text-xs leading-5 text-white/55">{d.body}</p>
+              <p className="dc-display mt-2 text-sm font-semibold text-[var(--dc-paper)]">
+                {d.title}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-[var(--dc-mute)]">{d.body}</p>
             </button>
           );
         })}
       </div>
 
-      <div className="w-full max-w-3xl rounded-xl border border-white/10 bg-black/20 p-5 text-left">
+      <div className="w-full max-w-3xl border border-[var(--dc-line)] bg-[var(--dc-panel)] text-left">
         {door === "agent" ? (
-          <AgentPaymentsPanel embedded />
+          <div className="p-4">
+            <AgentPaymentsPanel embedded />
+          </div>
         ) : (
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--dc-line)] px-4 py-2.5">
+              <span className="dc-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-dim)]">
+                Seed
+              </span>
               {examples.map((ex) => (
                 <button
                   key={ex.label}
                   type="button"
                   onClick={() => setDraft(ex.brief)}
-                  className={`rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] ${
+                  className={`border px-2.5 py-1 dc-mono text-[10px] uppercase tracking-[0.1em] ${
                     draft === ex.brief
-                      ? "border-[var(--dc-signal,#ff9f1c)]/45 text-[var(--dc-signal,#ff9f1c)]"
-                      : "border-white/10 text-white/45 hover:text-white/75"
+                      ? "border-[var(--dc-signal)]/55 bg-[var(--dc-signal-soft)] text-[var(--dc-signal)]"
+                      : "border-transparent text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
                   }`}
                 >
                   {ex.label}
                 </button>
               ))}
             </div>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={4}
-              className="w-full resize-y rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs leading-5 text-white/85 outline-none focus:border-white/30"
-            />
-            <button
-              type="button"
-              disabled={isRunning || !draft.trim()}
-              onClick={() => onStart(`${active.prompt} ${draft.trim()}`)}
-              className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-5 py-2 font-mono text-xs uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-[var(--dc-paper,#f4efe4)] disabled:opacity-40"
-            >
-              {door === "challenge" ? "Commission cut" : "Run Submit Ready"}
-            </button>
+            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-stretch">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={3}
+                className="min-h-[5rem] w-full flex-1 resize-y border border-[var(--dc-line)] bg-black/50 px-3 py-2.5 dc-mono text-sm leading-6 text-[var(--dc-paper)] outline-none focus:border-[var(--dc-cyan)]/50"
+              />
+              <button
+                type="button"
+                disabled={isRunning || !draft.trim()}
+                onClick={() => onStart(`${active.prompt} ${draft.trim()}`)}
+                className="shrink-0 self-stretch bg-[var(--dc-signal)] px-5 py-3 dc-mono text-xs font-medium uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40 sm:min-w-[10rem]"
+              >
+                {door === "challenge" ? "Commission cut" : "Run Submit Ready"}
+              </button>
+            </div>
           </div>
         )}
       </div>

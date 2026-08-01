@@ -30,9 +30,7 @@ interface ApiKeyPanelProps {
 }
 
 /**
- * Inline key panel — dark cinema theme.
- * Shows clearly whether we're in LIVE (server key) or BYOK mode,
- * and makes it easy to switch between them.
+ * Inline key panel — edit-bay chrome.
  */
 export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
   const { key, setKey } = useRunwayApiKey();
@@ -40,13 +38,20 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
   const [saved, setSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { setDraft(key); }, [key]);
-  useEffect(() => { if (!key) inputRef.current?.focus(); }, [key]);
+  useEffect(() => {
+    setDraft(key);
+  }, [key]);
+  useEffect(() => {
+    if (!key) inputRef.current?.focus();
+  }, [key]);
 
   const handleSave = () => {
     setKey(draft);
     setSaved(true);
-    setTimeout(() => { setSaved(false); onClose(); }, 1200);
+    setTimeout(() => {
+      setSaved(false);
+      onClose();
+    }, 1200);
   };
 
   const handleClear = () => {
@@ -57,35 +62,36 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
   const usingByok = Boolean(key);
 
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-      {/* Mode status */}
+    <div className="border border-[var(--dc-line)] bg-[var(--dc-panel)] p-4">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Server key mode */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleClear}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] transition-all ${
+            className={`flex items-center gap-1.5 border px-3 py-1 dc-mono text-[11px] uppercase tracking-[0.12em] transition-colors ${
               !usingByok
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-white/10 text-white/58 hover:border-white/20 hover:text-white/78"
+                ? "border-[var(--dc-cyan)]/40 bg-[var(--dc-cyan-soft)] text-[var(--dc-cyan)]"
+                : "border-[var(--dc-line)] text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
             }`}
           >
-            <span className={`size-1.5 rounded-full ${!usingByok ? "bg-emerald-500" : "bg-white/20"}`} />
+            <span
+              className={`size-1.5 rounded-full ${!usingByok ? "bg-[var(--dc-cyan)]" : "bg-[var(--dc-dim)]"}`}
+            />
             {isLive ? "Server key (live)" : "Server key (mock)"}
           </button>
 
-          {/* BYOK mode */}
           <button
             type="button"
             onClick={() => inputRef.current?.focus()}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] transition-all ${
+            className={`flex items-center gap-1.5 border px-3 py-1 dc-mono text-[11px] uppercase tracking-[0.12em] transition-colors ${
               usingByok
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-white/10 text-white/58 hover:border-white/20 hover:text-white/78"
+                ? "border-[var(--dc-signal)]/40 bg-[var(--dc-signal-soft)] text-[var(--dc-signal)]"
+                : "border-[var(--dc-line)] text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
             }`}
           >
-            <span className={`size-1.5 rounded-full ${usingByok ? "bg-emerald-500" : "bg-white/20"}`} />
+            <span
+              className={`size-1.5 rounded-full ${usingByok ? "bg-[var(--dc-signal)]" : "bg-[var(--dc-dim)]"}`}
+            />
             Your key
           </button>
         </div>
@@ -93,22 +99,20 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
         <button
           type="button"
           onClick={onClose}
-          className="self-start font-mono text-xs uppercase tracking-[0.12em] text-white/58 hover:text-white/82 sm:self-auto"
+          className="self-start dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-dim)] hover:text-[var(--dc-mute)] sm:self-auto"
         >
-          ✕
+          Close
         </button>
       </div>
 
-      {/* Context */}
-      <p className="mb-3 font-mono text-xs leading-relaxed text-white/62">
+      <p className="mb-3 dc-mono text-[11px] leading-relaxed text-[var(--dc-mute)]">
         {usingByok
           ? `Using your key ···${key.slice(-6)} — charges go to your Runway account. No budget limit.`
           : isLive
-          ? "Using the shared server key — limited to 20 calls per conversation. Add your own key for unlimited use."
-          : "No Runway key configured — running in MOCK mode with placeholder media."}
+            ? "Shared server key — ~20 calls / thread. Add your key for unlimited."
+            : "No Runway key — MOCK mode with placeholder media."}
       </p>
 
-      {/* Input */}
       <div className="flex gap-2">
         <input
           ref={inputRef}
@@ -117,7 +121,7 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && draft.trim() && handleSave()}
           placeholder="key_xxxxxxxxxxxxxxxx"
-          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-white/82 placeholder:text-white/45 focus:border-white/35 focus:outline-none"
+          className="min-w-0 flex-1 border border-[var(--dc-line)] bg-black/50 px-3 py-2 dc-mono text-xs text-[var(--dc-paper)] placeholder:text-[var(--dc-dim)] focus:border-[var(--dc-cyan)]/50 focus:outline-none"
           autoComplete="off"
           spellCheck={false}
         />
@@ -125,28 +129,33 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white/75 hover:bg-white/20 hover:text-white"
+            className="border border-transparent bg-[var(--dc-signal)] px-4 py-2 dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)]"
           >
-            {saved ? "Saved ✓" : "Use"}
+            {saved ? "Saved" : "Use"}
           </button>
         )}
         {usingByok && (
           <button
             type="button"
             onClick={handleClear}
-            className="rounded-lg border border-white/10 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white/62 hover:text-white/82"
+            className="border border-[var(--dc-line)] px-3 py-2 dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-mute)] hover:text-[var(--dc-paper)]"
           >
             Remove
           </button>
         )}
       </div>
 
-      <p className="mt-2 font-mono text-[11px] text-white/55">
-        Get a key at{" "}
-        <a href="https://dev.runwayml.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/80">
+      <p className="mt-2 dc-mono text-[10px] text-[var(--dc-dim)]">
+        Key from{" "}
+        <a
+          href="https://dev.runwayml.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[var(--dc-mute)] underline hover:text-[var(--dc-paper)]"
+        >
           dev.runwayml.com
         </a>
-        {" "}· Stored in your browser only
+        {" · "}browser only
       </p>
     </div>
   );
