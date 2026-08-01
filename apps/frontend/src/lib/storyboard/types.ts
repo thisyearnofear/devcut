@@ -52,6 +52,17 @@ export interface BuilderKit {
   summary: string;
 }
 
+export interface AgentLoopSummary {
+  passed?: boolean;
+  iterations?: number;
+  feedback?: string | null;
+  url?: string | null;
+  sha256?: string | null;
+  manifest_uri?: string | null;
+  canonical_hash?: string | null;
+  total_cost_usd?: number | null;
+}
+
 export interface StoryboardState {
   storyboard: Storyboard;
   shots: Shot[];
@@ -63,6 +74,13 @@ export interface StoryboardState {
   durable_url: string | null;
   /** Genblaze provenance manifest URI (JSON in B2) for the last video/export run. */
   manifest_uri: string | null;
+  /** DevCut job-level provenance JSON on B2. */
+  job_manifest_uri: string | null;
+  job_manifest: Record<string, unknown> | null;
+  final_sha256: string | null;
+  canonical_hash: string | null;
+  /** Genblaze AgentLoop summary for Winning artifact takes. */
+  agent_loop: AgentLoopSummary | null;
   export_status: ExportStatus;
   export_error: string | null;
   /** BRIEF.md seed + asset drop map for HyperFrames. */
@@ -90,6 +108,11 @@ export const initialStoryboardState: StoryboardState = {
   final_video_url: null,
   durable_url: null,
   manifest_uri: null,
+  job_manifest_uri: null,
+  job_manifest: null,
+  final_sha256: null,
+  canonical_hash: null,
+  agent_loop: null,
   export_status: "idle",
   export_error: null,
   builder_kit: null,

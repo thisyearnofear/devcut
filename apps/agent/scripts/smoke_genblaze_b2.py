@@ -31,11 +31,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    from src.media_storage import b2_enabled, boot_status, persist_file
+    from src.media_storage import b2_enabled, boot_status, persist_file, require_durable
     from src.genblaze_bridge import boot_status as genblaze_boot, _cap_duration
 
     print("media_storage:", boot_status())
     print("genblaze:     ", genblaze_boot())
+    print("require_durable:", require_durable())
     print("cap gen4_turbo 7 →", _cap_duration(7, "gen4_turbo"))
 
     if not args.upload:

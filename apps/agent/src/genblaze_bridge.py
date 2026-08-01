@@ -127,6 +127,7 @@ def run_shot_video(
     and rewrites the asset URL to a durable B2 URL.
     """
     from genblaze_core import Modality, Pipeline
+    from genblaze_core.providers import RetryPolicy
     from genblaze_runway import RunwayProvider
 
     from .runway_client import _current_thread_id, _effective_api_key
@@ -138,7 +139,11 @@ def run_shot_video(
     name = f"shot-video-{shot_id or 'anon'}"
 
     reference = _reference_asset(image_url)
-    provider = RunwayProvider(api_secret=api_secret)
+    # Conservative retries for expensive video (Genblaze production checklist).
+    provider = RunwayProvider(
+        api_secret=api_secret,
+        retry_policy=RetryPolicy.conservative(),
+    )
 
     pipeline = (
         Pipeline(name, tenant_id=thread_id)
@@ -153,7 +158,8 @@ def run_shot_video(
         )
     )
 
-    sink = new_sink() if b2_enabled() else None
+    # Hierarchical keys for browseable runs/{tenant}/… in the Vault UI.
+    sink = new_sink(strategy="hierarchical") if b2_enabled() else None
     result = pipeline.run(sink=sink, timeout=600)
 
     run, manifest = result.run, result.manifest

@@ -92,6 +92,11 @@ function mergeStoryboardState(raw: unknown): StoryboardState {
     selectedShotId: partial.selectedShotId ?? null,
     durable_url: partial.durable_url ?? null,
     manifest_uri: partial.manifest_uri ?? null,
+    job_manifest_uri: partial.job_manifest_uri ?? null,
+    job_manifest: partial.job_manifest ?? null,
+    final_sha256: partial.final_sha256 ?? null,
+    canonical_hash: partial.canonical_hash ?? null,
+    agent_loop: partial.agent_loop ?? null,
     builder_kit: partial.builder_kit ?? null,
   };
 }
@@ -1099,6 +1104,17 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   builderKit={state.builder_kit}
                   jobMode={jobMode}
                   stillUrls={stillUrls}
+                  vaultState={{
+                    storyboard: state.storyboard,
+                    shots: state.shots,
+                    final_video_url: state.final_video_url,
+                    durable_url: state.durable_url,
+                    manifest_uri: state.manifest_uri,
+                    job_manifest_uri: state.job_manifest_uri,
+                    final_sha256: state.final_sha256,
+                    canonical_hash: state.canonical_hash,
+                    agent_loop: state.agent_loop,
+                  }}
                   onExport={handleExport}
                   onDownload={handleDownloadFinal}
                 />
@@ -1124,6 +1140,17 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   builderKit={state.builder_kit}
                   jobMode={jobMode}
                   stillUrls={stillUrls}
+                  vaultState={{
+                    storyboard: state.storyboard,
+                    shots: state.shots,
+                    final_video_url: state.final_video_url,
+                    durable_url: state.durable_url,
+                    manifest_uri: state.manifest_uri,
+                    job_manifest_uri: state.job_manifest_uri,
+                    final_sha256: state.final_sha256,
+                    canonical_hash: state.canonical_hash,
+                    agent_loop: state.agent_loop,
+                  }}
                   onExport={handleExport}
                   onDownload={handleDownloadFinal}
                 />

@@ -151,7 +151,7 @@ The BFF also exposes `POST /api/runway-call-used` which the Python agent calls a
 | `StoryboardTimeline` | Horizontal scroller of `ShotCard[]`                                  |
 | `ShotCard`           | Per-shot media well, status pill, download + regenerate actions      |
 | `ShotPreview`        | Inline mini-card the agent renders in chat                           |
-| `JobOutcomePanel`    | After stitch: **Watch · HyperFrames · Share** (+ kit.zip download)   |
+| `JobOutcomePanel`    | After stitch: **Watch · Vault · HyperFrames · Share** (+ kit.zip + B2 verify) |
 | Chat run ledger      | DevCut-shaped stages + human tool cards (`devcut-ledger.ts`)         |
 
 Landing / empty canvas: three doors + **Run HyperFrames demo** CTA. See [`hyperframes.md`](./hyperframes.md).

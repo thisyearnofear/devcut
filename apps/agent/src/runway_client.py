@@ -160,6 +160,7 @@ class RunwayVideoResult:
     image_url: Optional[str] = None
     manifest_uri: Optional[str] = None
     sha256: Optional[str] = None
+    canonical_hash: Optional[str] = None
 
 
 # --------------------------------------------------------------------- mock
@@ -455,6 +456,9 @@ def generate_shot_video(
     prompt: str,
     duration: int = 5,
     ratio: str = "1280:720",
+    *,
+    beat: Optional[str] = None,
+    shot_id: Optional[str] = None,
 ) -> RunwayVideoResult:
     """Animate a reference image into a clip via Gen-4.5 (image→video).
 
@@ -463,16 +467,42 @@ def generate_shot_video(
 
     When ``GENBLAZE_ENABLED=1``, generation runs through Genblaze's
     Pipeline + RunwayProvider (with optional B2 ObjectStorageSink).
-    Otherwise the direct Runway SDK path is used; if B2 is still
+    Winning-artifact beats use Genblaze ``AgentLoop`` until the manifest
+    verifies. Otherwise the direct Runway SDK path is used; if B2 is
     configured, the CDN clip is persisted afterward.
     """
     if runway_is_live():
         _check_budget()
+        from .genblaze_agent_loop import is_winning_beat, refine_winning_clip
         from .genblaze_bridge import genblaze_video_enabled, run_shot_video
 
-        if genblaze_video_enabled():
+        if genblaze_video_enabled() and is_winning_beat(beat):
+            loop = refine_winning_clip(
+                image_url,
+                prompt,
+                duration=duration,
+                ratio=ratio,
+                shot_id=shot_id,
+            )
+            result = RunwayVideoResult(
+                url=loop.url or image_url,
+                prompt=prompt,
+                duration=duration,
+                mode="LIVE",
+                image_url=image_url,
+                manifest_uri=loop.manifest_uri,
+                sha256=loop.sha256,
+                canonical_hash=loop.canonical_hash,
+            )
+            # Stash loop summary on a thread-local-ish attribute for tools.
+            result._agent_loop = loop.as_dict()  # type: ignore[attr-defined]
+        elif genblaze_video_enabled():
             bridge = run_shot_video(
-                image_url, prompt, duration=duration, ratio=ratio,
+                image_url,
+                prompt,
+                duration=duration,
+                ratio=ratio,
+                shot_id=shot_id,
             )
             result = RunwayVideoResult(
                 url=bridge.url,
@@ -482,6 +512,7 @@ def generate_shot_video(
                 image_url=bridge.image_url,
                 manifest_uri=bridge.manifest_uri,
                 sha256=bridge.sha256,
+                canonical_hash=bridge.canonical_hash,
             )
         else:
             result = _live_video(image_url, prompt, duration=duration, ratio=ratio)

@@ -22,6 +22,7 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 - [x] Outcome UX — Watch / HyperFrames / Share + downloadable kit.zip + HF demo CTA + mode chrome + agent Start job
 - [x] Golden Challenge Cut **brief + demo script** ([`demos/golden-challenge-cut.md`](./demos/golden-challenge-cut.md), [`demo-script.md`](./demo-script.md))
 - [x] MOCK golden path — unit tests + materialize fixture kit ([`scripts/smoke-golden-mock.sh`](../scripts/smoke-golden-mock.sh), [`demos/fixtures/golden-challenge-cut/`](./demos/fixtures/golden-challenge-cut/))
+- [x] Genblaze spine — Pipeline+sink, AgentLoop winning beat, job manifest, Vault UI, B2 CORS/lifecycle/Object Lock knobs, B2→Discord events
 - [ ] Film the golden cut LIVE (fill fixture table) + pin kit for partners
 - [ ] `X402_MODE=live` facilitator settle in production
 

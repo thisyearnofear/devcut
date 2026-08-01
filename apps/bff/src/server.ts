@@ -26,6 +26,7 @@ import {
   rewriteWsUrl,
 } from "./health.js";
 import { handleX402 } from "./x402/routes.js";
+import { handleB2EventNotification, vaultFromThreadValues } from "./b2_events.js";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey:
@@ -202,6 +203,17 @@ async function handleRequest(req: Request): Promise<Response> {
   // ---- Thread-state proxy (frontend canvas restore on thread switch) ----
   const threadStateMatch = url.pathname.match(/^\/api\/thread-state\/([^/]+)$/);
   if (threadStateMatch) return handleThreadState(decodeURIComponent(threadStateMatch[1]));
+
+  // ---- Provenance vault from LangGraph thread state ----
+  const vaultMatch = url.pathname.match(/^\/api\/runs\/([^/]+)\/vault$/);
+  if (vaultMatch && req.method === "GET") {
+    return handleRunVault(decodeURIComponent(vaultMatch[1]));
+  }
+
+  // ---- B2 Event Notifications → Discord (optional DISCORD_WEBHOOK_URL) ----
+  if (url.pathname === "/api/b2-events" && req.method === "POST") {
+    return handleB2EventNotification(req);
+  }
 
   // ---- Budget increment endpoint (called by Python agent) ----
   if (url.pathname === "/api/runway-call-used" && req.method === "POST") {
@@ -419,6 +431,31 @@ async function handleThreadState(threadId: string): Promise<Response> {
       headers: { "content-type": "application/json" },
     });
   } catch (e) {
+    return new Response(JSON.stringify({ error: "upstream_timeout" }), {
+      status: 504,
+      headers: { "content-type": "application/json" },
+    });
+  }
+}
+
+async function handleRunVault(threadId: string): Promise<Response> {
+  try {
+    const upstream = await fetch(`${LANGGRAPH_URL}/threads/${encodeURIComponent(threadId)}/state`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!upstream.ok) {
+      const body = await upstream.text();
+      return new Response(body, {
+        status: upstream.status,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    const raw = (await upstream.json()) as { values?: Record<string, unknown> };
+    const vault = vaultFromThreadValues(raw.values);
+    return new Response(JSON.stringify(vault), {
+      headers: { "content-type": "application/json" },
+    });
+  } catch {
     return new Response(JSON.stringify({ error: "upstream_timeout" }), {
       status: 504,
       headers: { "content-type": "application/json" },

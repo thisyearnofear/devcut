@@ -364,7 +364,14 @@ def generate_shot_video(
     t0 = time.monotonic()
 
     try:
-        result = _runway_video(image_url, prompt, duration=duration, ratio=ratio)
+        result = _runway_video(
+            image_url,
+            prompt,
+            duration=duration,
+            ratio=ratio,
+            beat=shot.get("beat"),
+            shot_id=shot_id,
+        )
     except Exception as e:  # noqa: BLE001
         _log("ERROR", "runway_video_error", shot_id=shot_id, error=str(e), elapsed_s=round(time.monotonic()-t0, 2))
         new_shots = _patch_shot(
@@ -393,6 +400,13 @@ def generate_shot_video(
         f"Video ready for shot {shot.get('beat') or shot_id} "
         f"({result.mode}, {duration}s). URL: {result.url}"
     )
+    loop_meta = getattr(result, "_agent_loop", None)
+    if loop_meta:
+        msg += (
+            f" Genblaze AgentLoop: "
+            f"{'passed' if loop_meta.get('passed') else 'stopped'} "
+            f"after {loop_meta.get('iterations')} take(s)."
+        )
     update: dict = {
         "shots": new_shots,
         "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
@@ -400,6 +414,10 @@ def generate_shot_video(
     # Surface Genblaze provenance on the canvas when the bridge attached a manifest.
     if getattr(result, "manifest_uri", None):
         update["manifest_uri"] = result.manifest_uri
+    if getattr(result, "canonical_hash", None):
+        update["canonical_hash"] = result.canonical_hash
+    if loop_meta:
+        update["agent_loop"] = loop_meta
     return Command(update=update)
 
 
@@ -610,6 +628,8 @@ def generate_all_videos(
                 shot.get("prompt") or "",
                 duration=int(shot.get("duration") or 5),
                 ratio=shot.get("aspect_ratio") or "1280:720",
+                beat=shot.get("beat"),
+                shot_id=shot.get("id"),
             )
             return shot["id"], {
                 "video_url": res.url,
@@ -621,6 +641,8 @@ def generate_all_videos(
 
     patches: dict[str, dict] = {}
     last_manifest: str | None = None
+    last_canonical: str | None = None
+    agent_loop_meta: dict | None = None
     with _cf.ThreadPoolExecutor(
         max_workers=min(len(targets), _RUNWAY_MAX_CONCURRENCY)
     ) as ex:
@@ -628,6 +650,11 @@ def generate_all_videos(
             patches[shot_id] = patch
             if res is not None and getattr(res, "manifest_uri", None):
                 last_manifest = res.manifest_uri
+            if res is not None and getattr(res, "canonical_hash", None):
+                last_canonical = res.canonical_hash
+            loop_meta = getattr(res, "_agent_loop", None) if res is not None else None
+            if loop_meta:
+                agent_loop_meta = loop_meta
 
     new_shots = [
         ({**s, **patches[s["id"]]} if s["id"] in patches else s) for s in shots
@@ -642,12 +669,22 @@ def generate_all_videos(
         + (f", {failed} failed" if failed else "")
         + f" ({runway_mode_label()}, {total_seconds}s total runtime)."
     )
+    if agent_loop_meta:
+        msg += (
+            f" Winning artifact AgentLoop: "
+            f"{'passed' if agent_loop_meta.get('passed') else 'stopped'} "
+            f"after {agent_loop_meta.get('iterations')} take(s)."
+        )
     update: dict = {
         "shots": new_shots,
         "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
     }
     if last_manifest:
         update["manifest_uri"] = last_manifest
+    if last_canonical:
+        update["canonical_hash"] = last_canonical
+    if agent_loop_meta:
+        update["agent_loop"] = agent_loop_meta
     return Command(update=update)
 
 
@@ -711,21 +748,54 @@ def stitch_final_cut(
         f"Final cut ready ({result.mode}, {result.duration}s, "
         f"{result.shot_count} shots). URL: {result.url}"
     )
+    clip_manifests = []
+    if (state or {}).get("manifest_uri"):
+        clip_manifests.append(state["manifest_uri"])
+    canonicals = []
+    if (state or {}).get("canonical_hash"):
+        canonicals.append(state["canonical_hash"])
+
+    from src.hyperframes_kit import build_builder_kit
+    from src.job_manifest import build_job_manifest, persist_job_manifest
+    from src.runway_client import _current_thread_id
+
     kit_state = {
         **(state or {}),
         "shots": shots,
         "storyboard": storyboard,
         "final_video_url": result.url,
         "durable_url": result.durable_url,
-        "manifest_uri": result.manifest_uri,
+        "manifest_uri": result.manifest_uri or (state or {}).get("manifest_uri"),
     }
-    from src.hyperframes_kit import build_builder_kit
-
     builder_kit = build_builder_kit(
         kit_state,
         final_video_url=result.url,
         durable_url=result.durable_url,
     )
+
+    job_manifest_uri = None
+    job_doc = build_job_manifest(
+        thread_id=_current_thread_id() or "director",
+        storyboard=storyboard,
+        shots=shots,
+        final_video_url=result.url,
+        durable_url=result.durable_url,
+        final_sha256=result.final_sha256,
+        clip_manifest_uris=clip_manifests,
+        canonical_hashes=canonicals,
+        builder_kit=builder_kit,
+        agent_loop=(state or {}).get("agent_loop"),
+    )
+    try:
+        stored_job = persist_job_manifest(
+            job_doc, tenant_id=_current_thread_id() or "director"
+        )
+        if stored_job:
+            job_manifest_uri = stored_job.url
+            msg += f" Job manifest: {job_manifest_uri}"
+    except Exception as exc:  # noqa: BLE001
+        msg += f" (job manifest upload skipped: {exc})"
+
     msg += (
         f" HyperFrames handoff attached ({builder_kit.get('mode')}): "
         "copy BRIEF.md + stage assets/devcut/ — composition stays in HyperFrames."
@@ -735,13 +805,23 @@ def stitch_final_cut(
         "export_status": "ready",
         "export_error": None,
         "builder_kit": builder_kit,
+        "job_manifest": job_doc,
         "storyboard": {**storyboard, "stitch_mode": result.mode},
         "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
     }
     if result.durable_url:
         update["durable_url"] = result.durable_url
-    if result.manifest_uri:
-        update["manifest_uri"] = result.manifest_uri
+    if result.final_sha256:
+        update["final_sha256"] = result.final_sha256
+    manifest = result.manifest_uri or (state or {}).get("manifest_uri")
+    if manifest:
+        update["manifest_uri"] = manifest
+    if job_manifest_uri:
+        update["job_manifest_uri"] = job_manifest_uri
+    if (state or {}).get("canonical_hash"):
+        update["canonical_hash"] = state["canonical_hash"]
+    if (state or {}).get("agent_loop"):
+        update["agent_loop"] = state["agent_loop"]
     return Command(update=update)
 
 

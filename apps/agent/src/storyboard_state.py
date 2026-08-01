@@ -73,6 +73,13 @@ class StoryboardCanvasState(AgentState):
     durable_url: NotRequired[Annotated[Optional[str], _replace]]
     # Genblaze provenance manifest URI (JSON in B2) for the final / last video run.
     manifest_uri: NotRequired[Annotated[Optional[str], _replace]]
+    # DevCut job-level provenance JSON (brief + shots + final + kit).
+    job_manifest_uri: NotRequired[Annotated[Optional[str], _replace]]
+    job_manifest: NotRequired[Annotated[Optional[dict], _replace]]
+    final_sha256: NotRequired[Annotated[Optional[str], _replace]]
+    canonical_hash: NotRequired[Annotated[Optional[str], _replace]]
+    # Genblaze AgentLoop summary for Winning artifact takes.
+    agent_loop: NotRequired[Annotated[Optional[dict], _replace]]
     # "idle" | "stitching" | "ready" | "error"
     export_status: NotRequired[Annotated[str, _replace]]
     export_error: NotRequired[Annotated[Optional[str], _replace]]

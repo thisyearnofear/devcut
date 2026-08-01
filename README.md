@@ -55,6 +55,7 @@ After stitch: **Watch · HyperFrames · Share** — download the HF kit.zip for 
 | [DevCut × HyperFrames](./docs/hyperframes.md) | How we feed HF (BRIEF + assets) |
 | [x402 jobs](./docs/x402.md) | Pay-per-job API for agents |
 | [Hackathon / B2 notes](./docs/hackathon-backblaze.md) | Genblaze + B2 submission notes |
+| [Genblaze feedback issue](./docs/genblaze-feedback-issue.md) | Draft issue to file on Genblaze repo |
 | [Architecture](./docs/architecture.md) | Pipeline internals |
 | [Roadmap](./docs/roadmap.md) | Shipped / next |
 | [Setup](./docs/setup.md) | Full local setup |

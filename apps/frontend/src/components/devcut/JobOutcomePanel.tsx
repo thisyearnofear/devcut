@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import type { BuilderKit, ExportStatus } from "@/lib/storyboard/types";
 import { downloadBuilderKitZip } from "@/lib/builder-kit-download";
 import { HyperFramesHandoffPanel } from "@/components/devcut/HyperFramesHandoffPanel";
+import { ProvenanceVaultPanel } from "@/components/devcut/ProvenanceVaultPanel";
+import type { StoryboardState } from "@/lib/storyboard/types";
 
-type OutcomeTab = "watch" | "handoff" | "share";
+type OutcomeTab = "watch" | "handoff" | "vault" | "share";
 
 interface JobOutcomePanelProps {
   exportStatus: ExportStatus;
@@ -18,6 +20,19 @@ interface JobOutcomePanelProps {
   /** Challenge Cut vs Submit Ready — drives share copy. */
   jobMode?: "challenge" | "submit" | string | null;
   stillUrls?: string[];
+  /** Full canvas slice for the Provenance Vault tab. */
+  vaultState?: Pick<
+    StoryboardState,
+    | "storyboard"
+    | "shots"
+    | "final_video_url"
+    | "durable_url"
+    | "manifest_uri"
+    | "job_manifest_uri"
+    | "final_sha256"
+    | "canonical_hash"
+    | "agent_loop"
+  >;
   onExport: () => void;
   onDownload: (url: string, filename: string) => void;
 }
@@ -36,6 +51,7 @@ export function JobOutcomePanel({
   builderKit,
   jobMode,
   stillUrls = [],
+  vaultState,
   onExport,
   onDownload,
 }: JobOutcomePanelProps) {
@@ -43,11 +59,15 @@ export function JobOutcomePanel({
   const [tab, setTab] = useState<OutcomeTab>("watch");
 
   // Prefer HyperFrames tab once kit lands (builder-first success).
+  // Prefer Vault when durable B2 artifacts are present (hackathon judging).
   useEffect(() => {
-    if (builderKit && exportStatus === "ready") {
+    if (exportStatus !== "ready") return;
+    if (durableUrl || vaultState?.job_manifest_uri) {
+      setTab("vault");
+    } else if (builderKit) {
       setTab("handoff");
     }
-  }, [builderKit, exportStatus]);
+  }, [builderKit, durableUrl, exportStatus, vaultState?.job_manifest_uri]);
 
   const filename = `${slugify(storyboardTitle || "final-cut")}.mp4`;
   const shareUrl = durableUrl || finalVideoUrl;
@@ -95,6 +115,11 @@ export function JobOutcomePanel({
       id: "watch",
       label: "Watch cut",
       hint: mode === "challenge" ? "Organizer reference film" : "Devpost-shaped cut",
+    },
+    {
+      id: "vault",
+      label: "Vault",
+      hint: durableUrl ? "B2 + Genblaze provenance" : "Durable after B2 upload",
     },
     {
       id: "handoff",
@@ -210,6 +235,24 @@ export function JobOutcomePanel({
               <DurableRow label="Manifest" url={manifestUri} tone="sky" />
             )}
           </div>
+        )}
+
+        {tab === "vault" && (
+          <ProvenanceVaultPanel
+            state={
+              vaultState ?? {
+                storyboard: { title: storyboardTitle, logline: "", aspect_ratio: "1280:720", runway_mode: "LIVE" },
+                shots: [],
+                final_video_url: finalVideoUrl,
+                durable_url: durableUrl,
+                manifest_uri: manifestUri,
+                job_manifest_uri: null,
+                final_sha256: null,
+                canonical_hash: null,
+                agent_loop: null,
+              }
+            }
+          />
         )}
 
         {tab === "handoff" && builderKit && (

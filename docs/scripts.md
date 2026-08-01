@@ -24,6 +24,8 @@
 | `bash scripts/check-env.sh` | Validate required env vars are set |
 | `bash scripts/smoke-test.sh [base_url]` | Post-deploy end-to-end smoke test (default: `http://localhost:4010`) |
 | `bash scripts/smoke-golden-mock.sh` | MOCK golden Challenge Cut: kit unit tests + fixture materialize (no API keys) |
+| `bash scripts/setup-b2-cors.sh` | Apply CORS on B2 bucket for director + localhost playback |
 | `uv run python scripts/materialize_hf_kit.py --golden` | Write MOCK kit to `docs/demos/fixtures/golden-challenge-cut/` |
 | `uv run python scripts/materialize_hf_kit.py --zip <kit.zip> --out ./devcut-kit` | Unpack a browser-downloaded HyperFrames kit.zip |
 | `node scripts/assert-frontend-kit.mjs` | Assert golden constant + kit.zip file set in frontend sources |
+| `cd apps/agent && uv run python scripts/smoke_genblaze_b2.py --upload` | LIVE B2 upload smoke (requires `GENBLAZE_ENABLED=1` + `B2_*`) |

@@ -87,7 +87,10 @@ class StitchResult:
     duration: int     # seconds
     shot_count: int
     durable_url: Optional[str] = None   # B2 durable URL when upload succeeds
-    manifest_uri: Optional[str] = None  # Genblaze provenance manifest URI
+    manifest_uri: Optional[str] = None  # Genblaze clip provenance (last shot)
+    job_manifest_uri: Optional[str] = None  # DevCut job-level provenance JSON
+    final_sha256: Optional[str] = None
+    local_path: Optional[str] = None
 
 
 # --------------------------------------------------------------------- mock
@@ -347,21 +350,40 @@ def _live_stitch(shots: list[dict], slug: str) -> StitchResult:
 
     # Local export URL so the canvas can play immediately in dev.
     local_url = f"{_export_base_url()}/{out_name}"
-    result = StitchResult(url=local_url, mode="LIVE", duration=duration, shot_count=len(shots))
+    result = StitchResult(
+        url=local_url,
+        mode="LIVE",
+        duration=duration,
+        shot_count=len(shots),
+        local_path=str(out_path),
+    )
 
-    # Primary durable store: Backblaze B2 via Genblaze ObjectStorageSink.
-    from .media_storage import b2_enabled, persist_file
+    from .media_storage import b2_enabled, persist_file, require_durable, sha256_file
+    from .media_storage import DurableStorageError
     from .runway_client import _current_thread_id
+
+    result.final_sha256 = sha256_file(out_path)
+    tenant = _current_thread_id() or "director"
 
     if b2_enabled():
         stored = persist_file(
             out_path,
             content_type="video/mp4",
-            tenant_id=_current_thread_id() or "director",
+            tenant_id=tenant,
+            strategy="hierarchical",
         )
         if stored:
             result.durable_url = stored.url
             result.url = stored.url  # canvas plays the durable URL in prod
+        elif require_durable():
+            raise DurableStorageError(
+                "B2_REQUIRE_DURABLE=1 but final cut upload returned None"
+            )
+    elif require_durable():
+        raise DurableStorageError(
+            "B2_REQUIRE_DURABLE=1 but Genblaze/B2 is not enabled — "
+            "set GENBLAZE_ENABLED=1 and B2_* for golden/demo runs."
+        )
 
     return result
 

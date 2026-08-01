@@ -64,11 +64,13 @@ Durations: ~5s each → ~25–45s total after stitch.
 
 - [ ] Title contains **Challenge Cut** (mode inference for kit)
 - [ ] Five beats match Problem → Constraint → Winning → Anti-pattern → CTA
-- [ ] Stitch completes; **Job outcome** opens on **HyperFrames** tab
+- [ ] Stitch completes; **Job outcome** opens on **Vault** when B2 durable_url is set (else HyperFrames)
+- [ ] Vault shows durable MP4 + job/clip manifest + Verify
+- [ ] Winning beat shows Genblaze AgentLoop take count in ledger/message
 - [ ] `*-hyperframes-kit.zip` downloads with `BRIEF.md`, `assets.json`, `README.md`
 - [ ] BRIEF frontmatter has `workflow: product-launch-video` and durable asset paths under `assets/devcut/`
 - [ ] Share tab invite blurb mentions film + kit (organizer-pinable)
-- [ ] (LIVE) Optional: `durable_url` + `manifest_uri` when `GENBLAZE_ENABLED=1`
+- [ ] (LIVE) `durable_url` + `job_manifest_uri` when `GENBLAZE_ENABLED=1`
 
 ## Fixture notes
 

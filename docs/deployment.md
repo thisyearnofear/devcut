@@ -112,8 +112,14 @@ The server reads all secrets from `/opt/gen-ui/.env`. Key variables:
 | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com) → Get API key |
 | `RUNWAY_API_KEY` | [dev.runwayml.com](https://dev.runwayml.com) → leave blank for MOCK mode |
 | `GENBLAZE_ENABLED` | `1` to route video through Genblaze Pipeline + persist to B2 |
+| `GENBLAZE_AGENT_LOOP` | `1` (default) AgentLoop quality gate on Winning artifact beat |
 | `B2_KEY_ID` / `B2_APP_KEY` | [B2 Application Keys](https://secure.backblaze.com/app_keys.htm) (not master key) |
 | `B2_BUCKET` / `B2_REGION` | Public bucket name + region from endpoint (e.g. `us-west-004`) |
+| `B2_PUBLIC_URL_BASE` | Friendly public base for durable `<video src>` URLs |
+| `B2_REQUIRE_DURABLE` | `1` for demo/golden — fail loudly if B2 upload fails |
+| `B2_AUTO_LIFECYCLE` | `1` apply Genblaze lifecycle defaults |
+| `B2_MANIFEST_LOCK_DAYS` | Object Lock GOVERNANCE days on manifests (`0` = off) |
+| `DISCORD_WEBHOOK_URL` | Optional: B2 Event Notifications → `/api/b2-events` → Discord |
 | `COPILOTKIT_LICENSE_TOKEN` | Run `npm run license` locally, copy the token |
 | `INTELLIGENCE_AUTH_SECRET` | `openssl rand -base64 32` |
 | `INTELLIGENCE_RUNNER_AUTH_SECRET` | `openssl rand -base64 32` |
