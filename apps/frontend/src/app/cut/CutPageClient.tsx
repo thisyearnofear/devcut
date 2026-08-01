@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { decodeCutShare, remixDirectorHref } from "@/lib/cut-share";
-import "../landing/landing.css";
+import "@/components/landing/landing.css";
 
 /**
  * Public watch page for a shared cut — viral hook + Remix CTA.

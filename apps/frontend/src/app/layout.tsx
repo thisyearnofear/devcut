@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { Plus_Jakarta_Sans, Space_Mono, Syne } from "next/font/google";
 import { CopilotKitProviderShell } from "@/components/copilot/CopilotKitProviderShell";
+import { DEFAULT_PROD } from "@/lib/public-url";
 import "./globals.css";
 // v2 owns its own stylesheet. Do NOT import @copilotkit/react-ui/styles.css —
 // v1's .copilotKitButton / .copilotKitSidebar / .copilotKitWindow rules
@@ -29,6 +30,9 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    (process.env.NEXT_PUBLIC_APP_URL || "").trim().replace(/\/$/, "") || DEFAULT_PROD,
+  ),
   title: "DevCut",
   description:
     "The Runway desk for developers. Plan shots, generate stills and clips, stitch a durable MP4, hand off to HyperFrames.",
