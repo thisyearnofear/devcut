@@ -37,6 +37,7 @@ apps/agent/data/leads.local.json
 .agent/
 .qwen/
 .junie/
+.commandcode/
 
 # VS Code workspace settings — personal, not project config
 .vscode/
