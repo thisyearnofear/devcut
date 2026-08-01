@@ -14,11 +14,13 @@ HyperFrames already owns **code-native video**. DevCut fills the gap organizers 
 
 ## What builders get from a DevCut run
 
-After stitch, the canvas exposes a **HyperFrames handoff** (`builder_kit` on agent state):
+After stitch, the canvas **Job outcome** panel co-primaries:
 
-1. **`BRIEF.md` seed** — valid HyperFrames intent frontmatter (`workflow`, `flow`, `storyboard`, `message`, …) plus Intent / Assets / Notes.
-2. **Asset drop list** — still + clip URLs (and durable B2 URLs when enabled) mapped to suggested `assets/devcut/` paths.
-3. **Drop instructions** — paste BRIEF, stage media, keep HTML composition in HyperFrames.
+1. **Watch cut** — MP4 player + download  
+2. **HyperFrames** — copy BRIEF / download `*-hyperframes-kit.zip` (BRIEF.md + assets.json + README)  
+3. **Share** — invite blurb + still strip + film URL (organizer pin pack)
+
+Landing + empty canvas: **Run HyperFrames demo** (fixed Submit Ready brief).
 
 Canonical BRIEF shape: HyperFrames core `brief-format.md` (frontmatter + Intent / Assets / Customizations / Notes).
 

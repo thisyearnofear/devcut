@@ -35,7 +35,7 @@ interface JobReceipt {
 }
 
 /**
- * Agent door surface — live x402 catalog, 402 probe, demo settle, canvas unlock.
+ * Agent door — Start job primary; protocol probe under Integrators.
  */
 export function AgentPaymentsPanel({
   embedded = false,
@@ -51,6 +51,7 @@ export function AgentPaymentsPanel({
   const [probe, setProbe] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<JobReceipt | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showIntegrators, setShowIntegrators] = useState(false);
 
   useEffect(() => {
     fetch("/api/x402/catalog")
@@ -68,7 +69,6 @@ export function AgentPaymentsPanel({
   const probe402 = useCallback(async () => {
     setBusy(true);
     setProbe(null);
-    setReceipt(null);
     setError(null);
     try {
       const res = await fetch(`/api/x402/jobs/${sku}`, {
@@ -98,7 +98,7 @@ export function AgentPaymentsPanel({
     }
   }, [sku, brief]);
 
-  const demoPay = useCallback(async () => {
+  const startJob = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
@@ -114,11 +114,11 @@ export function AgentPaymentsPanel({
       if (!res.ok) {
         setError(`settle failed ${res.status}: ${text.slice(0, 200)}`);
         setProbe(text.slice(0, 800));
+        setShowIntegrators(true);
         return;
       }
       const data = JSON.parse(text) as JobReceipt;
       setReceipt(data);
-      setProbe(`HTTP ${res.status}\nPAYMENT-RESPONSE present: ${Boolean(res.headers.get("PAYMENT-RESPONSE"))}\n\n${text}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -135,20 +135,25 @@ export function AgentPaymentsPanel({
   -H 'PAYMENT-SIGNATURE: demo' \\
   -d '{"brief":"…"}'`;
 
+  const selected = catalog?.skus.find((s) => s.id === sku);
+
   return (
-    <div className={`space-y-5 ${embedded ? "" : "rounded-2xl border border-white/10 bg-black/25 p-5 sm:p-6"}`}>
+    <div
+      className={`space-y-5 ${embedded ? "" : "rounded-2xl border border-white/10 bg-black/25 p-5 sm:p-6"}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#9bb5a4]">
-            Agent + x402
+            Agent job
           </p>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-white/65">
-            Metered jobs — no Runway key paste. Agents hit 402, pay, retry, get a canvas unlock.
+            Pick a SKU, paste a brief, start the job. Unlock opens the canvas with mode prompt —
+            no Runway key paste.
             {catalog ? (
               <>
                 {" "}
-                Mode <code className="text-[#c5d4c8]">{catalog.mode}</code> · network{" "}
-                <code className="text-[#c5d4c8]">{catalog.network}</code>
+                Settle mode <code className="text-[#c5d4c8]">{catalog.mode}</code>
+                {catalog.mode === "demo" ? " (demo signature accepted)." : "."}
               </>
             ) : null}
           </p>
@@ -202,72 +207,86 @@ export function AgentPaymentsPanel({
         placeholder="Brief for the paid job…"
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           disabled={busy || !catalog}
-          onClick={probe402}
-          className="rounded-full border border-white/20 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white/75 hover:border-white/40 disabled:opacity-40"
+          onClick={startJob}
+          className="rounded-full bg-[#c5d4c8] px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white disabled:opacity-40"
         >
-          Probe 402
-        </button>
-        <button
-          type="button"
-          disabled={busy || !catalog}
-          onClick={demoPay}
-          className="rounded-full bg-[#c5d4c8] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white disabled:opacity-40"
-        >
-          Pay demo · unlock
+          {busy ? "Starting…" : `Start job${selected ? ` · ${selected.price}` : ""}`}
         </button>
         {receipt && (
           <Link
             href={receipt.canvas_path}
-            className="rounded-full border border-[#7a9e88]/50 bg-[#7a9e88]/15 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/25"
+            className="rounded-full border border-[#7a9e88]/50 bg-[#7a9e88]/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/25"
           >
-            Open paid canvas
+            Open canvas
           </Link>
         )}
       </div>
 
       {receipt && (
-        <p className="font-mono text-[11px] text-white/50">
-          job <span className="text-white/80">{receipt.job_id.slice(0, 8)}</span> · {receipt.title} ·
-          unlock minted
+        <p className="rounded-lg border border-[#7a9e88]/25 bg-[#7a9e88]/10 px-3 py-2 font-mono text-[11px] text-[#c5d4c8]">
+          Unlocked · {receipt.title} · job {receipt.job_id.slice(0, 8)} — canvas has mode prompt +
+          will attach HyperFrames kit after stitch.
         </p>
       )}
 
-      {probe && (
-        <pre className="max-h-56 overflow-auto rounded-xl border border-white/10 bg-black/50 p-3 font-mono text-[10px] leading-4 text-white/60">
-          {probe}
-        </pre>
-      )}
+      <div className="border-t border-white/10 pt-4">
+        <button
+          type="button"
+          onClick={() => setShowIntegrators((v) => !v)}
+          className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/40 hover:text-white/70"
+        >
+          {showIntegrators ? "Hide" : "Show"} integrator tools (402 probe · curl)
+        </button>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div>
-          <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">
-            Unpaid (expect 402)
-          </p>
-          <pre className="overflow-x-auto rounded-lg border border-white/10 bg-black/40 p-3 font-mono text-[10px] text-white/55">
-            {curl402}
-          </pre>
-        </div>
-        <div>
-          <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">
-            Demo settle (X402_MODE=demo)
-          </p>
-          <pre className="overflow-x-auto rounded-lg border border-white/10 bg-black/40 p-3 font-mono text-[10px] text-white/55">
-            {curlPay}
-          </pre>
-        </div>
+        {showIntegrators && (
+          <div className="mt-4 space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy || !catalog}
+                onClick={probe402}
+                className="rounded-full border border-white/20 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white/75 hover:border-white/40 disabled:opacity-40"
+              >
+                Probe 402
+              </button>
+            </div>
+            {probe && (
+              <pre className="max-h-56 overflow-auto rounded-xl border border-white/10 bg-black/50 p-3 font-mono text-[10px] leading-4 text-white/60">
+                {probe}
+              </pre>
+            )}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">
+                  Unpaid (expect 402)
+                </p>
+                <pre className="overflow-x-auto rounded-lg border border-white/10 bg-black/40 p-3 font-mono text-[10px] text-white/55">
+                  {curl402}
+                </pre>
+              </div>
+              <div>
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">
+                  Demo settle
+                </p>
+                <pre className="overflow-x-auto rounded-lg border border-white/10 bg-black/40 p-3 font-mono text-[10px] text-white/55">
+                  {curlPay}
+                </pre>
+              </div>
+            </div>
+            {catalog?.agent_flow && (
+              <ol className="list-decimal space-y-1 pl-4 text-xs leading-5 text-white/50">
+                {catalog.agent_flow.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
       </div>
-
-      {catalog?.agent_flow && (
-        <ol className="list-decimal space-y-1 pl-4 text-xs leading-5 text-white/50">
-          {catalog.agent_flow.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      )}
     </div>
   );
 }

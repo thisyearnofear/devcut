@@ -59,11 +59,19 @@ export const DEVCUT_DOORS: DevCutDoor[] = [
     id: "agent",
     label: "I’m an agent",
     title: "OpenAPI + x402",
-    body: "Live catalog · HTTP 402 · demo or facilitator settle · canvas unlock. SKUs: challenge_film, submission_polish, hero_shot_pack.",
+    body: "Start a metered job — unlock the canvas. Protocol probe under Integrators.",
     prompt: "",
     href: "/director?mode=agent",
   },
 ];
+
+/** Fixed HyperFrames-track demo — partner walkthrough without door shopping. */
+export const DEVCUT_HF_DEMO = {
+  label: "HyperFrames track demo",
+  mode: "submit" as const,
+  brief:
+    "Submit Ready for a HyperFrames product-launch project: generative hero shots around a problem → product → proof arc. Product: HTML→video for agents (HyperFrames). After stitch, builders paste BRIEF.md and stage assets/devcut/ — HyperFrames keeps composition ownership. DevCut only supplies Runway heroes + packaging.",
+} as const;
 
 /** Example briefs that reinforce the wedge (not generic cinema). */
 export const DEVCUT_CHALLENGE_EXAMPLES = [

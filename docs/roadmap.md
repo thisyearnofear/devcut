@@ -19,6 +19,7 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 - [x] Planner providers: NVIDIA → Venice → Gemini; AISA removed ([`providers.md`](./providers.md))
 - [x] Run ledger UX — DevCut-shaped stages + human tool cards (AG-UI)
 - [x] HyperFrames handoff — BRIEF.md seed + asset drop on stitch ([`hyperframes.md`](./hyperframes.md))
+- [x] Outcome UX — Watch / HyperFrames / Share + downloadable kit.zip + HF demo CTA + mode chrome + agent Start job
 - [ ] First golden Challenge Cut (live hackathon brief) that demos the HF kit
 - [ ] `X402_MODE=live` facilitator settle in production
 

@@ -6,6 +6,7 @@ import {
   DEVCUT,
   DEVCUT_CHALLENGE_EXAMPLES,
   DEVCUT_DOORS,
+  DEVCUT_HF_DEMO,
   DEVCUT_SUBMIT_EXAMPLES,
   type DevCutDoorId,
 } from "@/lib/devcut";
@@ -32,6 +33,12 @@ export function LandingPage() {
     return `/director?mode=${door}&brief=${encodeURIComponent(payload)}`;
   }, [door, brief, activeDoor.prompt]);
 
+  const hfDemoHref = useMemo(() => {
+    const submitDoor = DEVCUT_DOORS.find((d) => d.id === "submit")!;
+    const payload = `${submitDoor.prompt} ${DEVCUT_HF_DEMO.brief}`.trim();
+    return `/director?mode=submit&demo=hf&brief=${encodeURIComponent(payload)}`;
+  }, []);
+
   return (
     <div className="min-h-svh bg-[#0c0f0e] text-[#e8ece9]">
       {/* Atmosphere — cool ink, not purple glow */}
@@ -53,11 +60,8 @@ export function LandingPage() {
             <Link href="/about" className="hover:text-white/80">
               About
             </Link>
-            <Link
-              href="/director"
-              className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-white/75 hover:border-white/30 hover:text-white"
-            >
-              Open canvas
+            <Link href={hfDemoHref} className="hover:text-white/80">
+              HF demo
             </Link>
           </nav>
         </header>
@@ -72,6 +76,17 @@ export function LandingPage() {
               {DEVCUT.tagline}. Challenge films for organizers. Submit-ready cuts for
               HyperFrames builders. Metered jobs for agents.
             </p>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <Link
+                href={hfDemoHref}
+                className="inline-flex items-center rounded-full border border-[#7a9e88]/50 bg-[#7a9e88]/15 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/25"
+              >
+                Run HyperFrames demo
+              </Link>
+              <p className="max-w-xs text-xs leading-5 text-white/40">
+                Fixed brief · Runway heroes → BRIEF kit → finish in HF. Best partner walkthrough.
+              </p>
+            </div>
           </div>
 
           {/* Three doors */}

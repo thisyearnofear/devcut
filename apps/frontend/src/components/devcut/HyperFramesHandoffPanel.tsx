@@ -2,16 +2,22 @@
 
 import { useState } from "react";
 import type { BuilderKit } from "@/lib/storyboard/types";
+import { downloadBuilderKitZip } from "@/lib/builder-kit-download";
 
 interface HyperFramesHandoffPanelProps {
   kit: BuilderKit;
+  /** When embedded inside JobOutcomePanel — less chrome duplication. */
+  compact?: boolean;
 }
 
 /**
  * Makes the HyperFrames complement tangible: copy BRIEF.md + see asset drop paths.
  * DevCut stops at generative footage; HF owns composition HTML.
  */
-export function HyperFramesHandoffPanel({ kit }: HyperFramesHandoffPanelProps) {
+export function HyperFramesHandoffPanel({
+  kit,
+  compact = false,
+}: HyperFramesHandoffPanelProps) {
   const [copied, setCopied] = useState<"brief" | "drop" | null>(null);
 
   async function copy(text: string, which: "brief" | "drop") {
@@ -25,28 +31,37 @@ export function HyperFramesHandoffPanel({ kit }: HyperFramesHandoffPanelProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-[#7a9e88]/35 bg-[#7a9e88]/[0.07] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a8c4b4]">
-            HyperFrames handoff
-          </p>
-          <p className="text-sm font-medium text-white/90">
-            {kit.mode === "challenge" ? "Builder kit from Challenge Cut" : "Submit Ready → HF assets"}
-          </p>
-          <p className="text-xs leading-5 text-white/55">
-            {kit.summary} HyperFrames keeps HTML composition; DevCut supplied the heroes.
-          </p>
+    <div
+      className={
+        compact
+          ? "flex flex-col gap-4"
+          : "flex flex-col gap-4 rounded-xl border border-[#7a9e88]/35 bg-[#7a9e88]/[0.07] p-4"
+      }
+    >
+      {!compact && (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#a8c4b4]">
+              HyperFrames handoff
+            </p>
+            <p className="text-sm font-medium text-white/90">
+              {kit.mode === "challenge"
+                ? "Builder kit from Challenge Cut"
+                : "Submit Ready → HF assets"}
+            </p>
+            <p className="text-xs leading-5 text-white/55">
+              {kit.summary} HyperFrames keeps HTML composition; DevCut supplied the heroes.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => downloadBuilderKitZip(kit)}
+            className="shrink-0 rounded-full bg-[#c5d4c8] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[#0c0f0e] hover:bg-white"
+          >
+            Download kit.zip
+          </button>
         </div>
-        <a
-          href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/hyperframes.md"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-white/45 hover:text-white/75"
-        >
-          How this works
-        </a>
-      </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <button

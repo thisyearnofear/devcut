@@ -13,6 +13,8 @@ interface BriefHeaderProps {
   hasPersonalKey?: boolean;
   /** Paid x402 SKU id when canvas was unlocked via job receipt */
   paidSku?: string | null;
+  /** Challenge Cut vs Submit Ready */
+  jobMode?: "challenge" | "submit" | "agent" | string | null;
 }
 
 export function BriefHeader({
@@ -24,10 +26,25 @@ export function BriefHeader({
   onKeyClick,
   hasPersonalKey,
   paidSku,
+  jobMode,
 }: BriefHeaderProps) {
   const isLive = storyboard.runway_mode === "LIVE";
   // Always show the mode badge so users can switch before the agent responds.
   const showModeBadge = true;
+  const modeLabel =
+    jobMode === "challenge"
+      ? "Challenge Cut"
+      : jobMode === "submit"
+        ? "Submit Ready"
+        : jobMode === "agent"
+          ? "Agent job"
+          : null;
+  const modeHint =
+    jobMode === "challenge"
+      ? "Problem → Constraint → Winning → Anti-pattern → CTA"
+      : jobMode === "submit"
+        ? "Problem → Product → Proof → HF handoff"
+        : null;
 
   return (
     <header className="flex flex-col gap-3 border-b border-white/[0.06] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
@@ -53,6 +70,18 @@ export function BriefHeader({
 
       {/* Right controls */}
       <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+        {modeLabel && (
+          <div className="hidden text-right sm:block">
+            <span className="rounded-full border border-[#7a9e88]/40 bg-[#7a9e88]/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8]">
+              {modeLabel}
+            </span>
+            {modeHint && (
+              <p className="mt-1 max-w-[14rem] truncate font-mono text-[9px] uppercase tracking-[0.08em] text-white/35">
+                {modeHint}
+              </p>
+            )}
+          </div>
+        )}
         {paidSku && (
           <span className="rounded-full border border-[#7a9e88]/40 bg-[#7a9e88]/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8]">
             x402 · {paidSku}

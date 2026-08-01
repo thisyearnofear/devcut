@@ -21,7 +21,7 @@ import {
   initialStoryboardState,
 } from "@/lib/storyboard/types";
 import { BriefHeader } from "@/components/storyboard/BriefHeader";
-import { ExportPanel } from "@/components/storyboard/ExportPanel";
+import { JobOutcomePanel } from "@/components/devcut/JobOutcomePanel";
 import { ApiKeyPanel, useRunwayApiKey } from "@/components/storyboard/ApiKeyPanel";
 import { StoryboardTimeline } from "@/components/storyboard/StoryboardTimeline";
 import { ShotPreview } from "@/components/storyboard/ShotPreview";
@@ -37,11 +37,11 @@ import {
   DEVCUT,
   DEVCUT_CHALLENGE_EXAMPLES,
   DEVCUT_DOORS,
+  DEVCUT_HF_DEMO,
   DEVCUT_SUBMIT_EXAMPLES,
   type DevCutDoorId,
 } from "@/lib/devcut";
 import { AgentPaymentsPanel } from "@/components/devcut/AgentPaymentsPanel";
-import { HyperFramesHandoffPanel } from "@/components/devcut/HyperFramesHandoffPanel";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -91,6 +91,7 @@ function mergeStoryboardState(raw: unknown): StoryboardState {
     selectedShotId: partial.selectedShotId ?? null,
     durable_url: partial.durable_url ?? null,
     manifest_uri: partial.manifest_uri ?? null,
+    builder_kit: partial.builder_kit ?? null,
   };
 }
 
@@ -675,9 +676,15 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   const [estimatedWaitSec, setEstimatedWaitSec] = useState(0);
   const { key: runwayKey } = useRunwayApiKey();
   const [paidSku, setPaidSku] = useState<string | null>(null);
+  const [doorMode, setDoorMode] = useState<DevCutDoorId | null>(null);
   useEffect(() => {
-    const sku = new URLSearchParams(window.location.search).get("sku");
+    const params = new URLSearchParams(window.location.search);
+    const sku = params.get("sku");
     if (sku) setPaidSku(sku);
+    const mode = params.get("mode");
+    if (mode === "challenge" || mode === "submit" || mode === "agent") {
+      setDoorMode(mode);
+    }
   }, []);
 
   // Persisted checkpoint fetched from LangGraph on thread switch.
@@ -830,6 +837,15 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   const liveState = mergeStoryboardState(agent?.state);
   const state = (liveState.shots.length > 0 || isRunning) ? liveState : (restoredState ?? liveState);
   const progress = useMemo(() => getAgentProgress(state, isRunning), [state, isRunning]);
+  const jobMode =
+    (state.builder_kit?.mode as string | undefined) || doorMode || null;
+  const stillUrls = useMemo(
+    () =>
+      state.shots
+        .map((s) => s.ref_image_url)
+        .filter((u): u is string => Boolean(u)),
+    [state.shots],
+  );
 
   useEffect(() => {
     onStoryboardChange?.({
@@ -1002,6 +1018,7 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
             onKeyClick={() => setShowKeyPanel((v) => !v)}
             hasPersonalKey={Boolean(runwayKey)}
             paidSku={paidSku}
+            jobMode={jobMode}
           />
 
           {showKeyPanel && <ApiKeyPanel onClose={() => setShowKeyPanel(false)} isLive={state.storyboard.runway_mode === "LIVE"} />}
@@ -1071,21 +1088,19 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
 
               {/* Final cut hero — shown above timeline when ready */}
               {state.export_status === "ready" && (
-                <>
-                  <ExportPanel
-                    exportStatus={state.export_status}
-                    exportError={state.export_error}
-                    finalVideoUrl={state.final_video_url}
-                    durableUrl={state.durable_url}
-                    manifestUri={state.manifest_uri}
-                    storyboardTitle={state.storyboard.title}
-                    onExport={handleExport}
-                    onDownload={handleDownloadFinal}
-                  />
-                  {state.builder_kit && (
-                    <HyperFramesHandoffPanel kit={state.builder_kit} />
-                  )}
-                </>
+                <JobOutcomePanel
+                  exportStatus={state.export_status}
+                  exportError={state.export_error}
+                  finalVideoUrl={state.final_video_url}
+                  durableUrl={state.durable_url}
+                  manifestUri={state.manifest_uri}
+                  storyboardTitle={state.storyboard.title}
+                  builderKit={state.builder_kit}
+                  jobMode={jobMode}
+                  stillUrls={stillUrls}
+                  onExport={handleExport}
+                  onDownload={handleDownloadFinal}
+                />
               )}
 
               <StoryboardTimeline
@@ -1098,13 +1113,16 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
 
               {/* Stitching / error states shown below timeline */}
               {(state.export_status === "stitching" || state.export_status === "error") && (
-                <ExportPanel
+                <JobOutcomePanel
                   exportStatus={state.export_status}
                   exportError={state.export_error}
                   finalVideoUrl={state.final_video_url}
                   durableUrl={state.durable_url}
                   manifestUri={state.manifest_uri}
                   storyboardTitle={state.storyboard.title}
+                  builderKit={state.builder_kit}
+                  jobMode={jobMode}
+                  stillUrls={stillUrls}
                   onExport={handleExport}
                   onDownload={handleDownloadFinal}
                 />
@@ -1251,6 +1269,19 @@ function DevCutEmptyState({
           DevCut feeds HyperFrames — generative heroes + hackathon packaging. HyperFrames keeps
           HTML composition. Pick a door to start.
         </p>
+        <button
+          type="button"
+          disabled={isRunning}
+          onClick={() => {
+            setDoor("submit");
+            setDraft(DEVCUT_HF_DEMO.brief);
+            const submit = DEVCUT_DOORS.find((d) => d.id === "submit")!;
+            onStart(`${submit.prompt} ${DEVCUT_HF_DEMO.brief}`);
+          }}
+          className="mx-auto rounded-full border border-[#7a9e88]/45 bg-[#7a9e88]/10 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/20 disabled:opacity-40"
+        >
+          Or run HyperFrames demo
+        </button>
       </div>
 
       <div className="grid w-full max-w-3xl gap-3 md:grid-cols-3">
