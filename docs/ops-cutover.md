@@ -1,63 +1,55 @@
 # Ops: hostname cutover + B2 (secure checklist)
 
-Living checklist for moving prod to **devcut.thisyearnofear.com** and enabling Genblaze→B2.  
+Living checklist for **devcut.thisyearnofear.com** and Genblaze→B2.  
 Do **not** put secrets in this file — only status and pointers.
 
-## Hostname cutover (recommended)
+## Hostname cutover
 
-**Primary (target):** `https://devcut.thisyearnofear.com`  
-**Legacy (keep during cutover):** `https://director.thisyearnofear.com`  
-**Canvas path:** keep `/director` (no path rename in this cutover)
+**Primary:** `https://devcut.thisyearnofear.com`  
+**Legacy:** `https://director.thisyearnofear.com` (still routed during cutover)  
+**Canvas path:** `/director` (unchanged)
 
-| Step | Owner | Status |
-| --- | --- | --- |
-| DNS A/CNAME `devcut.thisyearnofear.com` → nuncio | Human | pending |
-| Coolify / Traefik route + TLS for `devcut…` → `:3100` | Human (+ agent if SSH) | pending |
-| Dual-host Traefik: both hostnames work | Human | pending |
-| Set `NEXT_PUBLIC_APP_URL=https://devcut.thisyearnofear.com` in `/opt/gen-ui/.env` + local `.env` | Agent after DNS | pending |
-| Set `X402_RESOURCE_BASE` to primary host | Agent after DNS | pending |
-| B2 CORS allowlist includes both hosts | Agent (`scripts/setup-b2-cors.sh`) | pending (needs bucket) |
-| Smoke new host: landing + `/director` + Vault video | Both | pending |
-| Update Devpost / Discord / pins to `devcut…` | Human | pending |
-| 301 legacy → primary (optional, 1 week) | Human | pending |
-| Drop legacy from CORS / Traefik | Later | pending |
-
-Code already dual-host aware: share URLs via `NEXT_PUBLIC_APP_URL` / browser origin; CORS script lists both hosts.
+| Step | Status |
+| --- | --- |
+| DNS `devcut.thisyearnofear.com` | done (human) |
+| Traefik dual-host rule (`devcut` \|\| `director`) → `:3100` | done 2026-08-01 |
+| `DOMAIN` / `NEXT_PUBLIC_APP_URL` / `X402_RESOURCE_BASE` on nuncio | done |
+| Same vars in local gitignored `.env` | done |
+| B2 CORS allowlist includes both hosts | done (on bucket) |
+| Smoke both hosts in browser | pending (human) |
+| Devpost / Discord pins → `devcut…` | pending (human) |
+| Drop legacy host later | pending |
 
 ## Backblaze B2 + Genblaze
 
 | Step | Status |
 | --- | --- |
-| Application key `devcut` in gitignored `.env` / `apps/agent/.env` (mode 600) | done (local) |
-| Public bucket created + name known | **blocked — need bucket name** |
-| `B2_BUCKET` / `B2_REGION` / `B2_PUBLIC_URL_BASE` set | pending |
-| `GENBLAZE_ENABLED=1` + `B2_REQUIRE_DURABLE=1` | pending (after bucket) |
-| CORS applied | pending |
-| `smoke_genblaze_b2.py --upload` | pending |
-| Same vars on nuncio `/opt/gen-ui/.env` (app key only — not master) | pending |
+| Application key in local + nuncio `.env` (mode 600; **not** master) | done |
+| Bucket `devcut-media` created | done (**private** — see blocker) |
+| Region `us-east-005` / friendly base `https://f005.backblazeb2.com/file/devcut-media` | done |
+| CORS on bucket | done |
+| `GENBLAZE_ENABLED=1` + `B2_REQUIRE_DURABLE=1` local + nuncio | done |
+| Local smoke upload OK | done |
+| Master key **not** on nuncio | done (local-only for bucket admin) |
+| Flip bucket to **public** | **blocked** — B2 `no_payment_history` |
 | Film golden Challenge Cut LIVE | pending |
 
-### Security rules (keep)
+### Blocker: public bucket
 
-- **Never commit** `.env`, application keys, or master keys.
-- Runtime uses **application key** (`B2_KEY_ID` / `B2_APP_KEY`) scoped to the media bucket.
-- **Master key** is optional and only for one-shot bucket/CORS setup; prefer console, or store as `B2_MASTER_KEY_ID` + `B2_MASTER_APP_KEY` locally then remove after setup.
-- If a key was pasted into chat: **rotate** the application key in B2 after cutover when practical.
-- Chat / docs: refer to keys as “set” — never paste full secrets into markdown or commits.
+B2 refused `allPublic` until the account has payment history (small card/credit in console).  
+Private bucket accepts uploads; anonymous Vault `<video src>` / Monday-test links may **401** until public.
 
-## What we need from you (unblockers)
+**Human action:** In Backblaze billing, add payment / history → bucket Settings → make `devcut-media` public (or ask agent to flip via API).
 
-Reply with these (bucket console is enough — master secret optional):
+### Security rules
 
-1. **DNS:** Confirm you can add `devcut.thisyearnofear.com` (or that it’s already pointed at nuncio).  
-2. **B2 bucket (pick one):**  
-   - **A (preferred):** Public bucket name + region from endpoint (e.g. `us-west-004`) + friendly URL base if shown, **or**  
-   - **B:** Full master pair `keyID` + `applicationKey` (`K005…`) so we can create `devcut-media` via API.  
-3. **SSH:** OK for agent to update Coolify Traefik + `/opt/gen-ui/.env` on nuncio? (yes/no)  
-4. **Rotate:** After we’re live, OK to rotate the `devcut` app key that appeared in chat? (recommended yes)
+- Never commit `.env` or keys.
+- Runtime = application key only (`B2_KEY_ID` / `B2_APP_KEY`).
+- Master key stays local (bucket/CORS admin); never in PM2 env.
+- Key rotation: owner-managed (not automated here).
 
 ## Progress log
 
 | Date | Note |
 | --- | --- |
-| 2026-08-01 | Dual-host code + CORS allowlist + this checklist. App key stored locally only. Genblaze still off until bucket. |
+| 2026-08-01 | Dual-host Traefik; B2 bucket+CORS; Genblaze enabled; director-* PM2 reloaded only. Public bucket pending payment history. |
