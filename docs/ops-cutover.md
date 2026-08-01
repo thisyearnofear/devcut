@@ -36,12 +36,10 @@ Do **not** put secrets in this file — only status and pointers.
 | Deploy Genblaze/Vault code to nuncio (replace 20260703 release) | in progress |
 | Film golden Challenge Cut LIVE | pending |
 
-### Blocker: public bucket
+### Public bucket
 
-B2 refused `allPublic` until the account has payment history (small card/credit in console).  
-Private bucket accepts uploads; anonymous Vault `<video src>` / Monday-test links may **401** until public.
-
-**Human action:** In Backblaze billing, add payment / history → bucket Settings → make `devcut-media` public (or ask agent to flip via API).
+`devcut-media` is **allPublic**. Anonymous friendly URLs under  
+`https://f005.backblazeb2.com/file/devcut-media/…` return HTTP 200 (verified).
 
 ### Security rules
 
