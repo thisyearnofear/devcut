@@ -25,13 +25,15 @@ Do **not** put secrets in this file — only status and pointers.
 | Step | Status |
 | --- | --- |
 | Application key in local + nuncio `.env` (mode 600; **not** master) | done |
-| Bucket `devcut-media` created | done (**private** — see blocker) |
+| Bucket `devcut-media` created | done (**public** — verified 2026-08-01) |
 | Region `us-east-005` / friendly base `https://f005.backblazeb2.com/file/devcut-media` | done |
 | CORS on bucket | done |
 | `GENBLAZE_ENABLED=1` + `B2_REQUIRE_DURABLE=1` local + nuncio | done |
 | Local smoke upload OK | done |
+| Anonymous GET on smoke object (Monday test) | done (HTTP 200) |
 | Master key **not** on nuncio | done (local-only for bucket admin) |
-| Flip bucket to **public** | **blocked** — B2 `no_payment_history` |
+| Flip bucket to **public** | done |
+| Deploy Genblaze/Vault code to nuncio (replace 20260703 release) | in progress |
 | Film golden Challenge Cut LIVE | pending |
 
 ### Blocker: public bucket
@@ -52,4 +54,5 @@ Private bucket accepts uploads; anonymous Vault `<video src>` / Monday-test link
 
 | Date | Note |
 | --- | --- |
-| 2026-08-01 | Dual-host Traefik; B2 bucket+CORS; Genblaze enabled; director-* PM2 reloaded only. Public bucket pending payment history. |
+| 2026-08-01 | Dual-host Traefik; B2 bucket+CORS; Genblaze enabled; director-* PM2 reloaded only. |
+| 2026-08-01 | Bucket flipped **public**; anonymous smoke GET HTTP 200. Deploy Genblaze code next. |
