@@ -26,6 +26,11 @@ import { ApiKeyPanel, useRunwayApiKey } from "@/components/storyboard/ApiKeyPane
 import { StoryboardTimeline } from "@/components/storyboard/StoryboardTimeline";
 import { ShotPreview } from "@/components/storyboard/ShotPreview";
 import { ToolFallbackCard } from "@/components/copilot/ToolFallbackCard";
+import {
+  DEVCUT_PLANNING_PHRASES,
+  DEVCUT_STAGE_ESTIMATES,
+  DEVCUT_STAGE_LABELS,
+} from "@/lib/devcut-ledger";
 import { AvatarShowcase } from "@/components/storyboard/AvatarShowcase";
 import { AvatarPanel } from "@/components/storyboard/AvatarPanel";
 import {
@@ -209,22 +214,22 @@ function getAgentProgress(state: StoryboardState, isRunning: boolean): AgentProg
     exportStatus: state.export_status,
     stages: [
       {
-        label: "Storyboard",
+        label: DEVCUT_STAGE_LABELS.plan,
         detail: total > 0 ? `${total} shots planned` : isRunning ? "__planning__" : "Waiting for a brief",
         status: total > 0 ? "done" : isRunning ? "active" : "waiting",
       },
       {
-        label: "Reference stills",
+        label: DEVCUT_STAGE_LABELS.stills,
         detail: total > 0 ? `${refs}/${total} stills ready` : isRunning ? "Queued" : "Starts after planning",
         status: refs === total && total > 0 ? "done" : total > 0 && isRunning ? "active" : "waiting",
       },
       {
-        label: "Motion clips",
+        label: DEVCUT_STAGE_LABELS.clips,
         detail: total > 0 ? `${videos}/${total} clips ready` : isRunning ? "Queued" : "Starts after stills",
         status: videos === total && total > 0 ? "done" : refs > 0 && isRunning ? "active" : "waiting",
       },
       {
-        label: "Final cut",
+        label: DEVCUT_STAGE_LABELS.export,
         detail:
           state.export_status === "ready"
             ? "MP4 ready"
@@ -247,22 +252,10 @@ function getAgentProgress(state: StoryboardState, isRunning: boolean): AgentProg
 }
 
 // Stage time estimates (seconds) based on observed production runs
-const STAGE_ESTIMATES: Record<string, number> = {
-  "Storyboard": 15,
-  "Reference stills": 60,
-  "Motion clips": 180,
-  "Final cut": 30,
-};
+const STAGE_ESTIMATES = DEVCUT_STAGE_ESTIMATES;
 
 // Animated cycling text shown during the planning stage
-const PLANNING_PHRASES = [
-  "Planning your storyboard…",
-  "Analysing your brief…",
-  "Composing shot list…",
-  "Mapping cinematic beats…",
-  "Structuring the narrative…",
-  "Designing the visual arc…",
-];
+const PLANNING_PHRASES = [...DEVCUT_PLANNING_PHRASES];
 
 function PlanningText() {
   const [idx, setIdx] = useState(0);
@@ -417,7 +410,7 @@ function DirectorChat({
           <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
             <div className="flex items-center justify-between gap-3">
               <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/70">
-                Agent working
+                Run ledger
               </p>
               <div className="flex items-center gap-2">
                 <ElapsedTimer isRunning={isRunning} />
@@ -437,13 +430,13 @@ function DirectorChat({
                 const est = STAGE_ESTIMATES[stage.label];
                 // Collect shots relevant to this stage for thumbnail strip
                 const stageThumbs: string[] = [];
-                if (stage.label === "Reference stills") {
+                if (stage.label === DEVCUT_STAGE_LABELS.stills) {
                   shots.forEach((s) => { if (s.ref_image_url) stageThumbs.push(s.ref_image_url); });
-                } else if (stage.label === "Motion clips") {
+                } else if (stage.label === DEVCUT_STAGE_LABELS.clips) {
                   shots.forEach((s) => { if (s.video_url) stageThumbs.push(s.video_url); });
                 }
                 // Sub-progress label from the most recent active shot
-                const activeShot = stage.label === "Reference stills" || stage.label === "Motion clips"
+                const activeShot = stage.label === DEVCUT_STAGE_LABELS.stills || stage.label === DEVCUT_STAGE_LABELS.clips
                   ? shots.find((s) => s.progress_label && s.status !== "ready")
                   : undefined;
                 return (
@@ -480,7 +473,7 @@ function DirectorChat({
                       <div className="ml-5 flex gap-1.5 overflow-x-auto pb-0.5">
                         {stageThumbs.map((url, i) => (
                           <div key={i} className="relative shrink-0 size-12 overflow-hidden rounded-md border border-white/10 bg-white/5">
-                            {stage.label === "Motion clips" ? (
+                            {stage.label === DEVCUT_STAGE_LABELS.clips ? (
                               <video
                                 src={url}
                                 className="size-full object-cover"
@@ -502,7 +495,7 @@ function DirectorChat({
               })}
             </div>
             <p className="mt-3 text-[11px] leading-4 text-white/35">
-              A full run takes ~5 min. Runway generates each clip in parallel — stills first, then video.
+              Challenge Cut / Submit Ready usually ~5 min. Stills first, then clips in parallel, then stitch.
             </p>
           </div>
         )}
@@ -919,7 +912,13 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
 
   useDefaultRenderTool({
     render: ({ name, status, result, parameters }) => (
-      <ToolFallbackCard name={name} status={status} result={result} parameters={parameters} />
+      <ToolFallbackCard
+        name={name}
+        status={status}
+        result={result}
+        parameters={parameters}
+        variant="devcut"
+      />
     ),
   });
 

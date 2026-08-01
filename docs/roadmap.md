@@ -17,10 +17,10 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 - [x] Agent prompt = Challenge Cut / Submit Ready modes
 - [x] x402 SKUs on BFF + Agent door (catalog, 402, demo settle, canvas unlock)
 - [x] Planner providers: NVIDIA → Venice → Gemini; AISA removed ([`providers.md`](./providers.md))
+- [x] Run ledger UX — DevCut-shaped stages + human tool cards (AG-UI)
 - [ ] First golden Challenge Cut (live hackathon brief)
 - [ ] Submit Ready → HyperFrames `BRIEF.md` handoff
 - [ ] `X402_MODE=live` facilitator settle in production
-- [ ] Run ledger UX — DevCut-shaped stages + human tool cards (AG-UI)
 
 ## Next
 

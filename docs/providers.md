@@ -61,7 +61,7 @@ Spine we keep:
 | Chat / ledger | Process (unlock → plan → stills → clips → stitch) |
 | Tool cards | One-line human status; payload collapsed |
 
-DevCut-shaped stage labels (Challenge Cut / Submit Ready), not cinema-generic jargon alone. Prefer controlled generative UI (tool rendering + shared state) over open-ended HTML dumps.
+Implemented: `apps/frontend/src/lib/devcut-ledger.ts` + director chat (`variant="devcut"` tool cards, DevCut stage labels). Prefer controlled generative UI over open-ended HTML dumps.
 
 ## Non-goals
 
