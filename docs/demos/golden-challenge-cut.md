@@ -1,10 +1,19 @@
 # Golden Challenge Cut — Generative Media + Durable Storage
 
-**Status:** Brief + expected kit locked. Film when `NVIDIA_API_KEY` + `RUNWAY_API_KEY` (+ optional B2) are live.  
+**Status:** MOCK fixture kit materializes without API keys. Film LIVE when `NVIDIA_API_KEY` + `RUNWAY_API_KEY` (+ optional B2) are available.  
 **Audience:** Hackathon organizers, Runway partners, HyperFrames builders.  
 **Mode:** Challenge Cut (~45s, 1280:720).
 
 This is the **proof artifact** for “DevCut feeds HyperFrames” — not a sci-fi playground reel.
+
+### MOCK path (no keys)
+
+```bash
+bash scripts/smoke-golden-mock.sh
+# → docs/demos/fixtures/golden-challenge-cut/{BRIEF.md,assets.json,README.md,ASSETS.md}
+# Unpack a browser kit.zip anytime:
+uv run python scripts/materialize_hf_kit.py --zip ~/Downloads/<kit>.zip --out ./devcut-kit
+```
 
 ---
 
@@ -61,9 +70,11 @@ Durations: ~5s each → ~25–45s total after stitch.
 - [ ] Share tab invite blurb mentions film + kit (organizer-pinable)
 - [ ] (LIVE) Optional: `durable_url` + `manifest_uri` when `GENBLAZE_ENABLED=1`
 
-## Fixture notes (after first LIVE run)
+## Fixture notes
 
-Record here (do not commit secrets):
+**MOCK kit (committed):** `docs/demos/fixtures/golden-challenge-cut/` — regenerate with `bash scripts/smoke-golden-mock.sh`. URLs are `mock.devcut.local` placeholders.
+
+**After first LIVE run** record here (do not commit secrets):
 
 | Field | Value |
 | --- | --- |

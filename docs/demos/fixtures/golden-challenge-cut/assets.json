@@ -1,0 +1,87 @@
+{
+  "product": "DevCut",
+  "title": "Genblaze + B2 Challenge Cut",
+  "mode": "challenge",
+  "workflow": "product-launch-video",
+  "summary": "HyperFrames handoff ready \u2014 copy BRIEF.md, stage assets/devcut/, finish in HF.",
+  "assets": [
+    {
+      "kind": "still",
+      "beat": "Problem",
+      "path": "assets/devcut/01-problem-still.png",
+      "url": "https://mock.devcut.local/golden/s0-still.png",
+      "note": "Hero still \u2014 drop into HyperFrames assets/, reference from a clip or sub-comp."
+    },
+    {
+      "kind": "clip",
+      "beat": "Problem",
+      "path": "assets/devcut/01-problem-clip.mp4",
+      "url": "https://mock.devcut.local/golden/s0-clip.mp4",
+      "note": "Generative motion \u2014 use as <video> source or plate under HF HTML."
+    },
+    {
+      "kind": "still",
+      "beat": "Constraint",
+      "path": "assets/devcut/02-constraint-still.png",
+      "url": "https://mock.devcut.local/golden/s1-still.png",
+      "note": "Hero still \u2014 drop into HyperFrames assets/, reference from a clip or sub-comp."
+    },
+    {
+      "kind": "clip",
+      "beat": "Constraint",
+      "path": "assets/devcut/02-constraint-clip.mp4",
+      "url": "https://mock.devcut.local/golden/s1-clip.mp4",
+      "note": "Generative motion \u2014 use as <video> source or plate under HF HTML."
+    },
+    {
+      "kind": "still",
+      "beat": "Winning artifact",
+      "path": "assets/devcut/03-winning-artifact-still.png",
+      "url": "https://mock.devcut.local/golden/s2-still.png",
+      "note": "Hero still \u2014 drop into HyperFrames assets/, reference from a clip or sub-comp."
+    },
+    {
+      "kind": "clip",
+      "beat": "Winning artifact",
+      "path": "assets/devcut/03-winning-artifact-clip.mp4",
+      "url": "https://mock.devcut.local/golden/s2-clip.mp4",
+      "note": "Generative motion \u2014 use as <video> source or plate under HF HTML."
+    },
+    {
+      "kind": "still",
+      "beat": "Anti-pattern",
+      "path": "assets/devcut/04-anti-pattern-still.png",
+      "url": "https://mock.devcut.local/golden/s3-still.png",
+      "note": "Hero still \u2014 drop into HyperFrames assets/, reference from a clip or sub-comp."
+    },
+    {
+      "kind": "clip",
+      "beat": "Anti-pattern",
+      "path": "assets/devcut/04-anti-pattern-clip.mp4",
+      "url": "https://mock.devcut.local/golden/s3-clip.mp4",
+      "note": "Generative motion \u2014 use as <video> source or plate under HF HTML."
+    },
+    {
+      "kind": "still",
+      "beat": "CTA",
+      "path": "assets/devcut/05-cta-still.png",
+      "url": "https://mock.devcut.local/golden/s4-still.png",
+      "note": "Hero still \u2014 drop into HyperFrames assets/, reference from a clip or sub-comp."
+    },
+    {
+      "kind": "clip",
+      "beat": "CTA",
+      "path": "assets/devcut/05-cta-clip.mp4",
+      "url": "https://mock.devcut.local/golden/s4-clip.mp4",
+      "note": "Generative motion \u2014 use as <video> source or plate under HF HTML."
+    },
+    {
+      "kind": "final",
+      "beat": "Final cut",
+      "path": "assets/devcut/final-cut.mp4",
+      "url": "https://mock.devcut.local/golden/final-cut.mp4",
+      "note": "Stitched DevCut export \u2014 reference / Devpost upload; composition stays in HyperFrames."
+    }
+  ],
+  "note": "MOCK URLs until a LIVE golden run fills real stills/clips."
+}

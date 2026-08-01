@@ -1,0 +1,7 @@
+{
+  "mode": "challenge",
+  "workflow": "product-launch-video",
+  "title": "Genblaze + B2 Challenge Cut",
+  "mock": true,
+  "source": "scripts/materialize_hf_kit.py --golden"
+}

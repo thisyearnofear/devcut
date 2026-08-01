@@ -44,7 +44,15 @@ export function BriefHeader({
       ? "Problem → Constraint → Winning → Anti-pattern → CTA"
       : jobMode === "submit"
         ? "Problem → Product → Proof → HF handoff"
-        : null;
+        : jobMode === "agent"
+          ? "Pay-per-job · Start once unlocked"
+          : null;
+  const modeBadgeClass =
+    jobMode === "submit"
+      ? "border-sky-400/35 bg-sky-500/10 text-sky-100/90"
+      : jobMode === "agent"
+        ? "border-amber-400/35 bg-amber-500/10 text-amber-100/85"
+        : "border-[#7a9e88]/40 bg-[#7a9e88]/10 text-[#c5d4c8]";
 
   return (
     <header className="flex flex-col gap-3 border-b border-white/[0.06] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
@@ -72,7 +80,9 @@ export function BriefHeader({
       <div className="flex shrink-0 items-center gap-3 sm:gap-4">
         {modeLabel && (
           <div className="hidden text-right sm:block">
-            <span className="rounded-full border border-[#7a9e88]/40 bg-[#7a9e88]/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8]">
+            <span
+              className={`rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] ${modeBadgeClass}`}
+            >
               {modeLabel}
             </span>
             {modeHint && (

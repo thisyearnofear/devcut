@@ -18,9 +18,11 @@ export function HyperFramesHandoffPanel({
   kit,
   compact = false,
 }: HyperFramesHandoffPanelProps) {
-  const [copied, setCopied] = useState<"brief" | "drop" | null>(null);
+  const [copied, setCopied] = useState<"brief" | "drop" | "cli" | null>(null);
+  const unpackCli =
+    "uv run python scripts/materialize_hf_kit.py --zip ~/Downloads/<kit>.zip --out ./devcut-kit";
 
-  async function copy(text: string, which: "brief" | "drop") {
+  async function copy(text: string, which: "brief" | "drop" | "cli") {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(which);
@@ -77,6 +79,14 @@ export function HyperFramesHandoffPanel({
           className="rounded-full border border-white/15 bg-transparent px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white/55 hover:border-white/30 hover:text-white/80"
         >
           {copied === "drop" ? "Copied steps" : "Copy drop steps"}
+        </button>
+        <button
+          type="button"
+          onClick={() => copy(unpackCli, "cli")}
+          title="Unpack kit.zip into ./devcut-kit on disk"
+          className="rounded-full border border-white/15 bg-transparent px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white/55 hover:border-white/30 hover:text-white/80"
+        >
+          {copied === "cli" ? "Copied CLI" : "Copy unpack CLI"}
         </button>
         <span className="self-center font-mono text-[10px] uppercase tracking-[0.1em] text-white/35">
           workflow · {kit.workflow}

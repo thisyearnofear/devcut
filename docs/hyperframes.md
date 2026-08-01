@@ -18,6 +18,8 @@ After stitch, the canvas **Job outcome** panel co-primaries:
 
 1. **Watch cut** — MP4 player + download  
 2. **HyperFrames** — copy BRIEF / download `*-hyperframes-kit.zip` (BRIEF.md + assets.json + README)  
+   Unpack on disk: `uv run python scripts/materialize_hf_kit.py --zip <kit.zip> --out ./devcut-kit`  
+   MOCK golden fixture: `bash scripts/smoke-golden-mock.sh` → `docs/demos/fixtures/golden-challenge-cut/`
 3. **Share** — invite blurb + still strip + film URL (organizer pin pack)
 
 Landing + empty canvas: **Run golden Challenge Cut** · **HyperFrames demo** (fixed briefs).

@@ -1270,6 +1270,10 @@ function DevCutEmptyState({
           DevCut feeds HyperFrames — generative heroes + hackathon packaging. HyperFrames keeps
           HTML composition. Pick a door to start.
         </p>
+        <p className="mx-auto max-w-lg font-mono text-[10px] uppercase tracking-[0.12em] text-amber-200/55">
+          No keys yet? MOCK runs the full desk — stills/clips are placeholders; kit.zip still
+          ships BRIEF.md
+        </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           <button
             type="button"
@@ -1293,7 +1297,7 @@ function DevCutEmptyState({
               const submit = DEVCUT_DOORS.find((d) => d.id === "submit")!;
               onStart(`${submit.prompt} ${DEVCUT_HF_DEMO.brief}`);
             }}
-            className="rounded-full border border-[#7a9e88]/45 bg-[#7a9e88]/10 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#c5d4c8] hover:bg-[#7a9e88]/20 disabled:opacity-40"
+            className="rounded-full border border-sky-400/40 bg-sky-500/10 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-sky-100/90 hover:bg-sky-500/20 disabled:opacity-40"
           >
             HyperFrames demo
           </button>
@@ -1314,7 +1318,11 @@ function DevCutEmptyState({
               }}
               className={`rounded-xl border px-4 py-4 text-left transition-colors ${
                 selected
-                  ? "border-[#7a9e88]/50 bg-[#7a9e88]/10"
+                  ? d.id === "submit"
+                    ? "border-sky-400/45 bg-sky-500/10"
+                    : d.id === "agent"
+                      ? "border-amber-400/40 bg-amber-500/10"
+                      : "border-[#7a9e88]/50 bg-[#7a9e88]/10"
                   : "border-white/10 bg-white/[0.03] hover:border-white/20"
               }`}
             >

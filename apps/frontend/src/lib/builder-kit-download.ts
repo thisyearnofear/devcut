@@ -19,6 +19,20 @@ DevCut generated generative heroes + packaging. **HyperFrames** owns HTML compos
 4. Wire \`<video>\` / \`<img>\` sources to those paths.
 5. \`npx hyperframes check\` → preview → render.
 
+## Unpack on disk (CLI)
+
+From the repo root, after downloading kit.zip:
+
+\`\`\`bash
+uv run python scripts/materialize_hf_kit.py --zip ~/Downloads/<kit>.zip --out ./devcut-kit
+\`\`\`
+
+Golden MOCK fixture (no keys):
+
+\`\`\`bash
+bash scripts/smoke-golden-mock.sh
+\`\`\`
+
 ## Split of ownership
 
 | Layer | Owner |
