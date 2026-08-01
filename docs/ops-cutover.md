@@ -33,7 +33,7 @@ Do **not** put secrets in this file — only status and pointers.
 | Anonymous GET on smoke object (Monday test) | done (HTTP 200) |
 | Master key **not** on nuncio | done (local-only for bucket admin) |
 | Flip bucket to **public** | done |
-| Deploy Genblaze/Vault code to nuncio (replace 20260703 release) | in progress |
+| Deploy Genblaze/Vault code to nuncio (replace 20260703 release) | done (`20260801_143804`) |
 | Film golden Challenge Cut LIVE | pending |
 
 ### Public bucket
@@ -53,4 +53,5 @@ Do **not** put secrets in this file — only status and pointers.
 | Date | Note |
 | --- | --- |
 | 2026-08-01 | Dual-host Traefik; B2 bucket+CORS; Genblaze enabled; director-* PM2 reloaded only. |
-| 2026-08-01 | Bucket flipped **public**; anonymous smoke GET HTTP 200. Deploy Genblaze code next. |
+| 2026-08-01 | Bucket flipped **public**; anonymous smoke GET HTTP 200. |
+| 2026-08-01 | Deployed release `20260801_143804` with Genblaze/Vault; `devcut` HTTPS 200. |
