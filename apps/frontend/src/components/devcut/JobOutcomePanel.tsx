@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { BuilderKit, ExportStatus } from "@/lib/storyboard/types";
 import { downloadBuilderKitZip } from "@/lib/builder-kit-download";
 import { HyperFramesHandoffPanel } from "@/components/devcut/HyperFramesHandoffPanel";
 import { ProvenanceVaultPanel } from "@/components/devcut/ProvenanceVaultPanel";
 import type { StoryboardState } from "@/lib/storyboard/types";
+import { cutWatchUrl, type CutShareCard } from "@/lib/cut-share";
+import { lastJobRemixHref, saveLastJob } from "@/lib/last-job";
 import { publicAppOrigin } from "@/lib/public-url";
 
 type OutcomeTab = "watch" | "handoff" | "vault" | "share";
@@ -20,6 +23,8 @@ interface JobOutcomePanelProps {
   builderKit: BuilderKit | null;
   /** Challenge Cut vs Submit Ready — drives share copy. */
   jobMode?: "challenge" | "submit" | string | null;
+  /** Brief seed for remix / last-job loop */
+  jobBrief?: string | null;
   stillUrls?: string[];
   /** Full canvas slice for the Provenance Vault tab. */
   vaultState?: Pick<
@@ -36,6 +41,8 @@ interface JobOutcomePanelProps {
   >;
   onExport: () => void;
   onDownload: (url: string, filename: string) => void;
+  /** Clear canvas / start a new commission */
+  onShipAnother?: () => void;
 }
 
 /**
@@ -51,27 +58,62 @@ export function JobOutcomePanel({
   storyboardTitle,
   builderKit,
   jobMode,
+  jobBrief,
   stillUrls = [],
   vaultState,
   onExport,
   onDownload,
+  onShipAnother,
 }: JobOutcomePanelProps) {
   const mode = jobMode || builderKit?.mode || "submit";
   const [tab, setTab] = useState<OutcomeTab>("watch");
+  const [watchUrl, setWatchUrl] = useState<string | null>(null);
+  const [remixHref, setRemixHref] = useState("/director");
 
-  // Prefer HyperFrames tab once kit lands (builder-first success).
-  // Prefer Vault when durable B2 artifacts are present (hackathon judging).
+  // Land on Watch — viral share is one click from the film.
   useEffect(() => {
-    if (exportStatus !== "ready") return;
-    if (durableUrl || vaultState?.job_manifest_uri) {
-      setTab("vault");
-    } else if (builderKit) {
-      setTab("handoff");
-    }
-  }, [builderKit, durableUrl, exportStatus, vaultState?.job_manifest_uri]);
+    if (exportStatus !== "ready" || !finalVideoUrl) return;
+    setTab("watch");
+  }, [exportStatus, finalVideoUrl]);
+
+  // Persist last job + build viral /cut URL
+  useEffect(() => {
+    if (exportStatus !== "ready" || !finalVideoUrl) return;
+    const video = durableUrl || finalVideoUrl;
+    const brief =
+      jobBrief?.trim() ||
+      builderKit?.brief_md?.trim() ||
+      `Remix of "${storyboardTitle || "DevCut"}"`;
+    const card: CutShareCard = {
+      v: video,
+      t: storyboardTitle || "DevCut cut",
+      m: mode,
+      s: stillUrls[0],
+      b: brief,
+    };
+    const url = cutWatchUrl(card);
+    setWatchUrl(url);
+    const saved = saveLastJob({
+      title: card.t,
+      video,
+      mode,
+      brief,
+      still: stillUrls[0],
+    });
+    setRemixHref(lastJobRemixHref(saved));
+  }, [
+    builderKit?.brief_md,
+    durableUrl,
+    exportStatus,
+    finalVideoUrl,
+    jobBrief,
+    mode,
+    stillUrls,
+    storyboardTitle,
+  ]);
 
   const filename = `${slugify(storyboardTitle || "final-cut")}.mp4`;
-  const shareUrl = durableUrl || finalVideoUrl;
+  const shareUrl = watchUrl || durableUrl || finalVideoUrl;
 
   if (exportStatus === "idle") return null;
 
@@ -115,7 +157,7 @@ export function JobOutcomePanel({
     {
       id: "watch",
       label: "Watch cut",
-      hint: mode === "challenge" ? "Organizer reference film" : "Devpost-shaped cut",
+      hint: mode === "challenge" ? "Visual spec for builders" : "Launch-ready cut",
     },
     {
       id: "vault",
@@ -151,13 +193,33 @@ export function JobOutcomePanel({
               DevCut owned generative footage. HyperFrames still owns HTML → render.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onExport}
-            className="rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/45 hover:text-white/75"
-          >
-            Re-stitch
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {watchUrl && (
+              <CopyChip text={watchUrl} label="Copy watch link" large />
+            )}
+            <Link
+              href={remixHref}
+              className="rounded-full border border-[var(--dc-cyan,#2de2c5)]/45 bg-[var(--dc-cyan,#2de2c5)]/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan,#2de2c5)] hover:bg-[var(--dc-cyan,#2de2c5)]/20"
+            >
+              Remix this brief
+            </Link>
+            {onShipAnother && (
+              <button
+                type="button"
+                onClick={onShipAnother}
+                className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white"
+              >
+                Ship another
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onExport}
+              className="rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/45 hover:text-white/75"
+            >
+              Re-stitch
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 flex gap-1" role="tablist" aria-label="Job outcome">
@@ -280,6 +342,7 @@ export function JobOutcomePanel({
             title={storyboardTitle}
             mode={mode}
             shareUrl={shareUrl}
+            watchUrl={watchUrl}
             stillUrls={stillUrls}
             hasKit={Boolean(builderKit)}
             onDownloadKit={
@@ -325,6 +388,7 @@ function SharePack({
   title,
   mode,
   shareUrl,
+  watchUrl,
   stillUrls,
   hasKit,
   onDownloadKit,
@@ -333,26 +397,25 @@ function SharePack({
   title: string;
   mode: string;
   shareUrl: string | null;
+  watchUrl: string | null;
   stillUrls: string[];
   hasKit: boolean;
   onDownloadKit?: () => void;
   onDownloadMp4: () => void;
 }) {
-  const resolved = shareUrl || `${publicAppOrigin()}/director`;
+  const watch = watchUrl || shareUrl || `${publicAppOrigin()}/director`;
 
   const inviteBlurb = useMemo(() => {
     if (mode === "challenge") {
       return [
         `Challenge Cut: ${title || "DevCut"}`,
         "",
-        "Watch the reference film (what winning looks like), then fork the HyperFrames builder kit (BRIEF.md + assets/devcut/).",
+        "Watch the reference film, then remix in DevCut or finish in HyperFrames.",
         "",
-        `Film: ${resolved}`,
-        hasKit
-          ? "Kit: download from the HyperFrames tab on the canvas (or ask organizers for the ZIP)."
-          : "",
+        `Watch + remix: ${watch}`,
+        hasKit ? "Kit: download from the HyperFrames tab on the canvas." : "",
         "",
-        "HyperFrames owns composition HTML. DevCut supplied generative heroes.",
+        "Made with DevCut + Runway. HyperFrames owns composition HTML.",
       ]
         .filter(Boolean)
         .join("\n");
@@ -362,20 +425,20 @@ function SharePack({
       "",
       "Generative heroes + packaging from DevCut. Finish / render in HyperFrames.",
       "",
-      `MP4: ${resolved}`,
+      `Watch + remix: ${watch}`,
       hasKit ? "Handoff: download the HyperFrames kit ZIP from the canvas." : "",
     ]
       .filter(Boolean)
       .join("\n");
-  }, [hasKit, mode, resolved, title]);
+  }, [hasKit, mode, title, watch]);
 
   return (
     <div className="space-y-4">
       <p className="text-xs leading-5 text-white/55">
-        {mode === "challenge"
-          ? "Pin this in Discord / email — film link + kit. Builders should not need a walkthrough."
-          : "Attach the MP4 and HF kit to your Devpost / PR — composition stays in HyperFrames."}
+        Share the watch link — friends play the cut and hit Remix in DevCut. That&apos;s the loop.
       </p>
+
+      {watchUrl && <DurableRow label="Watch" url={watchUrl} tone="amber" />}
 
       {stillUrls.length > 0 && (
         <div>
@@ -396,13 +459,14 @@ function SharePack({
         </div>
       )}
 
-      <pre className="max-h-40 overflow-auto rounded-lg border border-white/10 bg-black/40 p-3 font-mono text-[11px] leading-4 text-white/65">
+      <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/40 p-3 font-mono text-[11px] leading-4 text-white/65">
         {inviteBlurb}
       </pre>
 
       <div className="flex flex-wrap gap-2">
         <CopyChip text={inviteBlurb} label="Copy invite" large />
-        <CopyChip text={resolved} label="Copy film URL" large />
+        <CopyChip text={watch} label="Copy watch link" large />
+        <NativeShareButton title={title} url={watch} mode={mode} />
         <button
           type="button"
           onClick={onDownloadMp4}
@@ -419,7 +483,7 @@ function SharePack({
             Download HF kit
           </button>
         )}
-        <TweetButton title={title} url={resolved} mode={mode} />
+        <TweetButton title={title} url={watch} mode={mode} />
       </div>
     </div>
   );
@@ -458,6 +522,43 @@ function CopyChip({
   );
 }
 
+function NativeShareButton({
+  title,
+  url,
+  mode,
+}: {
+  title: string;
+  url: string;
+  mode: string;
+}) {
+  const [label, setLabel] = useState("Share…");
+  const text =
+    mode === "challenge"
+      ? `Challenge Cut “${title}” — watch + remix on DevCut.`
+      : `Submit Ready “${title}” via DevCut + Runway → HyperFrames.`;
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          if (navigator.share) {
+            await navigator.share({ title, text, url });
+            return;
+          }
+          await navigator.clipboard.writeText(url);
+          setLabel("Copied");
+          setTimeout(() => setLabel("Share…"), 2000);
+        } catch {
+          /* dismissed */
+        }
+      }}
+      className="rounded-full border border-[var(--dc-cyan,#2de2c5)]/40 bg-[var(--dc-cyan,#2de2c5)]/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan,#2de2c5)] hover:bg-[var(--dc-cyan,#2de2c5)]/20"
+    >
+      {label}
+    </button>
+  );
+}
+
 function TweetButton({
   title,
   url,
@@ -469,8 +570,8 @@ function TweetButton({
 }) {
   const text =
     mode === "challenge"
-      ? `Challenge Cut for "${title}" — visual spec for builders, HyperFrames kit included. ${url}`
-      : `Submit Ready via DevCut → HyperFrames handoff: "${title}". ${url}`;
+      ? `Challenge Cut “${title}” — watch + remix on DevCut (Runway desk for developers). ${url}`
+      : `Submit Ready “${title}” via DevCut + Runway → HyperFrames. Watch + remix: ${url}`;
   return (
     <a
       href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`}

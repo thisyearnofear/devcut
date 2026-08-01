@@ -12,13 +12,14 @@ interface StoryStripProps {
   goldenHref: string;
   hfDemoHref: string;
   onCut?: (href: string, mode: "golden" | "hf") => void;
+  onCollapse?: () => void;
 }
 
 /**
  * Finite Lenis + ScrollTrigger parallax strip — Challenge Cut shot grammar.
  * Ends with durable B2 flash + Golden/HF cut CTAs.
  */
-export function StoryStrip({ goldenHref, hfDemoHref, onCut }: StoryStripProps) {
+export function StoryStrip({ goldenHref, hfDemoHref, onCut, onCollapse }: StoryStripProps) {
   const rootRef = useRef<HTMLElement>(null);
   const durableRef = useRef<HTMLElement>(null);
 
@@ -139,15 +140,29 @@ export function StoryStrip({ goldenHref, hfDemoHref, onCut }: StoryStripProps) {
       className="border-t border-[var(--dc-line)] bg-[var(--dc-ink)]"
     >
       <div className="mx-auto max-w-6xl px-5 pt-16 sm:px-8 sm:pt-20">
-        <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
-          {LANDING_STRIP.eyebrow}
-        </p>
-        <h2 className="dc-display mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-[var(--dc-paper)] sm:text-4xl">
-          {LANDING_STRIP.headline}
-        </h2>
-        <p className="mt-4 max-w-xl text-base leading-7 text-[var(--dc-mute)]">
-          The organizer path, made scannable — same beats DevCut films into a Challenge Cut.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+              {LANDING_STRIP.eyebrow}
+            </p>
+            <h2 className="dc-display mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-[var(--dc-paper)] sm:text-4xl">
+              {LANDING_STRIP.headline}
+            </h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-[var(--dc-mute)]">
+              The developer path, made scannable — same beats DevCut films into a Challenge Cut on
+              Runway.
+            </p>
+          </div>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="dc-btn shrink-0 border border-[var(--dc-line)] px-4 py-2 dc-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
+            >
+              Collapse grammar
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mx-auto mt-12 max-w-6xl space-y-0 px-5 sm:px-8">
@@ -233,7 +248,7 @@ export function StoryStrip({ goldenHref, hfDemoHref, onCut }: StoryStripProps) {
           }
           className="dc-btn inline-flex items-center bg-[var(--dc-signal)] px-5 py-3 dc-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)]"
         >
-          Run golden Challenge Cut
+          Run golden cut
         </button>
         <button
           type="button"

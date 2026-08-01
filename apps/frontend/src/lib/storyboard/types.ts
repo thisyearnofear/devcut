@@ -103,7 +103,7 @@ export const initialStoryboardState: StoryboardState = {
   selectedShotId: null,
   header: {
     title: "DevCut",
-    subtitle: "Hackathon video desk",
+    subtitle: "Runway desk for developers",
   },
   final_video_url: null,
   durable_url: null,

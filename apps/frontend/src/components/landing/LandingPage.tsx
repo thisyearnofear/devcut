@@ -16,7 +16,10 @@ import {
 import { AgentPaymentsPanel } from "@/components/devcut/AgentPaymentsPanel";
 import { ClipDoors } from "@/components/landing/ClipDoors";
 import { useCutToCanvas } from "@/components/landing/CutToCanvas";
+import { RunwayMarquee } from "@/components/landing/RunwayMarquee";
 import { useCutSound } from "@/components/landing/useCutSound";
+import { cutWatchUrl } from "@/lib/cut-share";
+import { lastJobRemixHref, readLastJob, type LastJob } from "@/lib/last-job";
 import "./landing.css";
 
 const WaveGrid = dynamic(
@@ -41,7 +44,13 @@ function formatTimecode(ms: number) {
   return `${pad(hours)}:${pad(mins)}:${pad(secs)}:${pad(frames)}`;
 }
 
-function LeaderCountdown({ onDone }: { onDone: () => void }) {
+function LeaderCountdown({
+  onDone,
+  onSkip,
+}: {
+  onDone: () => void;
+  onSkip: () => void;
+}) {
   const [n, setN] = useState(3);
   const finish = useCallback(() => onDone(), [onDone]);
 
@@ -52,6 +61,14 @@ function LeaderCountdown({ onDone }: { onDone: () => void }) {
     ) {
       finish();
       return;
+    }
+    try {
+      if (sessionStorage.getItem("devcut-skip-intro") === "1") {
+        finish();
+        return;
+      }
+    } catch {
+      /* ignore */
     }
     if (n < 0) {
       finish();
@@ -65,11 +82,11 @@ function LeaderCountdown({ onDone }: { onDone: () => void }) {
 
   return (
     <motion.div
-      className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[var(--dc-ink)]"
+      className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[var(--dc-ink)]"
       initial={{ opacity: 1 }}
       animate={{ opacity: n === 0 ? 0 : 1 }}
       transition={{ duration: 0.28, ease: EASE_OUT }}
-      aria-hidden
+      aria-hidden={n === 0}
     >
       <motion.span
         key={n}
@@ -80,24 +97,61 @@ function LeaderCountdown({ onDone }: { onDone: () => void }) {
       >
         {n === 0 ? "CUT" : n}
       </motion.span>
+      <button
+        type="button"
+        onClick={onSkip}
+        className="dc-mono relative z-30 mt-8 text-[10px] uppercase tracking-[0.2em] text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
+      >
+        Skip to desk
+      </button>
     </motion.div>
   );
 }
 
 /**
- * DevCut landing — frontier motion: wave field, clip doors, Challenge Cut strip.
+ * DevCut landing — developers × Runway edit bay.
  */
 export function LandingPage() {
   const [door, setDoor] = useState<DevCutDoorId>("challenge");
   const [brief, setBrief] = useState(DEVCUT_GOLDEN_CHALLENGE.brief);
   const [clock, setClock] = useState(0);
-  const [introDone, setIntroDone] = useState(false);
+  const [introDone, setIntroDone] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return (
+        sessionStorage.getItem("devcut-skip-intro") === "1" ||
+        window.location.hash === "#desk"
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [grammarOpen, setGrammarOpen] = useState(false);
+  const [lastJob, setLastJob] = useState<LastJob | null>(null);
   const markIntroDone = useCallback(() => setIntroDone(true), []);
+  const skipIntro = useCallback(() => {
+    try {
+      sessionStorage.setItem("devcut-skip-intro", "1");
+    } catch {
+      /* ignore */
+    }
+    setIntroDone(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById("desk")?.scrollIntoView({ behavior: "smooth" });
+    });
+  }, []);
   const { armed, toggle: toggleSound, playCut, playRec, playCanvasCut } =
     useCutSound();
   const { cutTo, Overlay, busy: cutting } = useCutToCanvas({
     playCut: playCanvasCut,
   });
+
+  useEffect(() => {
+    setLastJob(readLastJob());
+    if (typeof window !== "undefined" && window.location.hash === "#desk") {
+      skipIntro();
+    }
+  }, [skipIntro]);
 
   useEffect(() => {
     if (!introDone) return;
@@ -155,7 +209,9 @@ export function LandingPage() {
     <div data-devcut-landing className="min-h-svh overflow-x-hidden">
       {Overlay}
       <section className="relative flex min-h-svh flex-col">
-        {!introDone && <LeaderCountdown onDone={markIntroDone} />}
+        {!introDone && (
+          <LeaderCountdown onDone={markIntroDone} onSkip={skipIntro} />
+        )}
 
         <div className="absolute inset-0 overflow-hidden" aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -199,11 +255,27 @@ export function LandingPage() {
               About
             </Link>
             <a
-              href="#grammar"
+              href="#desk"
+              onClick={(e) => {
+                e.preventDefault();
+                skipIntro();
+              }}
+              className="transition-colors duration-200 hover:text-[var(--dc-paper)]"
+            >
+              Desk
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setGrammarOpen(true);
+                window.requestAnimationFrame(() => {
+                  document.getElementById("grammar")?.scrollIntoView({ behavior: "smooth" });
+                });
+              }}
               className="transition-colors duration-200 hover:text-[var(--dc-paper)]"
             >
               Grammar
-            </a>
+            </button>
             <button
               type="button"
               onClick={() => cutTo(goldenHref, "golden")}
@@ -223,7 +295,7 @@ export function LandingPage() {
             className="max-w-3xl"
           >
             <p className="dc-mono mb-4 text-[11px] uppercase tracking-[0.22em] text-[var(--dc-cyan)]">
-              Hackathon video desk
+              Developers × Runway
             </p>
             <h1 className="dc-display dc-brand text-[clamp(3.25rem,14vw,7.5rem)] font-bold leading-[0.88] tracking-[-0.04em] text-[var(--dc-paper)]">
               {DEVCUT.name}
@@ -232,8 +304,8 @@ export function LandingPage() {
               Ship like it&apos;s 3 AM in the edit bay.
             </p>
             <p className="mt-4 max-w-lg text-base leading-relaxed text-[var(--dc-mute)] sm:text-lg">
-              Challenge films for organizers. Submit-ready stitches for HyperFrames builders.
-              Metered jobs for agents.
+              Plan shots. Generate Runway stills and clips. Stitch a durable MP4. Hand off to
+              HyperFrames — without becoming a film studio.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -245,7 +317,7 @@ export function LandingPage() {
                 data-cuelume-release
                 className="dc-btn inline-flex items-center bg-[var(--dc-signal)] px-5 py-3 dc-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-50"
               >
-                Run golden Challenge Cut
+                Run golden cut
               </button>
               <button
                 type="button"
@@ -273,6 +345,8 @@ export function LandingPage() {
         </div>
       </section>
 
+      <RunwayMarquee />
+
       <section id="desk" className="relative border-t border-[var(--dc-line)] bg-[var(--dc-ink)]">
         <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -285,6 +359,37 @@ export function LandingPage() {
               </h2>
             </div>
           </div>
+
+          {lastJob && (
+            <div className="mb-6 flex flex-wrap items-center gap-3 border border-[var(--dc-cyan)]/30 bg-[var(--dc-cyan-soft)] px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="dc-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-cyan)]">
+                  Continue the loop
+                </p>
+                <p className="mt-0.5 truncate text-sm text-[var(--dc-paper)]">
+                  Last cut: {lastJob.title}
+                </p>
+              </div>
+              <Link
+                href={lastJobRemixHref(lastJob)}
+                className="dc-btn bg-[var(--dc-cyan)] px-4 py-2 dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-ink)]"
+              >
+                Remix last
+              </Link>
+              <a
+                href={cutWatchUrl({
+                  v: lastJob.video,
+                  t: lastJob.title,
+                  m: lastJob.mode,
+                  s: lastJob.still,
+                  b: lastJob.brief,
+                })}
+                className="dc-btn border border-[var(--dc-line)] px-4 py-2 dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-mute)]"
+              >
+                Watch
+              </a>
+            </div>
+          )}
 
           <ClipDoors door={door} onSelect={selectDoor} />
 
@@ -331,8 +436,8 @@ export function LandingPage() {
                         className="min-h-[5.5rem] w-full flex-1 resize-y border border-[var(--dc-line)] bg-black/50 px-3 py-2.5 dc-mono text-sm leading-6 text-[var(--dc-paper)] outline-none placeholder:text-[var(--dc-dim)] focus:border-[var(--dc-cyan)]/50 sm:min-h-0"
                         placeholder={
                           door === "challenge"
-                            ? "Prize brief, Devpost URL, or judging criteria…"
-                            : "Product URL, GitHub, or HyperFrames notes…"
+                            ? "Product brief, constraint stack, or judging criteria…"
+                            : "Product URL, GitHub repo, or HyperFrames notes…"
                         }
                       />
                       <button
@@ -357,30 +462,76 @@ export function LandingPage() {
         </div>
       </section>
 
-      <StoryStrip
-        goldenHref={goldenHref}
-        hfDemoHref={hfDemoHref}
-        onCut={(href: string, mode: "golden" | "hf") => cutTo(href, mode)}
-      />
+      {!grammarOpen ? (
+        <section
+          id="grammar"
+          className="border-t border-[var(--dc-line)] bg-[var(--dc-ink)]"
+        >
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-10 sm:px-8">
+            <div>
+              <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+                Shot grammar
+              </p>
+              <p className="dc-display mt-2 text-xl font-semibold text-[var(--dc-paper)] sm:text-2xl">
+                Brief → Runway → durable cut → HyperFrames
+              </p>
+              <p className="mt-2 max-w-lg text-sm text-[var(--dc-mute)]">
+                Deep dive optional — commission first if you already know the door.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setGrammarOpen(true)}
+                className="dc-btn border border-[var(--dc-signal)]/50 bg-[var(--dc-signal-soft)] px-5 py-3 dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-signal)]"
+              >
+                See shot grammar
+              </button>
+              <button
+                type="button"
+                onClick={() => cutTo(goldenHref, "golden")}
+                disabled={cutting}
+                className="dc-btn bg-[var(--dc-signal)] px-5 py-3 dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-ink)] disabled:opacity-50"
+              >
+                Run golden cut
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <StoryStrip
+          goldenHref={goldenHref}
+          hfDemoHref={hfDemoHref}
+          onCut={(href: string, mode: "golden" | "hf") => cutTo(href, mode)}
+          onCollapse={() => setGrammarOpen(false)}
+        />
+      )}
 
       <section className="border-t border-[var(--dc-line)] bg-[var(--dc-rail)]">
         <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-          <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
-            Complement, don&apos;t compete
-          </p>
-          <h2 className="dc-display mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-[var(--dc-paper)] sm:text-4xl">
-            How we feed HyperFrames
-          </h2>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--dc-mute)]">
-            HyperFrames owns code→video. DevCut fills the mid-hack gap: consistent Runway heroes, a
-            Devpost-shaped stitch, and a handoff kit builders paste into an HF project.
-          </p>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10%" }}
+            transition={{ duration: 0.4, ease: EASE_OUT }}
+          >
+            <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+              Developers × Runway × HyperFrames
+            </p>
+            <h2 className="dc-display mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-[var(--dc-paper)] sm:text-4xl">
+              Runway heroes. HyperFrames composition.
+            </h2>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--dc-mute)]">
+              HyperFrames owns code→video. DevCut owns the generative gap: consistent Runway stills
+              and clips, a stitch you can share, and a handoff kit you paste into an HF project.
+            </p>
+          </motion.div>
 
           <ol className="mt-12 grid gap-8 md:grid-cols-3 md:gap-6">
             {[
               {
                 step: "01",
-                title: "Generate in DevCut",
+                title: "Generate on Runway",
                 body: "Challenge Cut or Submit Ready → stills → clips → stitch on the live canvas.",
               },
               {
@@ -394,7 +545,14 @@ export function LandingPage() {
                 body: "Paste BRIEF, stage media, keep HTML composition + render where it belongs.",
               },
             ].map((row, i) => (
-              <li key={row.step} className="relative">
+              <motion.li
+                key={row.step}
+                className="relative"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-8%" }}
+                transition={{ duration: 0.35, delay: i * 0.04, ease: EASE_OUT }}
+              >
                 {i < 2 && (
                   <span
                     aria-hidden
@@ -409,7 +567,7 @@ export function LandingPage() {
                   {row.title}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-[var(--dc-mute)]">{row.body}</p>
-              </li>
+              </motion.li>
             ))}
           </ol>
 
@@ -432,17 +590,27 @@ export function LandingPage() {
 
       <section className="border-t border-[var(--dc-line)]">
         <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-2">
-          <div>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10%" }}
+            transition={{ duration: 0.35, ease: EASE_OUT }}
+          >
             <h2 className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-signal)]">
               Why this exists
             </h2>
             <p className="mt-4 text-base leading-7 text-[var(--dc-mute)]">
-              Hackathon READMEs stay abstract. HyperFrames already owns code→video. DevCut owns the
-              gap: generative heroes + packaging so organizers show the bar and builders ship a
-              Devpost cut without a video team.
+              READMEs stay abstract. Runway alone is stills and clips without a desk. HyperFrames
+              already owns code→video. DevCut owns the gap: shot grammar, generative heroes, and
+              packaging so builders ship a cut without a video team.
             </p>
-          </div>
-          <div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10%" }}
+            transition={{ duration: 0.35, delay: 0.05, ease: EASE_OUT }}
+          >
             <h2 className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cut)]">
               What we refuse
             </h2>
@@ -450,7 +618,7 @@ export function LandingPage() {
               Generic film studios. Sci-fi playground demos. Competing with HyperFrames authoring.
               BYOK as the hero UX — x402 jobs are the default path we&apos;re building toward.
             </p>
-          </div>
+          </motion.div>
         </div>
       </section>
 

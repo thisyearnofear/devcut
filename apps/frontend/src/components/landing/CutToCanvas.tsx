@@ -9,7 +9,7 @@ const LABELS: Record<string, string> = {
   challenge: "Challenge Cut",
   submit: "Submit Ready",
   agent: "x402 Agent",
-  golden: "Golden Challenge Cut",
+  golden: "Golden cut",
   hf: "HyperFrames demo",
 };
 

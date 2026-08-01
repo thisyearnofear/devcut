@@ -4,7 +4,7 @@ export const DEVCUT_STAGE_LABELS = {
   plan: "Brief → storyboard",
   stills: "Hero stills",
   clips: "Motion clips",
-  export: "Devpost cut",
+  export: "Final cut",
 } as const;
 
 export const DEVCUT_STAGE_ESTIMATES: Record<string, number> = {
@@ -15,7 +15,7 @@ export const DEVCUT_STAGE_ESTIMATES: Record<string, number> = {
 };
 
 export const DEVCUT_PLANNING_PHRASES = [
-  "Reading the hackathon brief…",
+  "Reading the brief…",
   "Mapping Challenge / Submit beats…",
   "Composing the shot list…",
   "Structuring problem → product → proof…",

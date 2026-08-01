@@ -5,7 +5,7 @@ import { AboutToc, type TocItem } from "./toc";
 export const metadata = {
   title: "About — DevCut",
   description:
-    "DevCut is the hackathon video desk: Challenge Cuts for organizers, Submit Ready for HyperFrames builders, x402 jobs for agents.",
+    "DevCut is the Runway desk for developers: Challenge Cuts, Submit Ready for HyperFrames builders, x402 jobs for agents.",
 };
 
 const tocItems: TocItem[] = [
@@ -97,7 +97,7 @@ const docs = [
   { label: "Deployment", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/deployment.md" },
   { label: "Customization", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/customization.md" },
   { label: "Roadmap", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/roadmap.md" },
-  { label: "Hackathon submission", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/hackathons.md" },
+  { label: "Runway notes", href: "https://github.com/thisyearnofear/gen-ui/blob/main/docs/hackathons.md" },
 ];
 
 const externalDocs = [
@@ -131,10 +131,10 @@ export default function AboutPage() {
             DevCut
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            The video desk for hackathons. Organizers commission Challenge Cuts —
-            visual specs of what winning looks like. Builders run Submit Ready —
-            HyperFrames / repo / product URL to a Devpost-ready MP4. Agents pay
-            per job via x402. Same storyboard engine; hackathon-shaped product.
+            The Runway desk for developers. Spec a Challenge Cut so builders can&apos;t misread the
+            bar. Run Submit Ready from a HyperFrames project, repo, or product URL into a
+            launch-ready MP4. Agents pay per job via x402. Same storyboard engine — developer-shaped
+            product.
           </p>
           <p className="mt-3 text-sm text-muted-foreground">
             <a
@@ -404,7 +404,7 @@ export default function AboutPage() {
         </Section>
 
         <footer className="mt-16 border-t pt-8 text-sm text-muted-foreground">
-          <p>Built for the Runway API Hackathon.</p>
+          <p>Built on the Runway API.</p>
         </footer>
       </main>
       <AboutToc items={tocItems} />

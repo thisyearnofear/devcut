@@ -31,16 +31,16 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "DevCut",
   description:
-    "The video desk for hackathons. Challenge Cuts for organizers. Submit Ready cuts for HyperFrames builders. x402 jobs for agents.",
+    "The Runway desk for developers. Plan shots, generate stills and clips, stitch a durable MP4, hand off to HyperFrames.",
   openGraph: {
     title: "DevCut",
-    description: "Challenge films + Submit Ready cuts for hackathons.",
+    description: "Runway video desk for developers — stills, clips, stitch, durable URL.",
     images: [{ url: "/banner.jpg", width: 1280, height: 420 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "DevCut",
-    description: "Challenge films + Submit Ready cuts for hackathons.",
+    description: "Runway video desk for developers — stills, clips, stitch, durable URL.",
     images: ["/banner.jpg"],
   },
   icons: {

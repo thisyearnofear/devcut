@@ -2,9 +2,9 @@
 
 export const DEVCUT = {
   name: "DevCut",
-  tagline: "The video desk for hackathons",
+  tagline: "The Runway desk for developers",
   description:
-    "Organizers commission challenge reference films. Builders enhance HyperFrames submissions into Devpost-ready cuts. Agents pay per job via x402.",
+    "Plan shots, generate Runway stills and clips, stitch a durable MP4, and hand off to HyperFrames — without becoming a film studio.",
 } as const;
 
 export type DevCutDoorId = "challenge" | "submit" | "agent";
@@ -23,16 +23,16 @@ export interface DevCutDoor {
 export const DEVCUT_DOORS: DevCutDoor[] = [
   {
     id: "challenge",
-    label: "I’m hosting a hackathon",
+    label: "I need a visual spec",
     title: "Challenge Cut",
-    body: "Turn your prize brief and judging criteria into a 30–60s reference film builders can’t misread — plus a forkable kit.",
+    body: "Turn a product brief and constraints into a 30–60s reference film builders can’t misread — plus a forkable kit.",
     prompt: [
-      "Mode: Challenge Cut (hackathon organizer).",
-      "Create a ~45s challenge reference film that visually specs what winning looks like.",
+      "Mode: Challenge Cut (visual spec for builders).",
+      "Create a ~45s reference film that visually specs what winning looks like.",
       "Shot grammar (use these beats, adapt wording to the brief):",
       "1) Problem — who hurts and why.",
       "2) Constraint — stack / API / rules builders must use.",
-      "3) Winning artifact — what judges should open.",
+      "3) Winning artifact — what reviewers should open.",
       "4) Anti-pattern — what not to build.",
       "5) CTA — fork the kit / start building.",
       "Call generate_storyboard_plan, then generate_all_references, generate_all_videos, and stitch_final_cut.",
@@ -42,12 +42,12 @@ export const DEVCUT_DOORS: DevCutDoor[] = [
   },
   {
     id: "submit",
-    label: "I’m submitting",
+    label: "I’m shipping a demo",
     title: "Submit Ready",
-    body: "From a HyperFrames project, repo, or product URL — generative heroes + packaging into a Devpost-ready MP4.",
+    body: "From a HyperFrames project, repo, or product URL — Runway heroes + packaging into a launch-ready MP4.",
     prompt: [
-      "Mode: Submit Ready (hackathon builder).",
-      "Create a Devpost / product-launch demo cut.",
+      "Mode: Submit Ready (developer demo cut).",
+      "Create a product-launch / demo cut.",
       "Shot grammar: problem → product → proof (demo or metric) → optional CTA.",
       "Prefer landscape 1280:720 unless the brief says vertical / TikTok / Reels.",
       "Call generate_storyboard_plan, then generate_all_references, generate_all_videos, and stitch_final_cut.",
@@ -65,6 +65,7 @@ export const DEVCUT_DOORS: DevCutDoor[] = [
   },
 ];
 
+
 /** Fixed HyperFrames-track demo — partner walkthrough without door shopping. */
 export const DEVCUT_HF_DEMO = {
   label: "HyperFrames track demo",
@@ -74,7 +75,7 @@ export const DEVCUT_HF_DEMO = {
 } as const;
 
 /**
- * Golden Challenge Cut — Genblaze + B2 visual judging spec.
+ * Golden Challenge Cut — Genblaze + B2 durable-media visual spec.
  * Full notes: docs/demos/golden-challenge-cut.md
  */
 export const DEVCUT_GOLDEN_CHALLENGE = {
@@ -83,12 +84,12 @@ export const DEVCUT_GOLDEN_CHALLENGE = {
   mode: "challenge" as const,
   titleHint: "Genblaze + B2 Challenge Cut",
   brief: [
-    "Hackathon: Backblaze Generative Media (Genblaze + B2 track).",
-    "Audience: builders shipping creator/agent video tools under time pressure.",
-    "Judging: must use Genblaze (or equivalent) + Backblaze B2 for durable storage and provenance.",
-    "HyperFrames (or HTML→video) is the preferred composition path for the final Devpost cut.",
+    "Track: Backblaze Generative Media (Genblaze + B2).",
+    "Audience: developers shipping creator/agent video tools on Runway-class models.",
+    "Constraint: must use Genblaze (or equivalent) + Backblaze B2 for durable storage and provenance.",
+    "HyperFrames (or HTML→video) is the preferred composition path for the final cut.",
     "Show what winning looks like in ~45s:",
-    "1) Problem — gorgeous local demo; judges can't open assets Monday; links 404; no provenance.",
+    "1) Problem — gorgeous local demo; reviewers can't open assets Monday; links 404; no provenance.",
     "2) Constraint — Runway-class generate + persist stills/clips/finals to B2 with a verifiable manifest.",
     "3) Winning artifact — public durable MP4 + manifest JSON + HyperFrames BRIEF/assets drop.",
     "4) Anti-pattern — BYOK chaos, laptop-only files, fake NLE competing with HyperFrames.",
@@ -108,13 +109,13 @@ export const DEVCUT_CHALLENGE_EXAMPLES = [
     label: "HyperFrames track",
     scene: "HTML compositions · Agent-authored MP4",
     brief:
-      "HyperFrames builder challenge: winning submissions are code-native HTML compositions with a clear product story. Show the bar — data chart beat, product UI motion, Devpost-ready cut.",
+      "HyperFrames builder challenge: winning submissions are code-native HTML compositions with a clear product story. Show the bar — data chart beat, product UI motion, launch-ready cut.",
   },
   {
     label: "x402 agent payments",
     scene: "Pay-per-job · No API key paste",
     brief:
-      "x402 agent track: builders meter paid APIs via spending sessions. Visualize a winning flow where an agent buys a video job, gets assets back, and never holds a vendor key.",
+      "x402 agent track: builders meter paid APIs via spending sessions. Visualize a winning flow where an agent buys a Runway video job, gets assets back, and never holds a vendor key.",
   },
 ] as const;
 
@@ -123,18 +124,18 @@ export const DEVCUT_SUBMIT_EXAMPLES = [
     label: "Product URL",
     scene: "SaaS landing → launch cut",
     brief:
-      "https://hyperframes.heygen.com — Submit Ready polish: problem → product → proof for a Devpost demo of HyperFrames as HTML→video for agents.",
+      "https://hyperframes.heygen.com — Submit Ready polish: problem → product → proof for a launch demo of HyperFrames as HTML→video for agents.",
   },
   {
     label: "Repo demo",
-    scene: "GitHub → submission film",
+    scene: "GitHub → demo film",
     brief:
-      "Repo https://github.com/heygen-com/hyperframes — Submit Ready: 30s Devpost cut explaining write-HTML-render-video for hackathon judges.",
+      "Repo https://github.com/heygen-com/hyperframes — Submit Ready: 30s cut explaining write-HTML-render-video for developer reviewers.",
   },
   {
     label: "HF project note",
     scene: "Existing composition → heroes",
     brief:
-      "Submit Ready for a HyperFrames product-launch project: add generative hero shots around a data-chart beat and stitch a Devpost MP4. Product: a developer API that meters generative media via x402.",
+      "Submit Ready for a HyperFrames product-launch project: add generative Runway hero shots around a data-chart beat and stitch a launch MP4. Product: a developer API that meters generative media via x402.",
   },
 ] as const;

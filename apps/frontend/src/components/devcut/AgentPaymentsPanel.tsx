@@ -46,7 +46,7 @@ export function AgentPaymentsPanel({
   const [error, setError] = useState<string | null>(null);
   const [sku, setSku] = useState("challenge_film");
   const [brief, setBrief] = useState(
-    "Backblaze Generative Media Hackathon: builders must use Genblaze + B2. Show a winning durable media pipeline.",
+    "Backblaze Generative Media track: builders must use Genblaze + B2. Show a winning durable Runway media pipeline.",
   );
   const [probe, setProbe] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<JobReceipt | null>(null);

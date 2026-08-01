@@ -756,9 +756,18 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
 
     if (!brief) return;
     briefInjectedRef.current = true;
+    const remix = params.get("remix") === "1";
+    const modeSlug = params.get("mode");
+    const door = modeSlug
+      ? DEVCUT_DOORS.find((d) => d.id === modeSlug)
+      : undefined;
     cleanUrl();
-    // If mode door prompt isn't already in the brief, leave as-is (landing prepends it).
-    setTimeout(() => injectPrompt(brief), 800);
+    // Landing usually prepends the door prompt; Remix /cut links send bare brief + mode.
+    const prompt =
+      remix && door?.prompt && !brief.includes(door.prompt.slice(0, 40))
+        ? `${door.prompt} ${brief}`
+        : brief;
+    setTimeout(() => injectPrompt(prompt), 800);
   }, [agent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep suggestions registered (used by the chat component)
@@ -1103,6 +1112,11 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   storyboardTitle={state.storyboard.title}
                   builderKit={state.builder_kit}
                   jobMode={jobMode}
+                  jobBrief={
+                    state.storyboard.logline ||
+                    state.builder_kit?.brief_md ||
+                    state.storyboard.title
+                  }
                   stillUrls={stillUrls}
                   vaultState={{
                     storyboard: state.storyboard,
@@ -1117,6 +1131,12 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   }}
                   onExport={handleExport}
                   onDownload={handleDownloadFinal}
+                  onShipAnother={() => {
+                    updateState(() => ({ ...initialStoryboardState }));
+                    toast.message("Ship another", {
+                      description: "Canvas cleared — pick a door and commission the next cut.",
+                    });
+                  }}
                 />
               )}
 
@@ -1139,6 +1159,11 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   storyboardTitle={state.storyboard.title}
                   builderKit={state.builder_kit}
                   jobMode={jobMode}
+                  jobBrief={
+                    state.storyboard.logline ||
+                    state.builder_kit?.brief_md ||
+                    state.storyboard.title
+                  }
                   stillUrls={stillUrls}
                   vaultState={{
                     storyboard: state.storyboard,
@@ -1294,7 +1319,7 @@ function DevCutEmptyState({
           {DEVCUT.tagline}
         </h2>
         <p className="mx-auto max-w-xl text-sm leading-6 text-white/65">
-          DevCut feeds HyperFrames — generative heroes + hackathon packaging. HyperFrames keeps
+          DevCut feeds HyperFrames — Runway heroes + packaging. HyperFrames keeps
           HTML composition. Pick a door to start.
         </p>
         <p className="mx-auto max-w-lg font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-signal,#ff9f1c)]/70">
@@ -1313,7 +1338,7 @@ function DevCutEmptyState({
             }}
             className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-[var(--dc-paper,#f4efe4)] disabled:opacity-40"
           >
-            Run golden Challenge Cut
+            Run golden cut
           </button>
           <button
             type="button"

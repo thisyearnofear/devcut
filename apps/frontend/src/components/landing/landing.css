@@ -142,3 +142,22 @@
   background-size: 100% 18px;
   background-repeat: repeat-y;
 }
+
+@keyframes dc-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+[data-devcut-landing] .dc-marquee {
+  animation: dc-marquee 28s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-devcut-landing] .dc-marquee {
+    animation: none;
+  }
+}
