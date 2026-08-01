@@ -179,7 +179,7 @@ export function zipStore(files: Record<string, string>): Blob {
     u16(0),
   ]);
 
-  return new Blob([concat([...localParts, centralDir, end])], {
+  return new Blob([concat([...localParts, centralDir, end]) as BlobPart], {
     type: "application/zip",
   });
 }
