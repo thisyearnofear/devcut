@@ -20,6 +20,7 @@ import { RunwayMarquee } from "@/components/landing/RunwayMarquee";
 import { useCutSound } from "@/components/landing/useCutSound";
 import { cutWatchUrl } from "@/lib/cut-share";
 import { lastJobRemixHref, readLastJob, type LastJob } from "@/lib/last-job";
+import { briefHash } from "@/lib/brief-hash";
 import "./landing.css";
 
 const WaveGrid = dynamic(
@@ -189,17 +190,57 @@ export function LandingPage() {
     return `/director?mode=${door}&brief=${encodeURIComponent(payload)}`;
   }, [door, brief, activeDoor.prompt]);
 
-  const goldenHref = useMemo(() => {
+  const goldenPayload = useMemo(() => {
     const challengeDoor = DEVCUT_DOORS.find((d) => d.id === "challenge")!;
-    const payload = `${challengeDoor.prompt} ${DEVCUT_GOLDEN_CHALLENGE.brief}`.trim();
-    return `/director?mode=challenge&demo=golden&brief=${encodeURIComponent(payload)}`;
+    return `${challengeDoor.prompt} ${DEVCUT_GOLDEN_CHALLENGE.brief}`.trim();
   }, []);
+  const goldenHref = useMemo(
+    () => `/director?mode=challenge&demo=golden&brief=${encodeURIComponent(goldenPayload)}`,
+    [goldenPayload],
+  );
 
-  const hfDemoHref = useMemo(() => {
+  const hfPayload = useMemo(() => {
     const submitDoor = DEVCUT_DOORS.find((d) => d.id === "submit")!;
-    const payload = `${submitDoor.prompt} ${DEVCUT_HF_DEMO.brief}`.trim();
-    return `/director?mode=submit&demo=hf&brief=${encodeURIComponent(payload)}`;
+    return `${submitDoor.prompt} ${DEVCUT_HF_DEMO.brief}`.trim();
   }, []);
+  const hfDemoHref = useMemo(
+    () => `/director?mode=submit&demo=hf&brief=${encodeURIComponent(hfPayload)}`,
+    [hfPayload],
+  );
+
+  // Resume-vs-fresh guard: if this exact brief already produced a (still-
+  // resumable) cut, offer the free rewatch before commissioning another run.
+  const [resumeOffer, setResumeOffer] = useState<{
+    threadId: string;
+    href: string;
+    mode: "golden" | "hf";
+    status: string;
+    shotsReady: number;
+  } | null>(null);
+
+  const guardedCut = useCallback(
+    async (href: string, payload: string, mode: "golden" | "hf") => {
+      try {
+        const hash = await briefHash(payload);
+        const res = await fetch(`/api/cut-lookup?hash=${hash}`, { cache: "no-store" });
+        const data = res.ok ? (await res.json()) as Record<string, unknown> : null;
+        if (data?.found && data.resumable && typeof data.threadId === "string") {
+          setResumeOffer({
+            threadId: data.threadId,
+            href,
+            mode,
+            status: typeof data.status === "string" ? data.status : "",
+            shotsReady: typeof data.shotsReady === "number" ? data.shotsReady : 0,
+          });
+          return;
+        }
+      } catch {
+        /* lookup failure → normal launch */
+      }
+      cutTo(href, mode);
+    },
+    [cutTo],
+  );
 
   const selectDoor = useCallback(
     (id: DevCutDoorId) => {
@@ -214,6 +255,50 @@ export function LandingPage() {
   return (
     <div data-devcut-landing className="min-h-svh overflow-x-hidden">
       {Overlay}
+      {resumeOffer && (
+        <div className="fixed inset-x-4 bottom-6 z-[90] mx-auto max-w-md rounded-xl border border-[var(--dc-line)] bg-[var(--dc-ink,#050607)]/95 p-4 shadow-2xl backdrop-blur">
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setResumeOffer(null)}
+            className="absolute right-2.5 top-2.5 font-mono text-xs text-[var(--dc-dim)] hover:text-[var(--dc-paper)]"
+          >
+            ✕
+          </button>
+          <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+            {resumeOffer.status === "running" ? "Already running" : "Already cut"}
+          </p>
+          <p className="mt-1.5 pr-6 text-sm leading-5 text-[var(--dc-paper)]/85">
+            {resumeOffer.status === "running"
+              ? "This cut is generating right now — watch it finish instead of starting a duplicate."
+              : `You already ran this ${resumeOffer.mode === "golden" ? "golden cut" : "demo"}${resumeOffer.shotsReady > 0 ? ` (${resumeOffer.shotsReady} shots ready)` : ""} — watching it costs nothing.`}
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const t = resumeOffer.threadId;
+                setResumeOffer(null);
+                cutTo(`/director?thread=${encodeURIComponent(t)}`);
+              }}
+              className="dc-btn flex-1 bg-[var(--dc-signal)] px-3 py-2 dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-ink)]"
+            >
+              {resumeOffer.status === "running" ? "Watch progress" : "View previous cut · free"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const { href, mode } = resumeOffer;
+                setResumeOffer(null);
+                cutTo(href, mode);
+              }}
+              className="dc-btn flex-1 border border-[var(--dc-line)] px-3 py-2 dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-paper)]/75 hover:border-[var(--dc-paper)]/40"
+            >
+              Start fresh · ~5 min
+            </button>
+          </div>
+        </div>
+      )}
       <section className="relative flex min-h-svh flex-col">
         {!introDone && (
           <LeaderCountdown onDone={markIntroDone} onSkip={skipIntro} />
@@ -284,7 +369,7 @@ export function LandingPage() {
             </button>
             <button
               type="button"
-              onClick={() => cutTo(goldenHref, "golden")}
+              onClick={() => void guardedCut(goldenHref, goldenPayload, "golden")}
               disabled={cutting}
               className="hidden transition-colors duration-200 hover:text-[var(--dc-paper)] sm:inline"
             >
@@ -317,7 +402,7 @@ export function LandingPage() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => cutTo(goldenHref, "golden")}
+                onClick={() => void guardedCut(goldenHref, goldenPayload, "golden")}
                 disabled={cutting}
                 data-cuelume-press
                 data-cuelume-release
@@ -327,7 +412,7 @@ export function LandingPage() {
               </button>
               <button
                 type="button"
-                onClick={() => cutTo(hfDemoHref, "hf")}
+                onClick={() => void guardedCut(hfDemoHref, hfPayload, "hf")}
                 disabled={cutting}
                 data-cuelume-press
                 data-cuelume-release
@@ -514,7 +599,11 @@ export function LandingPage() {
         <StoryStrip
           goldenHref={goldenHref}
           hfDemoHref={hfDemoHref}
-          onCut={(href: string, mode: "golden" | "hf") => cutTo(href, mode)}
+          onCut={(href: string, mode: "golden" | "hf") =>
+            mode === "golden"
+              ? void guardedCut(goldenHref, goldenPayload, "golden")
+              : void guardedCut(href, hfPayload, "hf")
+          }
           onCollapse={() => setGrammarOpen(false)}
         />
       )}

@@ -32,6 +32,7 @@ import {
   DEVCUT_STAGE_ESTIMATES,
   DEVCUT_STAGE_LABELS,
 } from "@/lib/devcut-ledger";
+import { briefHash } from "@/lib/brief-hash";
 import {
   DEVCUT,
   DEVCUT_CHALLENGE_EXAMPLES,
@@ -1013,6 +1014,11 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
     title: string;
   } | null>(null);
   const [pendingThreadTitle, setPendingThreadTitle] = useState<string | null>(null);
+  // Brief-hash ledger plumbing: hash computed at staging time is moved to
+  // lastStagedRef on send, then recorded against the run's threadId so
+  // landing CTAs can offer "view previous cut (free)" next time.
+  const pendingHashRef = useRef<string>("");
+  const lastStagedRef = useRef<{ hash: string; title: string } | null>(null);
 
   // Auto-inject ?brief= / paid x402 unlock from landing or agent settle
   const briefInjectedRef = useRef(false);
@@ -1082,6 +1088,8 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         "Staged brief — hero stills + motion clips + stitched MP4 · ~5 min · " +
         `${runwayKey ? "your Runway key" : "server key"} · press ↵ Start cut to begin.`,
     });
+    pendingHashRef.current = "";
+    void briefHash(prompt).then((h) => { pendingHashRef.current = h; }).catch(() => {});
     if (isRunning) {
       toast.message("A cut is already running", {
         description:
@@ -1182,6 +1190,22 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         setStalled(false);
         setQueuePosition(0);
         setEstimatedWaitSec(0);
+        // Ledger: record the run outcome for brief-hash resume matching.
+        const staged = lastStagedRef.current;
+        const settledThreadId = (agent?.threadId ?? "") as string;
+        if (staged?.hash && settledThreadId) {
+          void fetch("/api/cut-record", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              hash: staged.hash,
+              threadId: settledThreadId,
+              title: staged.title,
+              status: cancelledRef.current ? "cancelled" : "done",
+            }),
+          }).catch(() => {});
+          lastStagedRef.current = null;
+        }
         // Skip the completion toast when the user cancelled — handleCancel
         // already acknowledged it.
         if (cancelledRef.current) {
@@ -1191,19 +1215,32 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         // Toast on completion — only if shots were generated
         const finalState = mergeStoryboardState(agent?.state);
         const readyCount = finalState.shots.filter((s) => s.status === "ready").length;
-        if (readyCount > 0 && finalState.export_status !== "ready") {
-          toast.success(`${readyCount} shot${readyCount > 1 ? "s" : ""} ready`, {
-            description: readyCount === finalState.shots.length
-              ? "All shots complete — ready to export."
-              : `${finalState.shots.length - readyCount} shot${finalState.shots.length - readyCount > 1 ? "s" : ""} still pending.`,
-            duration: 5000,
-          });
-        } else if (finalState.export_status === "ready") {
-          toast.success("Final cut ready", {
-            description: "Your MP4 is ready to download.",
-            duration: 6000,
-          });
-        }
+        void (async () => {
+          // Per-run cost signal: actual Runway calls metered for this thread.
+          let callsNote = "";
+          if (settledThreadId) {
+            try {
+              const rc = await fetch(`/api/runway-calls/${encodeURIComponent(settledThreadId)}`);
+              const cd = rc.ok ? await rc.json() : null;
+              if (cd && typeof cd.calls_used === "number" && cd.calls_used > 0) {
+                callsNote = ` · ${cd.calls_used} Runway call${cd.calls_used > 1 ? "s" : ""} this cut`;
+              }
+            } catch { /* non-fatal */ }
+          }
+          if (readyCount > 0 && finalState.export_status !== "ready") {
+            toast.success(`${readyCount} shot${readyCount > 1 ? "s" : ""} ready`, {
+              description: (readyCount === finalState.shots.length
+                ? "All shots complete — ready to export."
+                : `${finalState.shots.length - readyCount} shot${finalState.shots.length - readyCount > 1 ? "s" : ""} still pending.`) + callsNote,
+              duration: 5000,
+            });
+          } else if (finalState.export_status === "ready") {
+            toast.success("Final cut ready", {
+              description: "Your MP4 is ready to download." + callsNote,
+              duration: 6000,
+            });
+          }
+        })();
       });
     },
     [agent, copilotkit, isRunning],
@@ -1216,6 +1253,7 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
     (msg: string) => {
       if (pendingCommission) {
         setPendingThreadTitle(pendingCommission.title);
+        lastStagedRef.current = { hash: pendingHashRef.current, title: pendingCommission.title };
         setPendingCommission(null);
       }
       injectPrompt(msg);
@@ -1227,6 +1265,14 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   useEffect(() => {
     if (!agentThreadId || !pendingThreadTitle) return;
     if (lastTitledThreadRef.current === agentThreadId) return;
+    const staged = lastStagedRef.current;
+    if (staged?.hash) {
+      void fetch("/api/cut-record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hash: staged.hash, threadId: agentThreadId, title: staged.title, status: "running" }),
+      }).catch(() => {});
+    }
     let cancelled = false;
     const attempt = () =>
       fetch(`/api/copilotkit/threads/${encodeURIComponent(agentThreadId)}`, {
@@ -1931,6 +1977,15 @@ function DevCutEmptyState({
 
 function DirectorPage() {
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
+  // Deep-links from landing ("View previous cut") select a prior thread.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("thread");
+    if (!t) return;
+    setThreadId(t);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("thread");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
   const [storyboard, setStoryboard] = useState(initialStoryboardState.storyboard);
   const handleStoryboardChange = useCallback((next: Storyboard) => {
     setStoryboard((prev) => {

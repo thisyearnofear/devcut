@@ -43,6 +43,19 @@ const nextConfig: NextConfig = {
         destination: `${BFF_URL}/api/thread-state/:path*`,
       },
       {
+        // brief-hash ledger + per-thread Runway call counter (BFF custom routes)
+        source: "/api/cut-lookup",
+        destination: `${BFF_URL}/api/cut-lookup`,
+      },
+      {
+        source: "/api/cut-record",
+        destination: `${BFF_URL}/api/cut-record`,
+      },
+      {
+        source: "/api/runway-calls/:path*",
+        destination: `${BFF_URL}/api/runway-calls/:path*`,
+      },
+      {
         source: "/api/x402/:path*",
         destination: `${BFF_URL}/api/x402/:path*`,
       },

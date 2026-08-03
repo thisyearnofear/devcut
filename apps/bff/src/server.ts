@@ -118,6 +118,32 @@ async function incrementThreadCallCount(threadId: string): Promise<number> {
   }
 }
 
+// ---- brief-hash ledger (resume-vs-fresh on landing CTAs) ----
+// Records brief hash → threadId/status so a repeat click can be offered the
+// previous (free) cut instead of silently spending another full pipeline.
+const CUT_KEY_PREFIX = "devcut:brief:";
+const CUT_KEY_TTL_SECONDS = 7 * 24 * 60 * 60;
+const _memCuts = new Map<string, Record<string, unknown>>();
+
+async function cutRecordRead(hash: string): Promise<Record<string, unknown> | null> {
+  try {
+    const raw = await _redis.get(`${CUT_KEY_PREFIX}${hash}`);
+    if (raw) return JSON.parse(raw) as Record<string, unknown>;
+    return null;
+  } catch {
+    return _memCuts.get(hash) ?? null;
+  }
+}
+
+async function cutRecordWrite(hash: string, patch: Record<string, unknown>): Promise<void> {
+  const prev = (await cutRecordRead(hash)) ?? {};
+  const next = { ...prev, ...patch };
+  _memCuts.set(hash, next); // shadow copy — survives Redis flaps
+  try {
+    await _redis.set(`${CUT_KEY_PREFIX}${hash}`, JSON.stringify(next), "EX", CUT_KEY_TTL_SECONDS);
+  } catch { /* non-fatal */ }
+}
+
 // ----------------------------------------------------------------- copilot endpoint
 //
 // lockTtlSeconds / lockHeartbeatIntervalSeconds are set explicitly (rather
@@ -234,6 +260,79 @@ async function handleRequest(req: Request): Promise<Response> {
     });
   }
 
+  // ---- Runway call counter (post-run cost display) ----
+  const runwayCallsMatch = url.pathname.match(/^\/api\/runway-calls\/([^/]+)$/);
+  if (runwayCallsMatch && req.method === "GET") {
+    const used = await threadCallCount(decodeURIComponent(runwayCallsMatch[1]));
+    return new Response(
+      JSON.stringify({ calls_used: used, budget: RUNWAY_BUDGET }),
+      { headers: { "content-type": "application/json" } },
+    );
+  }
+
+  // ---- Brief hash → prior cut lookup (resume-vs-fresh on landing CTAs) ----
+  if (url.pathname === "/api/cut-record" && req.method === "POST") {
+    let recBody: Record<string, unknown> = {};
+    try { recBody = await req.json() as Record<string, unknown>; } catch { /* ignore */ }
+    const hash = typeof recBody.hash === "string" && /^[0-9a-f]{64}$/.test(recBody.hash) ? recBody.hash : "";
+    const tid = typeof recBody.threadId === "string" ? recBody.threadId : "";
+    if (!hash || !tid) {
+      return new Response(JSON.stringify({ error: "missing hash/threadId" }), {
+        status: 400, headers: { "content-type": "application/json" },
+      });
+    }
+    await cutRecordWrite(hash, {
+      threadId: tid,
+      title: typeof recBody.title === "string" ? recBody.title.slice(0, 120) : "",
+      status: typeof recBody.status === "string" ? recBody.status.slice(0, 24) : "unknown",
+      updatedAt: Date.now(),
+    });
+    return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
+  }
+
+  if (url.pathname === "/api/cut-lookup" && req.method === "GET") {
+    const hash = url.searchParams.get("hash") ?? "";
+    const json = (o: unknown) => new Response(JSON.stringify(o), { headers: { "content-type": "application/json" } });
+    if (!/^[0-9a-f]{64}$/.test(hash)) return json({ found: false });
+    const rec = await cutRecordRead(hash);
+    if (!rec) return json({ found: false });
+    // Probe the agent for ground truth — the in-mem runtime wipes state on
+    // restart, which makes old records non-resumable.
+    const tid = String(rec.threadId ?? "");
+    let resumable = false;
+    let runStatus = "";
+    let shotsReady = 0;
+    let finalUrl = "";
+    try {
+      const [stateRes, runsRes] = await Promise.all([
+        fetch(`${LANGGRAPH_URL}/threads/${encodeURIComponent(tid)}/state`, { signal: AbortSignal.timeout(4000) }),
+        fetch(`${LANGGRAPH_URL}/threads/${encodeURIComponent(tid)}/runs?limit=1`, { signal: AbortSignal.timeout(4000) }),
+      ]);
+      if (stateRes.ok) {
+        const st = await stateRes.json() as { values?: Record<string, unknown> };
+        const vals = st.values ?? {};
+        const shots = Array.isArray(vals.shots) ? vals.shots as Array<Record<string, unknown>> : [];
+        shotsReady = shots.filter((s) => s.video_url || s.clip_url || s.still_url || s.ref_image_url).length;
+        finalUrl = ((vals.final_video_url ?? vals.durable_url ?? "") as string);
+        resumable = shots.length > 0;
+      }
+      if (runsRes.ok) {
+        const runs = await runsRes.json() as Array<Record<string, unknown>>;
+        runStatus = (runs?.[0]?.status as string) ?? "";
+      }
+    } catch { /* probe failure → not resumable */ }
+    return json({
+      found: true,
+      threadId: tid,
+      title: rec.title ?? "",
+      status: runStatus || rec.status || "unknown",
+      recordedAt: rec.updatedAt ?? 0,
+      resumable,
+      shotsReady,
+      finalUrl,
+    });
+  }
+
   // ---- Non-copilotkit routes pass through unchanged ----
   if (!url.pathname.startsWith("/api/copilotkit")) {
     return copilotApp.fetch(req);
@@ -341,6 +440,9 @@ async function handleRequest(req: Request): Promise<Response> {
       runway_calls_remaining: callsRemaining,
       runway_budget: RUNWAY_BUDGET,
       request_id: requestId,
+      // In intelligence mode the agent executes on an internal twin thread;
+      // billing must key on the UI-visible thread (matches budget checks).
+      ui_thread_id: threadId,
     };
     // Only inject the user key if one was provided — never overwrite with empty.
     if (userRunwayKey) {

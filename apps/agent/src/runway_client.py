@@ -113,6 +113,19 @@ def _current_thread_id() -> str:
     except Exception:  # noqa: BLE001
         return ""
 
+
+def _billing_thread_id() -> str:
+    """Thread id used for the per-conversation budget counter.
+
+    In intelligence mode the run executes on an internal "twin" thread while
+    the UI owns a different thread id. The BFF injects ``ui_thread_id`` into
+    configurable so billing stays keyed to the conversation the user sees
+    (and matches the id the BFF budget-checks against). Falls back to the
+    LangGraph thread id when no UI id was injected.
+    """
+    cfg = _get_configurable()
+    return str(cfg.get("ui_thread_id") or cfg.get("thread_id") or "")
+
 # --------------------------------------------------------------------- modes
 
 
@@ -446,7 +459,7 @@ def generate_reference_image(
     if runway_is_live():
         _check_budget()
         result = _live_image(prompt, ratio=ratio, prior_ref_urls=prior_ref_urls)
-        _notify_bff_call_used(_current_thread_id())
+        _notify_bff_call_used(_billing_thread_id())
         return _persist_image_to_b2(result)
     return _mock_image(prompt)
 
@@ -527,7 +540,7 @@ def generate_shot_video(
                 if stored:
                     result.url = stored.url
                     result.sha256 = stored.sha256
-        _notify_bff_call_used(_current_thread_id())
+        _notify_bff_call_used(_billing_thread_id())
         return result
     time.sleep(0.6)
     return _mock_video(prompt, duration=duration, image_url=image_url)
@@ -549,7 +562,7 @@ def restyle_shot_video(
     if runway_is_live():
         _check_budget()
         result = _live_restyle(video_url, prompt, style_ref_url=style_ref_url)
-        _notify_bff_call_used(_current_thread_id())
+        _notify_bff_call_used(_billing_thread_id())
         # Aleph preserves source duration — pass through whatever the
         # caller knows so downstream timing stays correct.
         result.duration = duration
