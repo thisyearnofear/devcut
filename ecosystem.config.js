@@ -75,7 +75,7 @@ module.exports = {
       env: serviceEnv({
         PORT: '4010',
         NODE_ENV: 'production',
-        PUBLIC_INTELLIGENCE_WS_URL: `wss://${DOMAIN}/ws`,
+        PUBLIC_INTELLIGENCE_WS_URL: `wss://${DOMAIN}/ws/client`,
       }),
       restart_delay: 3000,
       exp_backoff_restart_delay: 100,
