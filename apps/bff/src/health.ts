@@ -109,7 +109,7 @@ export async function rewriteWsUrl(resPromise: Response | Promise<Response>): Pr
   }
   const realtime = json.realtime as Record<string, unknown> | undefined;
   if (realtime?.clientUrl && typeof realtime.clientUrl === "string") {
-    realtime.clientUrl = PUBLIC_INTELLIGENCE_WS_URL;
+    realtime.clientUrl = `${PUBLIC_INTELLIGENCE_WS_URL.replace(/\/$/, "")}/client`;
     changed = true;
   }
   if (changed) {
