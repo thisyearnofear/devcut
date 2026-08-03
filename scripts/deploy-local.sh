@@ -3,11 +3,20 @@
 # deploy-local.sh — Build locally, deploy to server via rsync
 #
 # Pipeline:
-#   build → apply patches → create release → size check → rsync →
-#   server-side install (BFF deps + agent) → symlink flip → PM2 reload →
-#   health check (auto-rollback) → prune old releases → clean old dirs
+#   build (+ agent import gate) → apply patches → create release → per-app
+#   fingerprinting → size check → rsync → server-side install → drain gate
+#   (if agent changes) → symlink flip → SELECTIVE PM2 reload (only changed
+#   services) → health check (rollback to last-known-good) → bound-aware prune
 #
-# Usage:  bash scripts/deploy-local.sh
+# Deploy-safety invariants:
+#   * A frontend-only change never restarts the agent (in-mem LangGraph state
+#     = live canvases; restarting it severs them).
+#   * The agent is only restarted after in-flight runs drain (FORCE_DEPLOY=1
+#     to override).
+#   * Rollback restores the exact pre-deploy symlink target, and only if it
+#     previously passed health (.health-ok marker) — never a timestamp guess.
+#
+# Usage:  bash scripts/deploy-local.sh     (FORCE_DEPLOY=1 to skip the drain gate)
 # ============================================================================
 set -euo pipefail
 
@@ -18,6 +27,7 @@ KEEP_RELEASES=2
 GROWTH_WARN=1.2
 GROWTH_FAIL=1.5
 UV_BIN="/home/linuxuser/.local/bin/uv"
+DRAIN_TIMEOUT_S="${DRAIN_TIMEOUT_S:-90}"
 
 # ── Colours ─────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
@@ -88,6 +98,24 @@ for d in "$ROOT" "$ROOT/apps/frontend" "$ROOT/apps/bff"; do
     done
   fi
 done
+
+# ── 1b. AGENT IMPORT GATE ───────────────────────────────────────────────────
+# Catch import-time breakage (missing exports / undefined names — the exact
+# bug class that boots into a PM2 crash loop) BEFORE anything ships.
+# Mirrors the `npx tsc` gate the BFF already has.
+if command -v uv >/dev/null 2>&1 && [ -f "$ROOT/apps/agent/uv.lock" ]; then
+  info "Import-checking agent graph..."
+  (cd "$ROOT/apps/agent" && uv sync --frozen --no-dev >/dev/null 2>&1) \
+    || warn "uv sync failed — import gate will use the existing venv"
+  (cd "$ROOT/apps/agent" && .venv/bin/python -c "
+from dotenv import load_dotenv
+load_dotenv('.env'); load_dotenv('../../.env')
+import main, director  # noqa: F401
+print('agent imports ok')
+") || fail "Agent import gate FAILED — fix the import error before deploying"
+else
+  warn "uv or apps/agent/uv.lock unavailable locally — skipping agent import gate"
+fi
 
 # ── 2. CREATE RELEASE ───────────────────────────────────────────────────────
 info "Creating release structure..."
@@ -203,15 +231,61 @@ done
 
 cd "$LOCAL_RELEASE"
 npm init -y >/dev/null 2>&1
-npm pkg set type="module" private=true >/dev/null
+npm pkg set type="module" private=true name="devcut-release" >/dev/null
 npm install --save --omit=dev "${SPECS[@]}" 2>&1 | tail -3
+
+# ── 3b. PER-APP FINGERPRINTS (selective restart decisions) ─────────────────
+info "Fingerprinting payloads (selective-restart decisions)..."
+dirhash() { python3 "$ROOT/scripts/dirhash.py" "$@"; }
+H_AGENT=$(dirhash "$LOCAL_RELEASE/apps/agent/src" "$LOCAL_RELEASE/apps/agent/pyproject.toml" "$LOCAL_RELEASE/apps/agent/uv.lock")
+H_BFF=$(dirhash "$LOCAL_RELEASE/apps/bff" "$LOCAL_RELEASE/package.json")
+H_FRONT=$(dirhash "$LOCAL_RELEASE/apps/frontend")
+H_MCP=$(dirhash "$LOCAL_RELEASE/apps/mcp/dist" "$LOCAL_RELEASE/apps/mcp/package.json")
+H_ECOSYS=$(dirhash "$ROOT/ecosystem.config.js")
+
+# Compare against what the LIVE services actually run from. Capture the exact
+# pre-deploy symlink target now — it is also the (marked) rollback target.
+PREV_TARGET=$(ssh "$REMOTE" "readlink -f $REMOTE_PATH/current 2>/dev/null || true")
+rhash() { ssh "$REMOTE" "python3 - $1" < "$ROOT/scripts/dirhash.py" 2>/dev/null || echo ""; }
+if [ -n "$PREV_TARGET" ] && ssh "$REMOTE" "test -d '$PREV_TARGET'"; then
+  P_AGENT=$(rhash "$PREV_TARGET/apps/agent/src $PREV_TARGET/apps/agent/pyproject.toml $PREV_TARGET/apps/agent/uv.lock")
+  P_BFF=$(rhash "$PREV_TARGET/apps/bff $PREV_TARGET/package.json")
+  P_FRONT=$(rhash "$PREV_TARGET/apps/frontend")
+  P_MCP=$(rhash "$PREV_TARGET/apps/mcp/dist $PREV_TARGET/apps/mcp/package.json")
+  P_ECOSYS=$(rhash "$REMOTE_PATH/ecosystem.config.js")
+else
+  P_AGENT=""; P_BFF=""; P_FRONT=""; P_MCP=""; P_ECOSYS=""
+fi
+
+# Server .env: local and prod SHOULD differ, so content-comparing them would
+# force restart-all every deploy. Instead track the SERVER env's own drift:
+# store its fingerprint server-side after each healthy deploy.
+ENV_FP=$(rhash "$REMOTE_PATH/.env")
+STORED_ENV_FP=$(ssh "$REMOTE" "cat $REMOTE_PATH/releases/.env-fingerprint 2>/dev/null" || echo "")
+
+# ecosystem.config.js or server .env changes affect every service.
+RESTART_ALL=0
+{ [ -n "$P_ECOSYS" ] && [ "$H_ECOSYS" = "$P_ECOSYS" ] && [ "$ENV_FP" = "$STORED_ENV_FP" ]; } || RESTART_ALL=1
+
+PM2_AGENT=director-agent; PM2_BFF=director-bff; PM2_FRONT=director-frontend; PM2_MCP=director-mcp
+WANT=()
+{ [ $RESTART_ALL -eq 1 ] || [ "$H_AGENT" != "$P_AGENT" ]; } && WANT+=(agent)
+{ [ $RESTART_ALL -eq 1 ] || [ "$H_BFF"   != "$P_BFF"   ]; } && WANT+=(bff)
+{ [ $RESTART_ALL -eq 1 ] || [ "$H_FRONT" != "$P_FRONT" ]; } && WANT+=(frontend)
+{ [ $RESTART_ALL -eq 1 ] || [ "$H_MCP"   != "$P_MCP"   ]; } && WANT+=(mcp)
+pm2name() { case "$1" in agent) echo $PM2_AGENT;; bff) echo $PM2_BFF;; frontend) echo $PM2_FRONT;; mcp) echo $PM2_MCP;; esac; }
+if [ ${#WANT[@]} -eq 0 ]; then
+  info "Payloads identical for all services — symlink flip only, NO restarts"
+else
+  info "Services to reload: ${WANT[*]}"
+fi
 
 # ── 4. SIZE CHECK ──────────────────────────────────────────────────────────
 RSIZE=$(du_bytes "$LOCAL_RELEASE")
 info "Release: $(hr $RSIZE)"
 
 PREV_SIZE=$(ssh "$REMOTE" "
-  P=\$(readlink -f $REMOTE_PATH/current 2>/dev/null)
+  P=${PREV_TARGET}
   if [ -n \"\$P\" ] && [ -d \"\$P\" ]; then du -sb \"\$P\" 2>/dev/null | cut -f1; else echo 0; fi
 " 2>/dev/null || echo 0)
 
@@ -264,14 +338,57 @@ ssh "$REMOTE" "cd $REMOTE_RELEASE/apps/agent && $UV_BIN sync --frozen --no-dev 2
 info "Updating ecosystem.config.js..."
 rsync -az "$ROOT/ecosystem.config.js" "$REMOTE:$REMOTE_PATH/ecosystem.config.js"
 
+# ── 6b. DRAIN GATE (agent restarts only) ────────────────────────────────────
+# An agent restart wipes in-mem LangGraph state and severs in-flight runs.
+# Refuse to proceed while runs are active unless explicitly forced.
+AGENT_RESTARTS=0
+for s in "${WANT[@]:-}"; do [ "$s" = agent ] && AGENT_RESTARTS=1; done
+if [ "$AGENT_RESTARTS" -eq 1 ] && [ "${FORCE_DEPLOY:-0}" != "1" ]; then
+  info "Agent payload changed — draining in-flight runs (timeout ${DRAIN_TIMEOUT_S}s)..."
+  DEADLINE=$(( $(date +%s) + DRAIN_TIMEOUT_S ))
+  while :; do
+    INFLIGHT=$(ssh "$REMOTE" "curl -s --max-time 5 http://localhost:4010/readyz 2>/dev/null" \
+      | python3 -c "import sys,json; print(json.load(sys.stdin).get('inflight', -1))" 2>/dev/null || echo -1)
+    [ "$INFLIGHT" = "0" ] && { info "  drained (inflight=0)"; break; }
+    if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+      fail "Runs still in flight (inflight=$INFLIGHT). Wait for them, or re-run with FORCE_DEPLOY=1 to interrupt (users lose in-progress cuts)."
+    fi
+    sleep 5
+  done
+fi
+
 # ── 7. SYMLINK FLIP ────────────────────────────────────────────────────────
 info "Flipping current/ symlink → $TIMESTAMP"
 ssh "$REMOTE" "ln -snf releases/$TIMESTAMP $REMOTE_PATH/current"
 
-# ── 8. PM2 RELOAD ──────────────────────────────────────────────────────────
-info "Reloading PM2..."
-ssh "$REMOTE" "pm2 startOrReload $REMOTE_PATH/ecosystem.config.js --update-env 2>&1"
-sleep 10
+# ── 8. PM2 RELOAD (selective) ───────────────────────────────────────────────
+# Bound-release markers: record which release each service runs from, so the
+# prune step can never delete a release a SKIPPED service still executes.
+BOUND_DIR="$REMOTE_PATH/releases/.bound"
+ssh "$REMOTE" "mkdir -p $BOUND_DIR"
+# Services NOT restarted keep their existing marker; initialise if missing.
+ssh "$REMOTE" "for s in agent bff frontend mcp; do
+  f=$BOUND_DIR/\$s
+  [ -f \"\$f\" ] || basename '${PREV_TARGET:-''}' > \"\$f\" 2>/dev/null || true
+done"
+
+if [ ${#WANT[@]} -eq 0 ]; then
+  info "Skipping PM2 reload entirely (agent state + user canvases preserved)"
+else
+  # Restart in dependency order: agent → bff → mcp → frontend.
+  for SVC in agent bff mcp frontend; do
+    FOUND=0
+    for w in "${WANT[@]}"; do [ "$w" = "$SVC" ] && FOUND=1; done
+    [ "$FOUND" -eq 1 ] || continue
+    PM=$(pm2name "$SVC")
+    info "Reloading $PM..."
+    ssh "$REMOTE" "pm2 startOrReload $REMOTE_PATH/ecosystem.config.js --only $PM --update-env 2>&1 | tail -1"
+    echo "$TIMESTAMP" | ssh "$REMOTE" "cat > $BOUND_DIR/$SVC"
+    # The agent's langgraph boot is slow (~25s) — give it a head start.
+    [ "$SVC" = agent ] && sleep 8 || sleep 2
+  done
+fi
+sleep 5
 
 # ── 9. HEALTH CHECK ────────────────────────────────────────────────────────
 info "Health checks..."
@@ -303,29 +420,42 @@ hcheck_retry() {
 }
 
 hcheck "Frontend"     "http://localhost:3100/"
-hcheck_retry "BFF"    "http://localhost:4010/health" 6 5
-hcheck_retry "Agent"  "http://localhost:8123/ok" 6 5
-hcheck_retry "MCP"    "http://localhost:3011/mcp" 6 5
+hcheck_retry "BFF"    "http://localhost:4010/health" 8 5
+hcheck_retry "Agent"  "http://localhost:8123/ok" 12 5
+hcheck_retry "MCP"    "http://localhost:3011/mcp" 8 5
 
 if [ "$H_PASS" = false ]; then
   error "Health check FAILED — rolling back..."
-  ROLLBACK_TARGET=$(ssh "$REMOTE" "ls -dt $REMOTE_PATH/releases/*/ 2>/dev/null | head -2 | tail -1" || echo "")
+  # Restore the EXACT pre-deploy target — but only if it previously passed
+  # health (has the .health-ok marker). Otherwise fall back to the newest
+  # marked release. Never roll back to an unverified timestamp neighbour.
+  ROLLBACK_TARGET=$(ssh "$REMOTE" "
+    if [ -n '${PREV_TARGET:-}' ] && [ -f '${PREV_TARGET:-/nonexistent}/.health-ok' ]; then
+      basename '$PREV_TARGET'
+    else
+      for d in \$(ls -dt $REMOTE_PATH/releases/*/ 2>/dev/null); do
+        if [ -f \"\$d/.health-ok\" ]; then basename \"\$d\"; break; fi
+      done
+    fi" || echo "")
   if [ -n "$ROLLBACK_TARGET" ]; then
     RBNAME=$(basename "$ROLLBACK_TARGET")
-    info "Rolling back to $RBNAME ..."
+    info "Rolling back to $RBNAME (last known-good) ..."
     ssh "$REMOTE" "
       ln -snf releases/$RBNAME $REMOTE_PATH/current
-      pm2 startOrReload $REMOTE_PATH/ecosystem.config.js --update-env 2>&1
+      pm2 startOrReload $REMOTE_PATH/ecosystem.config.js --update-env 2>&1 | tail -1
+      for s in agent bff frontend mcp; do echo $RBNAME > $REMOTE_PATH/releases/.bound/\$s; done
     "
     info "Rolled back to $RBNAME"
   else
-    error "No previous release — manual intervention required"
+    error "No known-good release to roll back to — manual intervention required"
     error "current/ symlink points to $TIMESTAMP (may be broken)"
   fi
   exit 1
 fi
 
 info "All services healthy ✓"
+# Mark this release as a valid rollback target + store the env fingerprint.
+ssh "$REMOTE" "touch $REMOTE_RELEASE/.health-ok && echo '$ENV_FP' > $REMOTE_PATH/releases/.env-fingerprint"
 
 # ── 9b. SEED INTELLIGENCE DEFAULT USER ──────────────────────────────────────
 # The BFF sends userId='default' to Intelligence. If that user doesn't exist
@@ -357,9 +487,17 @@ ssh "$REMOTE" "
   fi
 "
 
-# ── 11. PRUNE OLD RELEASES ──────────────────────────────────────────────────
-info "Pruning old releases (keeping $KEEP_RELEASES)..."
-ssh "$REMOTE" "cd $REMOTE_PATH/releases && ls -t1 | tail -n +$((KEEP_RELEASES+1)) | xargs -r rm -rf"
+# ── 11. PRUNE OLD RELEASES (bound-aware) ────────────────────────────────────
+# Never delete a release a running service is still executed from (a skipped
+# agent keeps running its older release to preserve in-mem state).
+info "Pruning old releases (keeping $KEEP_RELEASES + bound)..."
+ssh "$REMOTE" "cd $REMOTE_PATH/releases && ls -t1 | grep -v '^\.' | tail -n +$((KEEP_RELEASES+1)) | while read -r r; do
+  if grep -qxF \"\$r\" $BOUND_DIR/* 2>/dev/null; then
+    echo \"  keeping \$r (bound to a running service)\"
+  else
+    rm -rf \"\$r\"
+  fi
+done"
 
 # ── Disk usage summary ─────────────────────────────────────────────────────
 info "Server disk usage:"
