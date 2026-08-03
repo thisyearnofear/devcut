@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { Toaster, toast } from "sonner";
@@ -31,8 +32,6 @@ import {
   DEVCUT_STAGE_ESTIMATES,
   DEVCUT_STAGE_LABELS,
 } from "@/lib/devcut-ledger";
-import { AvatarShowcase } from "@/components/storyboard/AvatarShowcase";
-import { AvatarPanel } from "@/components/storyboard/AvatarPanel";
 import {
   DEVCUT,
   DEVCUT_CHALLENGE_EXAMPLES,
@@ -151,6 +150,170 @@ function LiveStoryboardSummary() {
 }
 
 // ---------------------------------------------------------------------------
+// Agent transcript — renders the agent's own voice + tool-call cards.
+//
+// `agent.messages` (AG-UI) holds assistant prose and tool calls produced by the
+// backend. Before this existed the chat only echoed the user's own messages and
+// a derived ledger, so every assistant reply and ToolFallbackCard the agent
+// emitted was invisible. We render prose inline and reuse ToolFallbackCard for
+// tool calls, pairing each call with its result (tool messages carry the result
+// keyed by actionName/actionExecutionId).
+// ---------------------------------------------------------------------------
+
+interface AgentMessage {
+  id: string;
+  role?: string;
+  content?: unknown;
+  toolCalls?: Array<{
+    id: string;
+    function?: { name?: string; arguments?: string };
+  }>;
+}
+
+interface AgentTranscriptItem {
+  id: string;
+  kind: "text" | "tool";
+  text?: string;
+  tool?: { name: string; args?: unknown; result?: string; status: string };
+}
+
+function buildTranscript(messages: AgentMessage[]): AgentTranscriptItem[] {
+  const items: AgentTranscriptItem[] = [];
+  // Index tool results by actionName/actionExecutionId for pairing.
+  const resultByAction = new Map<string, string>();
+  for (const m of messages) {
+    if (m.role === "tool") {
+      const content = typeof m.content === "string" ? m.content : "";
+      const anyMsg = m as AgentMessage & { actionExecutionId?: string; actionName?: string };
+      if (anyMsg.actionExecutionId) resultByAction.set(anyMsg.actionExecutionId, content);
+      if (anyMsg.actionName) resultByAction.set(anyMsg.actionName, content);
+    }
+  }
+  for (const m of messages) {
+    if (m.role === "assistant" && typeof m.content === "string" && m.content.trim()) {
+      items.push({ id: `${m.id}-t`, kind: "text", text: m.content.trim() });
+    }
+    for (const tc of m.toolCalls ?? []) {
+      const name = tc.function?.name ?? "tool";
+      let args: unknown;
+      try {
+        args = tc.function?.arguments ? JSON.parse(tc.function.arguments) : undefined;
+      } catch {
+        args = tc.function?.arguments;
+      }
+      const result = resultByAction.get(tc.id) ?? resultByAction.get(name);
+      items.push({
+        id: `${m.id}-${tc.id}`,
+        kind: "tool",
+        tool: {
+          name,
+          args,
+          result,
+          status: result !== undefined ? "complete" : "executing",
+        },
+      });
+    }
+  }
+  return items;
+}
+
+function AgentTranscript() {
+  const { agent } = useAgent({ agentId: "director" });
+  const messages = (agent?.messages ?? []) as unknown as AgentMessage[];
+  const items = useMemo(() => buildTranscript(messages), [messages]);
+  if (items.length === 0) return null;
+  return (
+    <div className="space-y-1">
+      {items.map((item) =>
+        item.kind === "text" ? (
+          <div key={item.id} className="flex justify-start">
+            <div className="max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed text-white/72">
+              {item.text}
+            </div>
+          </div>
+        ) : (
+          <ToolFallbackCard
+            key={item.id}
+            name={item.tool!.name}
+            status={item.tool!.status}
+            result={item.tool!.result}
+            parameters={item.tool!.args}
+            variant="devcut"
+          />
+        ),
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Planning skeleton — shown on the canvas while the agent plans shots.
+// ---------------------------------------------------------------------------
+
+function PlanningSkeleton({
+  stalled,
+  queuePosition,
+  estimatedWaitSec,
+  onCancel,
+}: {
+  stalled: boolean;
+  queuePosition: number;
+  estimatedWaitSec: number;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-4 p-4" aria-live="polite">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="size-2 rounded-full bg-[#ffbe70] animate-pulse"
+              style={{ animationDelay: `${i * 150}ms` }}
+            />
+          ))}
+        </div>
+        <p className="text-sm text-white/70">
+          <PlanningText />
+        </p>
+        {queuePosition > 0 && (
+          <span className="rounded-full border border-white/12 bg-white/[0.06] px-2.5 py-0.5 font-mono text-[11px] text-white/55">
+            Queued · #{queuePosition}
+            {estimatedWaitSec > 0 &&
+              ` · ~${estimatedWaitSec < 60 ? `${estimatedWaitSec}s` : `${Math.round(estimatedWaitSec / 60)}m`}`}
+          </span>
+        )}
+      </div>
+      {stalled && (
+        <p className="text-xs text-white/45">
+          Taking longer than usual. You can cancel and retry.
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+            <div className="aspect-video w-full animate-pulse bg-white/5" />
+            <div className="space-y-2 p-3">
+              <div className="h-3 w-3/4 animate-pulse rounded bg-white/10" />
+              <div className="h-2.5 w-full animate-pulse rounded bg-white/5" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-full border border-rose-400/40 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-rose-200 hover:bg-rose-500/15"
+        >
+          Cancel run
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Custom cinematic chat — replaces CopilotSidebar
 // ---------------------------------------------------------------------------
 
@@ -190,6 +353,20 @@ const MODEL_LABEL =
 
 // True when the Runway avatar is configured — baked in at build time.
 const AVATAR_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_RUNWAY_AVATAR_ID);
+
+// The Runway WebRTC SDK (@runwayml/avatars-react) ships a sizeable bundle and
+// pulls in a styles.css. Only load it when the avatar is actually configured,
+// so every /director visitor doesn't pay for it.
+const AvatarShowcase = AVATAR_CONFIGURED
+  ? dynamic(() =>
+      import("@/components/storyboard/AvatarShowcase").then((m) => m.AvatarShowcase),
+    )
+  : null;
+const AvatarPanel = AVATAR_CONFIGURED
+  ? dynamic(() =>
+      import("@/components/storyboard/AvatarPanel").then((m) => m.AvatarPanel),
+    )
+  : null;
 
 interface ChatMessage {
   id: string;
@@ -324,16 +501,28 @@ function DirectorChat({
   progress,
   lastError,
   onRetry,
+  onCancel,
+  onOpenKeys,
+  queuePosition,
+  estimatedWaitSec,
+  stalled,
   shots,
   storyboard,
+  canvasIsEmpty,
 }: {
   onSend: (msg: string) => void;
   isRunning: boolean;
   progress: AgentProgress;
   lastError: string | null;
   onRetry: () => void;
+  onCancel: () => void;
+  onOpenKeys: () => void;
+  queuePosition: number;
+  estimatedWaitSec: number;
+  stalled: boolean;
   shots: Shot[];
   storyboard: Storyboard;
+  canvasIsEmpty: boolean;
 }) {
   const [settings, setSettings] = useState<ProductionSettings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
@@ -371,34 +560,45 @@ function DirectorChat({
 
   const showSuggestions = messages.length === 0 && !isRunning;
 
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-sidebar">
+  return (      <div className="flex h-full min-h-0 flex-col bg-sidebar">
+
       {/* Messages */}
       <div
         ref={messagesRef}
         className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0"
       >
         {showSuggestions ? (
-          <div className="space-y-3 pt-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/55">
-              DevCut jobs
-            </p>
-            {SUGGESTIONS.map((s, i) => (
-              <button
-                key={SUGGESTION_LABELS[i]}
-                type="button"
-                onClick={() => onSend(s)}
-                className="block w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-xs leading-relaxed text-white/70 transition-colors hover:border-white/25 hover:text-white/90"
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan,#2de2c5)]">
-                  {SUGGESTION_LABELS[i]}
-                </span>
-                <span className="mt-1 block line-clamp-2 text-white/60">
-                  {s.replace(/^Mode:.*?\.\s*/, "").slice(0, 140)}…
-                </span>
-              </button>
-            ))}
-          </div>
+          canvasIsEmpty ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 pt-8 text-center">
+              <p className="dc-mono text-[11px] uppercase tracking-[0.14em] text-white/40">
+                Pick a door on the left
+              </p>
+              <p className="max-w-[16rem] text-xs leading-5 text-white/50">
+                Start a cut from the canvas. The chat shows live progress once a run begins.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/55">
+                DevCut jobs
+              </p>
+              {SUGGESTIONS.map((s, i) => (
+                <button
+                  key={SUGGESTION_LABELS[i]}
+                  type="button"
+                  onClick={() => onSend(s)}
+                  className="block w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-xs leading-relaxed text-white/70 transition-colors hover:border-white/25 hover:text-white/90"
+                >
+                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan,#2de2c5)]">
+                    {SUGGESTION_LABELS[i]}
+                  </span>
+                  <span className="mt-1 block line-clamp-2 text-white/60">
+                    {s.replace(/^Mode:.*?\.\s*/, "").slice(0, 140)}…
+                  </span>
+                </button>
+              ))}
+            </div>
+          )
         ) : (
           messages.map((m) => (
             <div
@@ -417,11 +617,17 @@ function DirectorChat({
             </div>
           ))
         )}
+        {/* The agent's own voice + tool-call cards (assistant prose, ToolFallbackCards). */}
+        <AgentTranscript />
         {isRunning && (
-          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/70">
-                Run ledger
+          <div
+            className="rounded-xl border border-white/10 bg-white/[0.04] p-3"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="flex items-center justify-between gap-3">                <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/70">
+                Making your cut
+
               </p>
               <div className="flex items-center gap-2">
                 <ElapsedTimer isRunning={isRunning} />
@@ -436,6 +642,16 @@ function DirectorChat({
                 </div>
               </div>
             </div>
+            {/* Queue awareness — BFF reports a concurrency-slot wait. */}
+            {queuePosition > 0 && (
+              <div className="mt-2 flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5">
+                <span className="size-1.5 shrink-0 rounded-full bg-[#ffbe70] animate-pulse" />
+                <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-white/65">
+                  Waiting for a generation slot · position {queuePosition}
+                  {estimatedWaitSec > 0 && ` · about ${estimatedWaitSec < 60 ? `${estimatedWaitSec}s` : `${Math.round(estimatedWaitSec / 60)}m`}`}
+                </p>
+              </div>
+            )}
             <div className="mt-3 space-y-2.5">
               {progress.stages.map((stage) => {
                 const est = STAGE_ESTIMATES[stage.label];
@@ -471,7 +687,7 @@ function DirectorChat({
                             <span className="shrink-0 font-mono text-[10px] text-white/38">~{est < 60 ? `${est}s` : `${Math.round(est/60)}m`}</span>
                           )}
                           {stage.status === "waiting" && est && (
-                            <span className="shrink-0 font-mono text-[10px] text-white/22">~{est < 60 ? `${est}s` : `${Math.round(est/60)}m`}</span>
+                            <span className="shrink-0 font-mono text-[10px] text-white/40">~{est < 60 ? `${est}s` : `${Math.round(est/60)}m`}</span>
                           )}
                         </div>
                         <p className="truncate text-[11px] text-white/55">
@@ -505,9 +721,20 @@ function DirectorChat({
                 );
               })}
             </div>
-            <p className="mt-3 text-[11px] leading-4 text-white/35">
-              Challenge Cut / Submit Ready usually ~5 min. Stills first, then clips in parallel, then stitch.
+            <p className="mt-3 text-[11px] leading-4 text-white/48">
+              {stalled
+                ? "Taking longer than usual. You can cancel and retry — completed shots stay on the canvas."
+                : "Usually about 5 minutes. Your first frames appear before the final MP4 is stitched."}
             </p>
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-full border border-rose-400/40 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-rose-200 transition-colors hover:bg-rose-500/15"
+              >
+                Cancel run
+              </button>
+            </div>
           </div>
         )}
         {!isRunning && progress.total > 0 && (
@@ -521,25 +748,50 @@ function DirectorChat({
             </p>
           </div>
         )}
-        {lastError && (
-          <div className="rounded-xl border border-rose-400/25 bg-rose-500/10 p-3 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-rose-200">
-                Agent error
+        {lastError && (() => {
+          const lower = lastError.toLowerCase();
+          const keyRelated =
+            lower.includes("api key") ||
+            lower.includes("budget") ||
+            lower.includes("401") ||
+            lower.includes("402") ||
+            lower.includes("rate limit") ||
+            lower.includes("429") ||
+            lower.includes("quota") ||
+            lower.includes("credit");
+          return (
+            <div className="rounded-xl border border-rose-400/25 bg-rose-500/10 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-mono text-xs uppercase tracking-[0.14em] text-rose-200">
+                  {keyRelated ? "Runway key / budget" : "Agent error"}
+                </p>
+                <button
+                  type="button"
+                  disabled={isRunning}
+                  onClick={onRetry}
+                  className="rounded-full border border-rose-400/40 px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.1em] text-rose-200 hover:bg-rose-500/20 disabled:opacity-30"
+                >
+                  Retry
+                </button>
+              </div>
+              <p className="text-xs leading-5 text-rose-100/80">{lastError}</p>
+              <p className="text-[11px] text-rose-200/60">
+                {keyRelated
+                  ? "Add your own Runway key, or try a shorter brief to use fewer credits."
+                  : "Try a new brief or check your Runway API key."}
               </p>
-              <button
-                type="button"
-                disabled={isRunning}
-                onClick={onRetry}
-                className="rounded-full border border-rose-400/40 px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.1em] text-rose-200 hover:bg-rose-500/20 disabled:opacity-30"
-              >
-                Retry
-              </button>
+              {keyRelated && (
+                <button
+                  type="button"
+                  onClick={onOpenKeys}
+                  className="rounded-full border border-rose-400/40 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-rose-100 hover:bg-rose-500/15"
+                >
+                  Open API keys
+                </button>
+              )}
             </div>
-            <p className="text-xs leading-5 text-rose-100/80">{lastError}</p>
-            <p className="text-[11px] text-rose-200/50">Try a new brief or check your Runway API key.</p>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Avatar — pinned above input (only when configured) */}
@@ -616,7 +868,7 @@ function DirectorChat({
               ))}
             </div>
           </div>
-          <p className="font-mono text-[10px] text-white/28 leading-4">
+          <p className="font-mono text-[10px] text-white/42 leading-4">
             Settings are applied to your next brief. Longer shots and more clips increase Runway credit usage.
           </p>
         </div>
@@ -624,10 +876,12 @@ function DirectorChat({
 
       {/* Input */}
       <div className="border-t border-white/10 p-3">
-        <div className="flex items-end gap-2">
-          <textarea
-            ref={inputRef}
-            value={draft}
+        <div className="flex items-end gap-2">              <textarea
+                id="director-brief"
+                name="brief"
+                aria-label="Cut brief"
+                ref={inputRef}
+                value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -635,7 +889,7 @@ function DirectorChat({
                 handleSend(draft);
               }
             }}
-            placeholder="Challenge brief, product URL, or repo…"
+            placeholder="Paste a brief, product URL, or repo…"
             rows={2}
             className="flex-1 resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-white/85 placeholder:text-white/45 focus:border-white/35 focus:outline-none"
           />
@@ -645,12 +899,12 @@ function DirectorChat({
             disabled={!draft.trim() || isRunning}
             className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white/75 transition-colors hover:bg-white/20 hover:text-white/90 disabled:opacity-30"
           >
-            Run
+            Start cut
           </button>
         </div>
         <div className="mt-1.5 flex items-center justify-between">
           <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/45">
-            ↵ send · shift+↵ newline
+            ↵ start · shift+↵ newline
           </p>
           <button
             type="button"
@@ -683,6 +937,11 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   const [mobilePanel, setMobilePanel] = useState<"canvas" | "chat">("canvas");
   const [queuePosition, setQueuePosition] = useState(0);
   const [estimatedWaitSec, setEstimatedWaitSec] = useState(0);
+  const [stalled, setStalled] = useState(false);
+  const [restoreFailed, setRestoreFailed] = useState(false);
+  const watchdogRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastEventAtRef = useRef<number>(0);
+  const cancelledRef = useRef(false);
   const { key: runwayKey } = useRunwayApiKey();
   const [paidSku, setPaidSku] = useState<string | null>(null);
   const [doorMode, setDoorMode] = useState<DevCutDoorId | null>(null);
@@ -705,13 +964,18 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
     if (restoredThreadRef.current === threadId) return;
     restoredThreadRef.current = threadId;
     setRestoredState(null);
+    setRestoreFailed(false);
     fetch(`/api/thread-state/${encodeURIComponent(threadId)}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (!data?.values) return;
         setRestoredState(mergeStoryboardState(data.values));
       })
-      .catch(() => { /* silently ignore */ });
+      .catch(() => {
+        // A failed restore must not silently show an empty canvas — the user
+        // could mistake it for lost work. Surface a recoverable notice.
+        setRestoreFailed(true);
+      });
   }, [threadId]);
 
   // Auto-inject ?brief= / paid x402 unlock from landing or agent settle
@@ -752,6 +1016,9 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         })
         .catch(() => {
           briefInjectedRef.current = false;
+          // Clean the dead unlock token from the URL so a refresh doesn't re-run
+          // the same failed verify (which would toast again in a loop).
+          cleanUrl();
           toast.error("x402 unlock invalid or expired");
         });
       return;
@@ -796,8 +1063,30 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
       agent.addMessage({ id, role: "user", content: prompt });
       setIsRunning(true);
       setLastError(null);
+      setStalled(false);
       setQueuePosition(0);
       setEstimatedWaitSec(0);
+
+      // Run watchdog: a silently dropped stream leaves isRunning=true forever,
+      // permanently disabling every control. If no activity is seen for a
+      // while, flag the run as stalled so the UI can offer cancel/retry.
+      lastEventAtRef.current = Date.now();
+      if (watchdogRef.current) clearInterval(watchdogRef.current);
+      watchdogRef.current = setInterval(() => {
+        const idleMs = Date.now() - lastEventAtRef.current;
+        if (idleMs > 90_000) {
+          setStalled((wasStalled) => {
+            if (!wasStalled) {
+              toast.message("Run is taking a while", {
+                description:
+                  "No updates in 90s. Cancel to retry — completed shots are kept.",
+                duration: 6000,
+              });
+            }
+            return true;
+          });
+        }
+      }, 5000);
 
       // Intercept fetch to read X-Queue-Position / X-Estimated-Wait headers
       // emitted by the BFF when the request had to wait for a concurrency slot.
@@ -808,6 +1097,7 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         const res = await _origFetch(...args);
         const url = typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
         if (url.includes("/api/copilotkit")) {
+          lastEventAtRef.current = Date.now();
           const pos = Number(res.headers.get("x-queue-position") ?? 0);
           const wait = Number(res.headers.get("x-estimated-wait") ?? 0);
           setQueuePosition(pos);
@@ -817,6 +1107,13 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
       };
 
       void copilotkit.runAgent({ agent }).catch((error: unknown) => {
+        // A user-initiated cancel aborts the run — not an error to surface.
+        const isAbort =
+          error &&
+          typeof error === "object" &&
+          "name" in error &&
+          (error as { name: unknown }).name === "AbortError";
+        if (isAbort) return;
         console.error("injectPrompt: runAgent failed", error);
         const msg =
           error && typeof error === "object" && "message" in error
@@ -826,9 +1123,20 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         toast.error(msg, { duration: 6000 });
       }).finally(() => {
         window.fetch = _origFetch;
+        if (watchdogRef.current) {
+          clearInterval(watchdogRef.current);
+          watchdogRef.current = null;
+        }
         setIsRunning(false);
+        setStalled(false);
         setQueuePosition(0);
         setEstimatedWaitSec(0);
+        // Skip the completion toast when the user cancelled — handleCancel
+        // already acknowledged it.
+        if (cancelledRef.current) {
+          cancelledRef.current = false;
+          return;
+        }
         // Toast on completion — only if shots were generated
         const finalState = mergeStoryboardState(agent?.state);
         const readyCount = finalState.shots.filter((s) => s.status === "ready").length;
@@ -855,6 +1163,41 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   const liveState = mergeStoryboardState(agent?.state);
   const state = (liveState.shots.length > 0 || isRunning) ? liveState : (restoredState ?? liveState);
   const progress = useMemo(() => getAgentProgress(state, isRunning), [state, isRunning]);
+
+  // Any change to derived progress means the stream delivered an update —
+  // feed the watchdog so it doesn't flag a healthy (if slow) run as stalled.
+  useEffect(() => {
+    if (isRunning) lastEventAtRef.current = Date.now();
+  }, [isRunning, progress]);
+
+  // Clear the watchdog if the canvas unmounts mid-run.
+  useEffect(() => {
+    return () => {
+      if (watchdogRef.current) clearInterval(watchdogRef.current);
+    };
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    if (!agent || !isRunning) return;
+    cancelledRef.current = true;
+    try {
+      agent.abortRun();
+    } catch {
+      /* abort may no-op if the run already settled */
+    }
+    setLastError("Run cancelled. You can start a new brief.");
+    toast.message("Run cancelled", {
+      description: "Completed shots are kept on the canvas.",
+      duration: 4000,
+    });
+  }, [agent, isRunning]);
+
+  // Short label for the currently-active pipeline stage (mobile tab bar).
+  const activeStageLabel = useMemo(() => {
+    const active = progress.stages.find((s) => s.status === "active");
+    return active ? active.label : "Running";
+  }, [progress.stages]);
+
   const jobMode =
     (state.builder_kit?.mode as string | undefined) || doorMode || null;
   const stillUrls = useMemo(
@@ -1016,7 +1359,13 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   : "text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
               }`}
             >
-              {panel === "canvas" ? `Canvas ${progress.ready}/${progress.total || 0}` : "Chat"}
+              {panel === "canvas"
+                ? isRunning
+                  ? `Canvas · ${activeStageLabel}`
+                  : `Canvas ${progress.ready}/${progress.total || 0}`
+                : lastError
+                  ? "Chat · error"
+                  : "Chat"}
             </button>
           ))}
         </div>
@@ -1042,10 +1391,35 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
           {showKeyPanel && <ApiKeyPanel onClose={() => setShowKeyPanel(false)} isLive={state.storyboard.runway_mode === "LIVE"} />}
 
           {totalShots === 0 ? (
-            <DevCutEmptyState
-              isRunning={isRunning}
-              onStart={(prompt) => injectPrompt(prompt)}
-            />
+            isRunning ? (
+              <PlanningSkeleton
+                stalled={stalled}
+                queuePosition={queuePosition}
+                estimatedWaitSec={estimatedWaitSec}
+                onCancel={handleCancel}
+              />
+            ) : (
+              <>
+                {restoreFailed && (
+                  <div className="flex items-center justify-between gap-3 border border-amber-400/30 bg-amber-500/10 px-4 py-2.5">
+                    <p className="text-xs leading-5 text-amber-200/90">
+                      Couldn&apos;t load this thread&apos;s canvas. Your previous work may need a refresh.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setRestoreFailed(false)}
+                      className="font-mono text-[11px] uppercase tracking-[0.1em] text-amber-200/70 hover:text-amber-100"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+                <DevCutEmptyState
+                  isRunning={isRunning}
+                  onStart={(prompt) => injectPrompt(prompt)}
+                />
+              </>
+            )
           ) : (
             <div className="relative flex flex-1 flex-col gap-3 overflow-auto">
               {/* Pipeline action bar */}
@@ -1253,6 +1627,15 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
             lastError={lastError}
             shots={state.shots}
             storyboard={state.storyboard}
+            canvasIsEmpty={totalShots === 0 && !isRunning}
+            onCancel={handleCancel}
+            onOpenKeys={() => {
+              setShowKeyPanel(true);
+              setMobilePanel("canvas");
+            }}
+            queuePosition={queuePosition}
+            estimatedWaitSec={estimatedWaitSec}
+            stalled={stalled}
             onRetry={() => {
               setLastError(null);
               const lastUserMsg = state.shots.length > 0
@@ -1318,10 +1701,9 @@ function DevCutEmptyState({
           {DEVCUT.name} · canvas
         </p>
         <h2 className="dc-display text-2xl font-semibold tracking-tight text-[var(--dc-paper)] md:text-3xl">
-          Pick a door. Commission the cut.
-        </h2>
-        <p className="mx-auto max-w-lg text-sm leading-6 text-[var(--dc-mute)]">
-          Runway heroes + packaging here. HyperFrames keeps HTML composition.
+          What are you making?
+        </h2>          <p className="mx-auto max-w-lg text-sm leading-6 text-[var(--dc-mute)]">
+          Pick a brief and start a cut. DevCut generates Runway media, lands it on B2, and hands you a shareable MP4 + HyperFrames kit.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
           <button
@@ -1330,12 +1712,10 @@ function DevCutEmptyState({
             onClick={() => {
               setDoor("challenge");
               setDraft(DEVCUT_GOLDEN_CHALLENGE.brief);
-              const challenge = DEVCUT_DOORS.find((d) => d.id === "challenge")!;
-              onStart(`${challenge.prompt} ${DEVCUT_GOLDEN_CHALLENGE.brief}`);
             }}
             className="border border-transparent bg-[var(--dc-signal)] px-4 py-2 dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40"
           >
-            Run golden cut
+            Golden brief
           </button>
           <button
             type="button"
@@ -1343,16 +1723,11 @@ function DevCutEmptyState({
             onClick={() => {
               setDoor("submit");
               setDraft(DEVCUT_HF_DEMO.brief);
-              const submit = DEVCUT_DOORS.find((d) => d.id === "submit")!;
-              onStart(`${submit.prompt} ${DEVCUT_HF_DEMO.brief}`);
             }}
             className="border border-[var(--dc-cyan)]/45 bg-[var(--dc-cyan-soft)] px-4 py-2 dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan)] hover:bg-[var(--dc-cyan)]/20 disabled:opacity-40"
           >
-            HyperFrames demo
+            HyperFrames brief
           </button>
-          <p className="w-full dc-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-dim)]">
-            No key? MOCK stills — kit.zip still ships BRIEF.md
-          </p>
         </div>
       </div>
 
@@ -1399,7 +1774,7 @@ function DevCutEmptyState({
           <div>
             <div className="flex flex-wrap items-center gap-2 border-b border-[var(--dc-line)] px-4 py-2.5">
               <span className="dc-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-dim)]">
-                Seed
+                Start with a seed
               </span>
               {examples.map((ex) => (
                 <button
@@ -1418,6 +1793,9 @@ function DevCutEmptyState({
             </div>
             <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-stretch">
               <textarea
+                id="director-empty-brief"
+                name="brief"
+                aria-label="Cut brief"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 rows={3}
@@ -1429,7 +1807,7 @@ function DevCutEmptyState({
                 onClick={() => onStart(`${active.prompt} ${draft.trim()}`)}
                 className="shrink-0 self-stretch bg-[var(--dc-signal)] px-5 py-3 dc-mono text-xs font-medium uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40 sm:min-w-[10rem]"
               >
-                {door === "challenge" ? "Commission cut" : "Run Submit Ready"}
+                {door === "challenge" ? "Start Challenge Cut" : "Start Submit Ready cut"}
               </button>
             </div>
           </div>

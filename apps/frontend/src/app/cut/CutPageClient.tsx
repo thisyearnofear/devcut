@@ -117,7 +117,7 @@ export function CutPageClient() {
             Open MP4
           </a>
           <Link
-            href="/#desk"
+            href="/director"
             className="dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
           >
             Start fresh →

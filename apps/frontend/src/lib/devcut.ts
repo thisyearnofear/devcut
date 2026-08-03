@@ -2,9 +2,9 @@
 
 export const DEVCUT = {
   name: "DevCut",
-  tagline: "The Runway desk for developers",
+  tagline: "A judge-ready video cut from your brief",
   description:
-    "Plan shots, generate Runway stills and clips, stitch a durable MP4, and hand off to HyperFrames — without becoming a film studio.",
+    "Turn a hackathon brief or project into a storyboard, Runway footage, durable MP4, and HyperFrames handoff kit — without becoming a film studio.",
 } as const;
 
 export type DevCutDoorId = "challenge" | "submit" | "agent";
@@ -23,9 +23,9 @@ export interface DevCutDoor {
 export const DEVCUT_DOORS: DevCutDoor[] = [
   {
     id: "challenge",
-    label: "I need a visual spec",
+    label: "For hackathon organizers",
     title: "Challenge Cut",
-    body: "Turn a product brief and constraints into a 30–60s reference film builders can’t misread — plus a forkable kit.",
+    body: "Turn judging criteria and constraints into a reference film builders can follow — plus a forkable kit.",
     prompt: [
       "Mode: Challenge Cut (visual spec for builders).",
       "Create a ~45s reference film that visually specs what winning looks like.",
@@ -42,9 +42,9 @@ export const DEVCUT_DOORS: DevCutDoor[] = [
   },
   {
     id: "submit",
-    label: "I’m shipping a demo",
+    label: "For builders",
     title: "Submit Ready",
-    body: "From a HyperFrames project, repo, or product URL — Runway heroes + packaging into a launch-ready MP4.",
+    body: "Turn a repo, product URL, or HyperFrames project into a launch-ready demo cut.",
     prompt: [
       "Mode: Submit Ready (developer demo cut).",
       "Create a product-launch / demo cut.",
@@ -57,9 +57,9 @@ export const DEVCUT_DOORS: DevCutDoor[] = [
   },
   {
     id: "agent",
-    label: "I’m an agent",
-    title: "OpenAPI + x402",
-    body: "Start a metered job — unlock the canvas. Protocol probe under Integrators.",
+    label: "For integrators",
+    title: "Agent jobs",
+    body: "Start a metered job through x402 without pasting a Runway key.",
     prompt: "",
     href: "/director?mode=agent",
   },

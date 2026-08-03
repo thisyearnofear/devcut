@@ -200,6 +200,9 @@ export function AgentPaymentsPanel({
       )}
 
       <textarea
+        id="agent-job-brief"
+        name="brief"
+        aria-label="Paid job brief"
         value={brief}
         onChange={(e) => setBrief(e.target.value)}
         rows={3}

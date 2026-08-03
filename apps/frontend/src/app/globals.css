@@ -178,8 +178,8 @@ html {
   --dc-cyan: #2de2c5;
   --dc-cyan-soft: rgba(45, 226, 197, 0.14);
   --dc-paper: #f4efe4;
-  --dc-mute: rgba(244, 239, 228, 0.58);
-  --dc-dim: rgba(244, 239, 228, 0.32);
+  --dc-mute: rgba(244, 239, 228, 0.66);
+  --dc-dim: rgba(244, 239, 228, 0.5);
   --dc-cut: #ff3b55;
   --dc-line: rgba(244, 239, 228, 0.12);
 

@@ -162,9 +162,15 @@ export function LandingPage() {
     if (!introDone) return;
     const start = performance.now();
     let raf = 0;
+    let last = 0;
+    // Throttle the timecode to ~10fps — the clock ticks hundredths of a second,
+    // but a full LandingPage re-render every animation frame (~60fps) is wasted
+    // work. 100ms reads identically to a viewer.
     const tick = (t: number) => {
-      setClock(t - start);
       raf = requestAnimationFrame(tick);
+      if (t - last < 100) return;
+      last = t;
+      setClock(t - start);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
@@ -274,7 +280,7 @@ export function LandingPage() {
               }}
               className="transition-colors duration-200 hover:text-[var(--dc-paper)]"
             >
-              Grammar
+              How it works
             </button>
             <button
               type="button"
@@ -282,7 +288,7 @@ export function LandingPage() {
               disabled={cutting}
               className="hidden transition-colors duration-200 hover:text-[var(--dc-paper)] sm:inline"
             >
-              Golden cut
+              Sample cut
             </button>
           </nav>
         </header>
@@ -295,17 +301,17 @@ export function LandingPage() {
             className="max-w-3xl"
           >
             <p className="dc-mono mb-4 text-[11px] uppercase tracking-[0.22em] text-[var(--dc-cyan)]">
-              Developers × Runway
+              Hackathon video desk
             </p>
             <h1 className="dc-display dc-brand text-[clamp(3.25rem,14vw,7.5rem)] font-bold leading-[0.88] tracking-[-0.04em] text-[var(--dc-paper)]">
               {DEVCUT.name}
             </h1>
             <p className="dc-display mt-5 max-w-xl text-[clamp(1.35rem,3.4vw,2rem)] font-medium leading-tight tracking-[-0.02em] text-[var(--dc-paper)]">
-              Ship like it&apos;s 3 AM in the edit bay.
+              Turn a brief into a judge-ready cut.
             </p>
             <p className="mt-4 max-w-lg text-base leading-relaxed text-[var(--dc-mute)] sm:text-lg">
-              Plan shots. Generate Runway stills and clips. Stitch a durable MP4. Hand off to
-              HyperFrames — without becoming a film studio.
+              DevCut turns a hackathon brief, project URL, or repo into a storyboard, Runway footage,
+              durable MP4, and HyperFrames handoff kit.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -317,7 +323,7 @@ export function LandingPage() {
                 data-cuelume-release
                 className="dc-btn inline-flex items-center bg-[var(--dc-signal)] px-5 py-3 dc-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-50"
               >
-                Run golden cut
+                Try a sample cut
               </button>
               <button
                 type="button"
@@ -327,7 +333,7 @@ export function LandingPage() {
                 data-cuelume-release
                 className="dc-btn inline-flex items-center border border-[var(--dc-cyan)]/45 bg-[var(--dc-cyan-soft)] px-5 py-3 dc-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--dc-cyan)] hover:border-[var(--dc-cyan)] hover:bg-[var(--dc-cyan)]/20 disabled:opacity-50"
               >
-                HyperFrames demo
+                See the builder path
               </button>
             </div>
           </motion.div>
@@ -355,9 +361,12 @@ export function LandingPage() {
                 Desk
               </p>
               <h2 className="dc-display mt-1 text-2xl font-semibold tracking-tight text-[var(--dc-paper)] sm:text-3xl">
-                Pick a door. Commission the cut.
+                What are you shipping?
               </h2>
             </div>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--dc-mute)]">
+              Choose the outcome. We&apos;ll handle the shot plan, footage, stitch, and handoff.
+            </p>
           </div>
 
           {lastJob && (
@@ -411,7 +420,7 @@ export function LandingPage() {
                   <div className="flex flex-col gap-0">
                     <div className="flex flex-wrap items-center gap-2 border-b border-[var(--dc-line)] px-4 py-2.5">
                       <span className="dc-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-dim)]">
-                        Seed
+                        Start with a seed
                       </span>
                       {examples.map((ex) => (
                         <button
@@ -434,10 +443,13 @@ export function LandingPage() {
                         onChange={(e) => setBrief(e.target.value)}
                         rows={3}
                         className="min-h-[5.5rem] w-full flex-1 resize-y border border-[var(--dc-line)] bg-black/50 px-3 py-2.5 dc-mono text-sm leading-6 text-[var(--dc-paper)] outline-none placeholder:text-[var(--dc-dim)] focus:border-[var(--dc-cyan)]/50 sm:min-h-0"
+                        aria-label="Cut brief"
+                        id="landing-brief"
+                        name="brief"
                         placeholder={
                           door === "challenge"
-                            ? "Product brief, constraint stack, or judging criteria…"
-                            : "Product URL, GitHub repo, or HyperFrames notes…"
+                            ? "What should builders understand, build, or avoid?"
+                            : "Paste a product URL, GitHub repo, or HyperFrames notes…"
                         }
                       />
                       <button
@@ -448,11 +460,11 @@ export function LandingPage() {
                         data-cuelume-release
                         className="dc-btn inline-flex shrink-0 items-center justify-center self-stretch bg-[var(--dc-signal)] px-5 py-3 dc-mono text-xs font-medium uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40 sm:min-w-[11rem]"
                       >
-                        {door === "challenge" ? "Commission cut" : "Run Submit Ready"}
+                        {door === "challenge" ? "Start Challenge Cut" : "Start Submit Ready cut"}
                       </button>
                     </div>
                     <p className="border-t border-[var(--dc-line)] px-4 py-2 dc-mono text-[10px] text-[var(--dc-dim)]">
-                      Hard-cut to canvas · MOCK without a Runway key
+                      You&apos;ll get a storyboard, media, MP4, and HyperFrames handoff · MOCK mode is available without a key
                     </p>
                   </div>
                 )}
@@ -493,7 +505,7 @@ export function LandingPage() {
                 disabled={cutting}
                 className="dc-btn bg-[var(--dc-signal)] px-5 py-3 dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-ink)] disabled:opacity-50"
               >
-                Run golden cut
+                Try a sample cut
               </button>
             </div>
           </div>
