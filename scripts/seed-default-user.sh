@@ -12,7 +12,7 @@
 # Wrapper: `npm run seed` (also runs automatically as part of `npm run dev:infra`).
 set -euo pipefail
 
-CONTAINER="${INTELLIGENCE_PG_CONTAINER:-hackathon-intelligence-notion-postgres-1}"
+CONTAINER="${INTELLIGENCE_PG_CONTAINER:-directors-canvas-prod-postgres-1}"
 ORG_ID="${INTELLIGENCE_DEFAULT_ORG_ID:-casa-de-erlang}"
 
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then

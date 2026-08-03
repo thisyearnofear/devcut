@@ -327,6 +327,18 @@ fi
 
 info "All services healthy ✓"
 
+# ── 9b. SEED INTELLIGENCE DEFAULT USER ──────────────────────────────────────
+# The BFF sends userId='default' to Intelligence. If that user doesn't exist
+# in cpki.users, every thread-create returns 500 (threads_user_id_fkey).
+# This is idempotent (ON CONFLICT DO NOTHING) and safe to run every deploy.
+info "Seeding Intelligence default user..."
+ssh "$REMOTE" "
+  sudo docker exec directors-canvas-prod-postgres-1 \
+    psql -U intelligence -d intelligence_app -v ON_ERROR_STOP=1 -c \
+    \"INSERT INTO cpki.users (id, organization_id, created_at) VALUES ('default', 'casa-de-erlang', NOW()), ('1_default', 'casa-de-erlang', NOW()) ON CONFLICT (id) DO NOTHING;\" \
+  2>&1 && echo 'seed: ok' || echo 'seed: skipped (container not found)'
+"
+
 # ── 10. CLEAN OLD FILES (first deploy with this system) ─────────────────────
 info "Cleaning old deployment structure..."
 ssh "$REMOTE" "
