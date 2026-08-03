@@ -87,6 +87,18 @@ def _new_shot_id() -> str:
     return f"shot_{uuid4().hex[:8]}"
 
 
+def _finalize(update: dict, state: Optional[dict] = None) -> dict:
+    """Persist a cross-restart snapshot of restore-relevant state to B2.
+
+    Fire-and-forget: never raises, never blocks the tool's return path
+    meaningfully (upload happens on a daemon thread).
+    """
+    from .state_snapshots import save_snapshot_async
+
+    save_snapshot_async(update, state)
+    return update
+
+
 @tool
 def generate_storyboard_plan(
     title: Annotated[str, "Working title for the piece. Short."],
@@ -154,7 +166,7 @@ def generate_storyboard_plan(
     _log("INFO", "tool_exit", tool="generate_storyboard_plan", title=title, n_shots=len(out_shots), logline=logline)
 
     return Command(
-        update={
+        update=_finalize({
             "storyboard": storyboard,
             "shots": out_shots,
             "header": {
@@ -162,7 +174,7 @@ def generate_storyboard_plan(
                 "subtitle": logline or f"Runway {runway_mode_label()}",
             },
             "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
-        }
+        })
     )
 
 
@@ -304,7 +316,7 @@ def generate_shot_reference(
     if shot.get("index", 0) == 0 and not storyboard.get("style_ref_url"):
         update["storyboard"] = {**storyboard, "style_ref_url": result.url}
 
-    return Command(update=update)
+    return Command(update=_finalize(update, state))
 
 
 @tool
@@ -418,7 +430,7 @@ def generate_shot_video(
         update["canonical_hash"] = result.canonical_hash
     if loop_meta:
         update["agent_loop"] = loop_meta
-    return Command(update=update)
+    return Command(update=_finalize(update, state))
 
 
 @tool
@@ -586,7 +598,7 @@ def generate_all_references(
     if storyboard.get("style_ref_url"):
         update["storyboard"] = storyboard
 
-    return Command(update=update)
+    return Command(update=_finalize(update, state))
 
 
 @tool
@@ -685,7 +697,7 @@ def generate_all_videos(
         update["canonical_hash"] = last_canonical
     if agent_loop_meta:
         update["agent_loop"] = agent_loop_meta
-    return Command(update=update)
+    return Command(update=_finalize(update, state))
 
 
 @tool
@@ -822,7 +834,7 @@ def stitch_final_cut(
         update["canonical_hash"] = state["canonical_hash"]
     if (state or {}).get("agent_loop"):
         update["agent_loop"] = state["agent_loop"]
-    return Command(update=update)
+    return Command(update=_finalize(update, state))
 
 
 @tool

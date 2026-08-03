@@ -58,6 +58,15 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - `apps/mcp/src/index.ts`: MCP server with widget definitions
 - `apps/frontend/`: Next.js app with storyboard canvas
 
+## Ops Knowledge (August 2026)
+- **WS topology**: browser → `wss://devcut.thisyearnofear.com/ws/client/websocket` → Traefik `PathPrefix(/ws)` + StripPrefix → Intelligence Phoenix gateway (4403) mounts `/client/websocket`. Phoenix JS appends `/websocket` to whatever base it's given; `PUBLIC_INTELLIGENCE_WS_URL` (ecosystem override for director-bff) must therefore end in `/ws/client`.
+- **Twin-thread model (Intelligence mode)**: runs execute on an internal execution thread while the UI owns another id. Budget/billing keys: the BFF injects `ui_thread_id` and the agent bills THAT (`_billing_thread_id()` in runway_client.py), matching BFF budget checks.
+- **langgraph runs in-memory**: restarts wipe all thread checkpoints. Restores survive via B2 snapshots (`snapshots/<thread>.json`, written by `state_snapshots.py` after each mutating tool) — BFF `/api/thread-state` falls back to them automatically.
+- **Deploy safety**: `deploy-local.sh` does per-app fingerprinting (scripts/dirhash.py) → selective PM2 restarts only for changed services; agent restarts wait for `/readyz.inflight==0` (FORCE_DEPLOY=1 overrides); rollback restores the exact pre-deploy symlink target only if it carries `.health-ok`; agent `import main, director` is gated pre-ship.
+- **Diagnostic traps**: never `GET /` on the intelligence app-api (unhandled rejection → s6 restart masquerades as a crash loop); its Phoenix gateway 500s unmatched WS paths instead of 404; langgraph thread-culler 'permission denied' spam is non-fatal.
+- **ffmpeg is required for stitcher LIVE mode** (installed on nuncio-vultr Aug 2026); without it stitches return the MOCK placeholder (Big Buck Bunny).
+- **langgraph-api 0.8.7 is EOL** — upgrade tracked in `docs/adr/0001-agent-runtime.md`.
+
 ## Migration Notes (July 2026)
 - Migrated from snel-bot (user `deploy`) to nuncio-vultr (user `linuxuser`)
 - Port conflicts resolved: Coolify owns 80/443/8000, directors-canvas services use 3100/4010/8123/3011

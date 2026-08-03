@@ -298,10 +298,15 @@ def _live_stitch(shots: list[dict], slug: str) -> StitchResult:
     export_dir.mkdir(parents=True, exist_ok=True)
 
     out_name = f"{slug}-{int(time.time())}.mp4"
-    out_path = export_dir / out_name
 
+    # The working file lives in a temp dir: genblaze's path-containment
+    # policy only allows file:// roots under temp dirs, so persisting a
+    # file from public/exports/ is refused. We stitch in temp, upload to
+    # B2 from there, and only copy into exports/ as a dev fallback when
+    # B2 is disabled.
     with tempfile.TemporaryDirectory(prefix="stitch-") as tmp:
         tmp_dir = Path(tmp)
+        out_path = tmp_dir / out_name
         local_inputs: list[Path] = []
         any_audio = False
         for i, s in enumerate(shots):
@@ -346,46 +351,55 @@ def _live_stitch(shots: list[dict], slug: str) -> StitchResult:
 
         _ffmpeg_concat(local_inputs, out_path, force_reencode=any_audio)
 
-    duration = sum(int(s.get("duration") or 5) for s in shots if s.get("video_url"))
+        duration = sum(int(s.get("duration") or 5) for s in shots if s.get("video_url"))
 
-    # Local export URL so the canvas can play immediately in dev.
-    local_url = f"{_export_base_url()}/{out_name}"
-    result = StitchResult(
-        url=local_url,
+        from .media_storage import b2_enabled, persist_file, require_durable, sha256_file
+        from .media_storage import DurableStorageError
+        from .runway_client import _billing_thread_id
+
+        final_sha256 = sha256_file(out_path)
+        tenant = _billing_thread_id() or "director"
+
+        stored = None
+        if b2_enabled():
+            stored = persist_file(
+                out_path,
+                content_type="video/mp4",
+                tenant_id=tenant,
+                strategy="hierarchical",
+            )
+            if not stored and require_durable():
+                raise DurableStorageError(
+                    "B2_REQUIRE_DURABLE=1 but final cut upload returned None"
+                )
+        elif require_durable():
+            raise DurableStorageError(
+                "B2_REQUIRE_DURABLE=1 but Genblaze/B2 is not enabled — "
+                "set GENBLAZE_ENABLED=1 and B2_* for golden/demo runs."
+            )
+
+        if not stored:
+            # Dev fallback: serve the MP4 from the frontend's public/exports.
+            shutil.copyfile(out_path, export_dir / out_name)
+            local_path = export_dir / out_name
+
+    if stored:
+        return StitchResult(
+            url=stored.url,  # canvas plays the durable B2 URL in prod
+            mode="LIVE",
+            duration=duration,
+            shot_count=len(shots),
+            durable_url=stored.url,
+            final_sha256=final_sha256,
+        )
+    return StitchResult(
+        url=f"{_export_base_url()}/{out_name}",
         mode="LIVE",
         duration=duration,
         shot_count=len(shots),
-        local_path=str(out_path),
+        local_path=str(local_path),
+        final_sha256=final_sha256,
     )
-
-    from .media_storage import b2_enabled, persist_file, require_durable, sha256_file
-    from .media_storage import DurableStorageError
-    from .runway_client import _current_thread_id
-
-    result.final_sha256 = sha256_file(out_path)
-    tenant = _current_thread_id() or "director"
-
-    if b2_enabled():
-        stored = persist_file(
-            out_path,
-            content_type="video/mp4",
-            tenant_id=tenant,
-            strategy="hierarchical",
-        )
-        if stored:
-            result.durable_url = stored.url
-            result.url = stored.url  # canvas plays the durable URL in prod
-        elif require_durable():
-            raise DurableStorageError(
-                "B2_REQUIRE_DURABLE=1 but final cut upload returned None"
-            )
-    elif require_durable():
-        raise DurableStorageError(
-            "B2_REQUIRE_DURABLE=1 but Genblaze/B2 is not enabled — "
-            "set GENBLAZE_ENABLED=1 and B2_* for golden/demo runs."
-        )
-
-    return result
 
 
 # --------------------------------------------------------------------- public

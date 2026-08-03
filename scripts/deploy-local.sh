@@ -321,9 +321,9 @@ ssh "$REMOTE" "
   # Shared .env at release root (for any direct node processes)
   ln -sf $REMOTE_PATH/.env $REMOTE_RELEASE/.env 2>/dev/null || true
 
-  # Agent .env symlink
+  # Agent .env symlink (agent/ → apps/ → <release>/ → releases/ → /opt/gen-ui)
   mkdir -p $REMOTE_RELEASE/apps/agent
-  ln -sf ../../../.env $REMOTE_RELEASE/apps/agent/.env 2>/dev/null || true
+  ln -sf ../../../../.env $REMOTE_RELEASE/apps/agent/.env 2>/dev/null || true
 
   # Ensure exports dir
   mkdir -p $REMOTE_RELEASE/apps/frontend/public/exports

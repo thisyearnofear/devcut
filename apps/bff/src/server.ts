@@ -135,6 +135,34 @@ async function cutRecordRead(hash: string): Promise<Record<string, unknown> | nu
   }
 }
 
+// ---- Daily cost counter + alert ----
+// Counts ALL Runway calls per UTC day; fires ONE Discord alert when the
+// day crosses the threshold. ~150 calls ≈ ~10 full golden cuts on the
+// shared key — enough early warning before a surprise invoice.
+const COST_ALERT_DAILY_CALLS = Number(process.env.COST_ALERT_DAILY_CALLS ?? 150);
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL ?? "";
+
+async function trackDailyCost(threadId: string): Promise<void> {
+  const day = new Date().toISOString().slice(0, 10);
+  const key = `devcut:cost:${day}`;
+  let count = 0;
+  try {
+    count = await _redis.incr(key);
+    await _redis.expire(key, 48 * 3600);
+  } catch { return; }
+  if (count !== COST_ALERT_DAILY_CALLS) return; // alert exactly once, at crossing
+  if (!DISCORD_WEBHOOK_URL) return;
+  try {
+    await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        content: `⚠️ DevCut daily Runway usage hit **${count} calls** (threshold ${COST_ALERT_DAILY_CALLS}) on ${day} UTC. Last thread: \`${threadId}\`. Consider raising COST_ALERT_DAILY_CALLS or checking for runaway loops.`,
+      }),
+    });
+  } catch { /* alerting is best-effort */ }
+}
+
 async function cutRecordWrite(hash: string, patch: Record<string, unknown>): Promise<void> {
   const prev = (await cutRecordRead(hash)) ?? {};
   const next = { ...prev, ...patch };
@@ -248,6 +276,7 @@ async function handleRequest(req: Request): Promise<Response> {
     const threadId = body.thread_id as string | undefined;
     if (threadId) {
       const next = await incrementThreadCallCount(threadId);
+      void trackDailyCost(threadId);
       const remaining = Math.max(0, RUNWAY_BUDGET - next);
       return new Response(
         JSON.stringify({ calls_used: next, calls_remaining: remaining }),
@@ -319,6 +348,17 @@ async function handleRequest(req: Request): Promise<Response> {
       if (runsRes.ok) {
         const runs = await runsRes.json() as Array<Record<string, unknown>>;
         runStatus = (runs?.[0]?.status as string) ?? "";
+      }
+      // LangGraph state wipe (agent restart) ≠ cut gone: rehydrate
+      // resumability from the B2 snapshot the agent writes after mutations.
+      if (!resumable) {
+        const snap = await fetchSnapshot(tid);
+        if (snap) {
+          const shots = Array.isArray(snap.shots) ? (snap.shots as Array<Record<string, unknown>>) : [];
+          shotsReady = shots.filter((s) => s.video_url || s.clip_url || s.ref_image_url).length;
+          finalUrl = ((snap.final_video_url ?? snap.durable_url ?? "") as string) || finalUrl;
+          resumable = shots.length > 0;
+        }
       }
     } catch { /* probe failure → not resumable */ }
     return json({
@@ -520,7 +560,28 @@ async function handleRequest(req: Request): Promise<Response> {
 // ---- Thread-state proxy ----
 // Fetches persisted LangGraph checkpoint for a thread so the frontend can
 // restore the canvas when the user switches to a previous thread.
+//
+// FALLBACK: the in-memory LangGraph runtime wipes state on restart. The
+// agent snapshots restore-relevant state to B2 (snapshots/<threadId>.json)
+// after every mutation, so when LangGraph can no longer serve real state
+// we rehydrate the canvas from the durable snapshot.
 const LANGGRAPH_URL = process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123";
+// NOTE: B2_PUBLIC_URL_BASE already includes `/file/<bucket>`.
+const SNAP_URL_BASE = (process.env.B2_PUBLIC_URL_BASE ?? "").replace(/\/$/, "");
+
+async function fetchSnapshot(threadId: string): Promise<Record<string, unknown> | null> {
+  if (!SNAP_URL_BASE) return null;
+  try {
+    const res = await fetch(
+      `${SNAP_URL_BASE}/snapshots/${encodeURIComponent(threadId)}.json`,
+      { signal: AbortSignal.timeout(4000) },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
 
 async function handleThreadState(threadId: string): Promise<Response> {
   try {
@@ -528,11 +589,40 @@ async function handleThreadState(threadId: string): Promise<Response> {
       signal: AbortSignal.timeout(5000),
     });
     const body = await upstream.text();
+    // Live checkpoint wins when it actually carries content; a 200 with an
+    // empty/absent values object (post-restart wipe) falls through to B2.
+    if (upstream.ok) {
+      try {
+        const parsed = JSON.parse(body) as { values?: Record<string, unknown> };
+        const vals = parsed.values ?? {};
+        const shots = Array.isArray(vals.shots) ? vals.shots : [];
+        if (Object.keys(vals).length > 0 && (shots.length > 0 || vals.storyboard)) {
+          return new Response(body, {
+            status: upstream.status,
+            headers: { "content-type": "application/json" },
+          });
+        }
+      } catch { /* unparseable → try snapshot */ }
+    }
+    const snap = await fetchSnapshot(threadId);
+    if (snap) {
+      return new Response(JSON.stringify({ values: snap, source: "b2-snapshot" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     return new Response(body, {
       status: upstream.status,
       headers: { "content-type": "application/json" },
     });
   } catch (e) {
+    const snap = await fetchSnapshot(threadId);
+    if (snap) {
+      return new Response(JSON.stringify({ values: snap, source: "b2-snapshot" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify({ error: "upstream_timeout" }), {
       status: 504,
       headers: { "content-type": "application/json" },
