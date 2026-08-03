@@ -337,6 +337,17 @@ interface ProductionSettings {
   shotDuration: number;
 }
 
+/** Short, human-readable thread title derived from a staged brief. */
+function deriveThreadTitle(prompt: string, modeSlug: string | null): string {
+  const door = modeSlug ? DEVCUT_DOORS.find((d) => d.id === modeSlug) : undefined;
+  const cleaned = prompt.replace(/\s+/g, " ").trim();
+  // Door prompts end with "Brief follows:" — prefer the user's own words.
+  const afterBrief = cleaned.split(/brief follows:/i).pop()?.trim() ?? cleaned;
+  const base = afterBrief.replace(/^Mode:.*?\.\s*/, "").trim() || cleaned;
+  const snippet = base.length > 46 ? `${base.slice(0, 46)}…` : base;
+  return door?.title ? `${door.title} — ${snippet}` : snippet || "Untitled cut";
+}
+
 const DEFAULT_SETTINGS: ProductionSettings = {
   orientation: "landscape",
   shotCount: 4,
@@ -509,9 +520,15 @@ function DirectorChat({
   shots,
   storyboard,
   canvasIsEmpty,
+  preseededDraft,
+  commissionHint,
 }: {
   onSend: (msg: string) => void;
   isRunning: boolean;
+  /** Draft staged by an external flow (landing / remix link) — user sends it. */
+  preseededDraft?: string | null;
+  /** One-line commission summary shown while a staged draft awaits sending. */
+  commissionHint?: string | null;
   progress: AgentProgress;
   lastError: string | null;
   onRetry: () => void;
@@ -527,6 +544,11 @@ function DirectorChat({
   const [settings, setSettings] = useState<ProductionSettings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
   const [draft, setDraft] = useState("");
+  // Stage externally-supplied briefs (?brief= / remix links) into the composer —
+  // the user reviews and sends explicitly (each run spends Runway credits).
+  useEffect(() => {
+    if (preseededDraft) setDraft(preseededDraft);
+  }, [preseededDraft]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -902,6 +924,11 @@ function DirectorChat({
             Start cut
           </button>
         </div>
+        {commissionHint && draft.trim() && (
+          <p className="mb-1 font-mono text-[11px] leading-4 text-[var(--dc-cyan,#2de2c5)]/85">
+            {commissionHint}
+          </p>
+        )}
         <div className="mt-1.5 flex items-center justify-between">
           <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/45">
             ↵ start · shift+↵ newline
@@ -978,6 +1005,15 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
       });
   }, [threadId]);
 
+  // Staged commission (brief pre-filled, awaiting explicit send) + early
+  // thread naming so the drawer shows a real title instead of "New thread".
+  const [pendingCommission, setPendingCommission] = useState<{
+    prompt: string;
+    hint: string;
+    title: string;
+  } | null>(null);
+  const [pendingThreadTitle, setPendingThreadTitle] = useState<string | null>(null);
+
   // Auto-inject ?brief= / paid x402 unlock from landing or agent settle
   const briefInjectedRef = useRef(false);
   useEffect(() => {
@@ -1037,7 +1073,22 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
       remix && door?.prompt && !brief.includes(door.prompt.slice(0, 40))
         ? `${door.prompt} ${brief}`
         : brief;
-    setTimeout(() => injectPrompt(prompt), 800);
+    // Stage, don't auto-send: each run spends real credits, so the launch is
+    // an explicit user decision (and existing threads stay visible meanwhile).
+    setPendingCommission({
+      prompt,
+      title: deriveThreadTitle(prompt, modeSlug),
+      hint:
+        "Staged brief — hero stills + motion clips + stitched MP4 · ~5 min · " +
+        `${runwayKey ? "your Runway key" : "server key"} · press ↵ Start cut to begin.`,
+    });
+    if (isRunning) {
+      toast.message("A cut is already running", {
+        description:
+          "This brief is staged in the composer — send it when the current run finishes.",
+        duration: 5000,
+      });
+    }
   }, [agent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep suggestions registered (used by the chat component)
@@ -1157,6 +1208,59 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
     },
     [agent, copilotkit, isRunning],
   );
+
+  // Composer send path: staged commissions clear on send and queue their
+  // derived title for early thread naming once the run assigns a threadId.
+  const lastTitledThreadRef = useRef<string>("");
+  const handleComposeSend = useCallback(
+    (msg: string) => {
+      if (pendingCommission) {
+        setPendingThreadTitle(pendingCommission.title);
+        setPendingCommission(null);
+      }
+      injectPrompt(msg);
+    },
+    [injectPrompt, pendingCommission],
+  );
+
+  const agentThreadId = (agent?.threadId ?? undefined) as string | undefined;
+  useEffect(() => {
+    if (!agentThreadId || !pendingThreadTitle) return;
+    if (lastTitledThreadRef.current === agentThreadId) return;
+    let cancelled = false;
+    const attempt = () =>
+      fetch(`/api/copilotkit/threads/${encodeURIComponent(agentThreadId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId: "director", name: pendingThreadTitle }),
+      });
+    const done = (r: Response) => {
+      if (r.ok) {
+        lastTitledThreadRef.current = agentThreadId;
+        setPendingThreadTitle(null);
+      }
+      return r.ok;
+    };
+    // First attempt shortly after the run assigns the thread; one retry to
+    // absorb the server-side create/commit race (~11ms observed in prod).
+    const t1 = setTimeout(() => {
+      if (cancelled) return;
+      attempt()
+        .then(done)
+        .catch(() => {})
+        .then((ok) => {
+          if (ok || cancelled) return;
+          setTimeout(() => {
+            if (cancelled) return;
+            attempt().then(done).catch(() => {});
+          }, 4000);
+        });
+    }, 1200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t1);
+    };
+  }, [agentThreadId, pendingThreadTitle]);
 
   // Use live agent state when a run is active, otherwise fall back to the
   // locally-stored checkpoint so previous threads render without needing a run.
@@ -1621,7 +1725,9 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
           }`}
         >
           <DirectorChat
-            onSend={injectPrompt}
+            onSend={handleComposeSend}
+            preseededDraft={pendingCommission?.prompt ?? null}
+            commissionHint={pendingCommission?.hint ?? null}
             isRunning={isRunning}
             progress={progress}
             lastError={lastError}
