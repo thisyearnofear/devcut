@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { z } from "zod";
 import { Toaster, toast } from "sonner";
 import {
@@ -357,12 +357,12 @@ const AVATAR_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_RUNWAY_AVATAR_ID);
 // The Runway WebRTC SDK (@runwayml/avatars-react) ships a sizeable bundle and
 // pulls in a styles.css. Only load it when the avatar is actually configured,
 // so every /director visitor doesn't pay for it.
-const AvatarShowcase = AVATAR_CONFIGURED
+const AvatarShowcase: ComponentType<{ progressNarration?: string | null }> | null = AVATAR_CONFIGURED
   ? dynamic(() =>
       import("@/components/storyboard/AvatarShowcase").then((m) => m.AvatarShowcase),
     )
   : null;
-const AvatarPanel = AVATAR_CONFIGURED
+const AvatarPanel: ComponentType<{ storyboard: Storyboard }> | null = AVATAR_CONFIGURED
   ? dynamic(() =>
       import("@/components/storyboard/AvatarPanel").then((m) => m.AvatarPanel),
     )
@@ -795,7 +795,7 @@ function DirectorChat({
       </div>
 
       {/* Avatar — pinned above input (only when configured) */}
-      {AVATAR_CONFIGURED && (
+      {AVATAR_CONFIGURED && AvatarPanel && (
         <div className="border-t border-white/10">
           <AvatarPanel storyboard={storyboard} />
         </div>
@@ -1814,7 +1814,7 @@ function DevCutEmptyState({
         )}
       </div>
 
-      {!AVATAR_CONFIGURED && <AvatarShowcase progressNarration={null} />}
+      {!AVATAR_CONFIGURED && AvatarShowcase && <AvatarShowcase progressNarration={null} />}
     </div>
   );
 }
