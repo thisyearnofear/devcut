@@ -104,15 +104,12 @@ export async function rewriteWsUrl(resPromise: Response | Promise<Response>): Pr
   let changed = false;
   const intel = json.intelligence as Record<string, unknown> | undefined;
   if (intel?.wsUrl) {
-    // Browser builds Phoenix socket URLs as `${wsUrl}/websocket`; the
-    // gateway mounts the socket at /client/websocket, so the public base
-    // must carry /client for every consumer of this field.
-    intel.wsUrl = `${PUBLIC_INTELLIGENCE_WS_URL.replace(/\/$/, "")}/client`;
+    intel.wsUrl = PUBLIC_INTELLIGENCE_WS_URL;
     changed = true;
   }
   const realtime = json.realtime as Record<string, unknown> | undefined;
   if (realtime?.clientUrl && typeof realtime.clientUrl === "string") {
-    realtime.clientUrl = `${PUBLIC_INTELLIGENCE_WS_URL.replace(/\/$/, "")}/client`;
+    realtime.clientUrl = PUBLIC_INTELLIGENCE_WS_URL;
     changed = true;
   }
   if (changed) {
