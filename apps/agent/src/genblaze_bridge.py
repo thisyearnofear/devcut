@@ -81,9 +81,7 @@ def _reference_asset(image_url: str) -> "Asset":
     manifests unstable when CDN URLs rotate — so we fetch + hash when we can.
     """
     import hashlib
-    import tempfile
     import urllib.request
-    from pathlib import Path
 
     from genblaze_core import Asset
 
@@ -95,15 +93,14 @@ def _reference_asset(image_url: str) -> "Asset":
             data = resp.read()
             content_type = resp.headers.get_content_type() or "image/jpeg"
         digest = hashlib.sha256(data).hexdigest()
-        suffix = ".jpg" if "jpeg" in content_type or "jpg" in content_type else ".png"
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(data)
-            path = Path(tmp.name)
-        # Keep the temp file for the duration of the pipeline transfer;
-        # OS will clean /tmp eventually. Prefer file:// so sink/provider
-        # read stable local bytes rather than a possibly-expiring CDN URL.
+        # NOTE: do NOT swap in a file:// URL for the downloaded bytes —
+        # genblaze's RunwayProvider SSRF-validates prompt_image as
+        # HTTPS-only (and a remote API can't fetch local files anyway).
+        # The bytes are fetched solely to compute a stable sha256 for
+        # manifest/cache integrity; the provider consumes the durable
+        # B2 URL below.
         return Asset(
-            url=path.as_uri(),
+            url=image_url,
             media_type=content_type if content_type.startswith("image/") else "image/jpeg",
             sha256=digest,
             size_bytes=len(data),
