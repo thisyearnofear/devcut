@@ -336,6 +336,7 @@ info "Installing agent Python deps..."
 ssh "$REMOTE" "cd $REMOTE_RELEASE/apps/agent && $UV_BIN sync --frozen --no-dev 2>&1" | tail -5
 
 info "Updating ecosystem.config.js..."
+node --check "$ROOT/ecosystem.config.js" || fail "ecosystem.config.js has a syntax error — refusing to ship a config PM2 cannot parse"
 rsync -az "$ROOT/ecosystem.config.js" "$REMOTE:$REMOTE_PATH/ecosystem.config.js"
 
 # ── 6b. DRAIN GATE (agent restarts only) ────────────────────────────────────
@@ -382,10 +383,20 @@ else
     [ "$FOUND" -eq 1 ] || continue
     PM=$(pm2name "$SVC")
     info "Reloading $PM..."
-    ssh "$REMOTE" "pm2 startOrReload $REMOTE_PATH/ecosystem.config.js --only $PM --update-env 2>&1 | tail -1"
+    OLD_PID=$(ssh "$REMOTE" "pm2 jlist 2>/dev/null | python3 -c 'import json,sys\nfor a in json.load(sys.stdin):\n  if a[\"name\"] == \"$PM\": print(a[\"pid\"]); break' 2>/dev/null || echo ''")
+    ssh "$REMOTE" "pm2 startOrReload $REMOTE_PATH/ecosystem.config.js --only $PM --update-env"
     echo "$TIMESTAMP" | ssh "$REMOTE" "cat > $BOUND_DIR/$SVC"
     # The agent's langgraph boot is slow (~25s) — give it a head start.
     [ "$SVC" = agent ] && sleep 8 || sleep 2
+    # Verify the reload actually recycled the process — pm2 startOrReload can
+    # silently no-op; fall back to delete+start so a skipped restart can never
+    # leave a stale process running a deleted release.
+    NEW_PID=$(ssh "$REMOTE" "pm2 jlist 2>/dev/null | python3 -c 'import json,sys\nfor a in json.load(sys.stdin):\n  if a[\"name\"] == \"$PM\": print(a[\"pid\"]); break' 2>/dev/null || echo ''")
+    if [ -n "$OLD_PID" ] && [ "$OLD_PID" = "$NEW_PID" ]; then
+      warn "$PM pid unchanged ($OLD_PID) — startOrReload no-op; forcing delete+start"
+      ssh "$REMOTE" "pm2 delete $PM >/dev/null 2>&1 || true; pm2 start $REMOTE_PATH/ecosystem.config.js --only $PM 2>&1 | tail -1"
+      [ "$SVC" = agent ] && sleep 8 || sleep 2
+    fi
   done
 fi
 sleep 5

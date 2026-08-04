@@ -21,6 +21,7 @@ dependencies = [
     "runwayml>=3.0.0",
     "genblaze>=0.4.0",
     "genblaze-runway>=0.3.3",
+    "langgraph-api>=0.11",
 ]
 
 [build-system]

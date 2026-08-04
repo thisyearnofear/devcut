@@ -89,7 +89,8 @@ module.exports = {
     {
       name: 'director-agent',
       script: path.join(CURRENT, 'apps/agent/.venv/bin/langgraph'),
-      args: 'dev --host 0.0.0.0 --port 8123 --no-browser',
+      // Concurrency: serial (1) by default; raise carefully (Runway rate limits)
+      args: `dev --host 0.0.0.0 --port 8123 --no-browser --n-jobs-per-worker ${process.env.LANGGRAPH_JOBS_PER_WORKER || '4'}`,
       cwd: path.join(CURRENT, 'apps/agent'),
       env: serviceEnv({
         PATH: path.join(CURRENT, 'apps/agent/.venv/bin') + ':/home/linuxuser/.local/bin:/usr/local/bin:/usr/bin:/bin',
