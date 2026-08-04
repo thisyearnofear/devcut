@@ -7,6 +7,7 @@ import {
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { randomUUID } from "node:crypto";
 import Redis from "ioredis";
+import { identifyUser, identityFromCookie, authEnabled } from "./auth.js";
 
 import {
   breakerCheck,
@@ -95,25 +96,32 @@ _redis.connect().catch(() => {
 // In-memory fallback for when Redis is down.
 const _memCounts = new Map<string, number>();
 
-async function threadCallCount(threadId: string): Promise<number> {
+// Budget counters are keyed per user + thread so one heavy user can't
+// exhaust the shared server key for everyone.
+function budgetKey(userId: string, threadId: string): string {
+  return `${BUDGET_KEY_PREFIX}${userId}:${threadId}`;
+}
+
+async function threadCallCount(userId: string, threadId: string): Promise<number> {
   try {
-    const val = await _redis.get(`${BUDGET_KEY_PREFIX}${threadId}`);
+    const val = await _redis.get(budgetKey(userId, threadId));
     return val ? parseInt(val, 10) : 0;
   } catch {
-    return _memCounts.get(threadId) ?? 0;
+    return _memCounts.get(`${userId}:${threadId}`) ?? 0;
   }
 }
 
-async function incrementThreadCallCount(threadId: string): Promise<number> {
+async function incrementThreadCallCount(userId: string, threadId: string): Promise<number> {
   try {
-    const key = `${BUDGET_KEY_PREFIX}${threadId}`;
+    const key = budgetKey(userId, threadId);
     const next = await _redis.incr(key);
     // Refresh TTL on every increment so active threads don't expire mid-use.
     await _redis.expire(key, BUDGET_KEY_TTL_SECONDS);
     return next;
   } catch {
-    const next = (_memCounts.get(threadId) ?? 0) + 1;
-    _memCounts.set(threadId, next);
+    const mk = `${userId}:${threadId}`;
+    const next = (_memCounts.get(mk) ?? 0) + 1;
+    _memCounts.set(mk, next);
     return next;
   }
 }
@@ -190,7 +198,9 @@ const copilotApp = createCopilotEndpoint({
   basePath: "/api/copilotkit",
   runtime: new CopilotRuntime({
     intelligence,
-    identifyUser: () => ({ id: "default", name: "Hackathon User" }),
+    // Auth.js v5 session-cookie → gh:<id>; anonymous stays 'default'.
+    // New identities are lazily ensured in cpki.users (FK on threads).
+    identifyUser,
     licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
     agents: { default: agent, director },
     lockTtlSeconds: RUNTIME_LOCK_TTL,
@@ -250,6 +260,18 @@ async function handleRequest(req: Request): Promise<Response> {
     return handleReadyz();
   }
 
+  // ---- Auth wiring probe (no secrets echoed) ----
+  if (url.pathname === "/api/auth-probe" && req.method === "GET") {
+    const ident = await identityFromCookie(req.headers.get("cookie"));
+    return new Response(
+      JSON.stringify({
+        auth_enabled: authEnabled,
+        identity: ident ? { id: ident.id, name: ident.name } : null,
+      }),
+      { headers: { "content-type": "application/json" } },
+    );
+  }
+
   // ---- DevCut x402 job meter (catalog + paid SKUs) ----
   const x402Res = await handleX402(req);
   if (x402Res) return x402Res;
@@ -275,7 +297,8 @@ async function handleRequest(req: Request): Promise<Response> {
     try { body = await req.json() as Record<string, unknown>; } catch { /* ignore */ }
     const threadId = body.thread_id as string | undefined;
     if (threadId) {
-      const next = await incrementThreadCallCount(threadId);
+      const userId = (body.user_id as string | undefined) || "default";
+      const next = await incrementThreadCallCount(userId, threadId);
       void trackDailyCost(threadId);
       const remaining = Math.max(0, RUNWAY_BUDGET - next);
       return new Response(
@@ -292,7 +315,8 @@ async function handleRequest(req: Request): Promise<Response> {
   // ---- Runway call counter (post-run cost display) ----
   const runwayCallsMatch = url.pathname.match(/^\/api\/runway-calls\/([^/]+)$/);
   if (runwayCallsMatch && req.method === "GET") {
-    const used = await threadCallCount(decodeURIComponent(runwayCallsMatch[1]));
+    const ident = await identityFromCookie(req.headers.get("cookie"));
+    const used = await threadCallCount(ident?.id ?? "default", decodeURIComponent(runwayCallsMatch[1]));
     return new Response(
       JSON.stringify({ calls_used: used, budget: RUNWAY_BUDGET }),
       { headers: { "content-type": "application/json" } },
@@ -466,7 +490,9 @@ async function handleRequest(req: Request): Promise<Response> {
         },
       );
     }
-    const currentCount = threadId ? await threadCallCount(threadId) : 0;
+    const ident = await identityFromCookie(req.headers.get("cookie"));
+    const userId = ident?.id ?? "default";
+    const currentCount = threadId ? await threadCallCount(userId, threadId) : 0;
     const callsRemaining = Math.max(0, RUNWAY_BUDGET - currentCount);
 
     // Inject into forwardedProps.config.configurable — LangGraph passes
@@ -483,6 +509,7 @@ async function handleRequest(req: Request): Promise<Response> {
       // In intelligence mode the agent executes on an internal twin thread;
       // billing must key on the UI-visible thread (matches budget checks).
       ui_thread_id: threadId,
+      ui_user_id: userId,
     };
     // Only inject the user key if one was provided — never overwrite with empty.
     if (userRunwayKey) {

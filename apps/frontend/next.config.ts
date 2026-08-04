@@ -12,6 +12,13 @@ loadEnvConfig(path.resolve(here, "../.."));
 const BFF_URL = process.env.BFF_URL ?? "http://localhost:4010";
 
 const nextConfig: NextConfig = {
+  // Client-visible flag: auth UI renders only when GitHub OAuth is configured.
+  env: {
+    NEXT_PUBLIC_AUTH_ENABLED:
+      process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET && process.env.AUTH_SECRET
+        ? "1"
+        : "",
+  },
   // Produce a self-contained output directory for Docker.
   // The standalone build includes only the files needed to run the server —
   // no node_modules copy required in the container image.
@@ -54,6 +61,11 @@ const nextConfig: NextConfig = {
       {
         source: "/api/runway-calls/:path*",
         destination: `${BFF_URL}/api/runway-calls/:path*`,
+      },
+      {
+        // BFF auth wiring probe (the next-auth routes /api/auth/* stay local)
+        source: "/api/auth-probe",
+        destination: `${BFF_URL}/api/auth-probe`,
       },
       {
         source: "/api/x402/:path*",

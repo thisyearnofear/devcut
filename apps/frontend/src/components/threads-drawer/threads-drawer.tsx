@@ -21,6 +21,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useThreads } from "@copilotkit/react-core/v2";
 import { useTheme } from "@/hooks/use-theme";
+import { AuthButton } from "@/components/auth/AuthButton";
 import { AvatarPanel } from "@/components/storyboard/AvatarPanel";
 import styles from "./threads-drawer.module.css";
 
@@ -607,6 +608,9 @@ export default function ThreadsDrawer({
               />
               <span>DevCut</span>
             </a>
+            <div className="mb-2">
+              <AuthButton />
+            </div>
             <button
               aria-label={
                 resolvedTheme === "dark"

@@ -212,7 +212,7 @@ cp -r scripts "$LOCAL_RELEASE/scripts"
 info "Installing BFF production deps..."
 cd "$ROOT"
 
-BFF_DEPS=("hono" "@hono/node-server" "ioredis" "@copilotkit/runtime" "zod")
+BFF_DEPS=("hono" "@hono/node-server" "ioredis" "@copilotkit/runtime" "zod" "jose" "pg")
 SPECS=()
 for dep in "${BFF_DEPS[@]}"; do
   VER=""   # MUST reset — otherwise a missing dep inherits the previous one's version

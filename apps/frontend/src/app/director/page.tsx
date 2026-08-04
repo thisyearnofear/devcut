@@ -33,6 +33,7 @@ import {
   DEVCUT_STAGE_LABELS,
 } from "@/lib/devcut-ledger";
 import { briefHash } from "@/lib/brief-hash";
+import { AuthSessionProvider } from "@/components/auth/AuthSessionProvider";
 import {
   DEVCUT,
   DEVCUT_CHALLENGE_EXAMPLES,
@@ -2023,7 +2024,9 @@ function DirectorPage() {
 export default function Page() {
   return (
     <ClientOnly>
-      <DirectorPage />
+      <AuthSessionProvider>
+        <DirectorPage />
+      </AuthSessionProvider>
     </ClientOnly>
   );
 }

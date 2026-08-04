@@ -85,15 +85,29 @@ def _check_budget() -> None:
         )
 
 
-def _notify_bff_call_used(thread_id: str) -> None:
-    """Tell the BFF to increment the per-thread call counter.
+def _billing_subject() -> tuple[str, str]:
+    """(user_id, thread_id) for billing — user-scoped when authed.
+
+    The BFF injects ``ui_user_id`` (gh:<id> when signed in, 'default'
+    otherwise) alongside ``ui_thread_id`` into configurable.
+    """
+    cfg = _get_configurable()
+    user = str(cfg.get("ui_user_id") or "default")
+    return user, _billing_thread_id()
+
+
+def _notify_bff_call_used() -> None:
+    """Tell the BFF to increment the per-user/thread call counter.
 
     Fire-and-forget — failures are silently swallowed so a counter glitch
     never blocks generation.
     """
     bff_url = os.getenv("BFF_URL", "http://localhost:4000")
     try:
-        data = f'{{"thread_id": "{thread_id}"}}'.encode()
+        user_id, thread_id = _billing_subject()
+        import json as _json
+
+        data = _json.dumps({"thread_id": thread_id, "user_id": user_id}).encode()
         req = urllib.request.Request(
             f"{bff_url}/api/runway-call-used",
             data=data,
@@ -459,7 +473,7 @@ def generate_reference_image(
     if runway_is_live():
         _check_budget()
         result = _live_image(prompt, ratio=ratio, prior_ref_urls=prior_ref_urls)
-        _notify_bff_call_used(_billing_thread_id())
+        _notify_bff_call_used()
         return _persist_image_to_b2(result)
     return _mock_image(prompt)
 
@@ -540,7 +554,7 @@ def generate_shot_video(
                 if stored:
                     result.url = stored.url
                     result.sha256 = stored.sha256
-        _notify_bff_call_used(_billing_thread_id())
+        _notify_bff_call_used()
         return result
     time.sleep(0.6)
     return _mock_video(prompt, duration=duration, image_url=image_url)
@@ -562,7 +576,7 @@ def restyle_shot_video(
     if runway_is_live():
         _check_budget()
         result = _live_restyle(video_url, prompt, style_ref_url=style_ref_url)
-        _notify_bff_call_used(_billing_thread_id())
+        _notify_bff_call_used()
         # Aleph preserves source duration — pass through whatever the
         # caller knows so downstream timing stays correct.
         result.duration = duration
