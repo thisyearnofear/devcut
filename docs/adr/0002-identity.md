@@ -1,6 +1,6 @@
 # ADR 0002 — Identity: GitHub OAuth + per-user scoping
 
-**Status:** Proposed · **Date:** 2026-08-03
+**Status:** Implemented (activated 2026-08-04 — OAuth App live, env-gated scaffold verified end-to-end: providers/csrf/sign-in POST→GitHub, probe `auth_enabled:true`) · **Date:** 2026-08-03
 
 ## Context
 
