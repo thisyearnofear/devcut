@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth, authEnabled, signIn } from "@/auth";
+import { auth, signIn } from "@/auth";
 
 export default async function SignInPage() {
-  if (!authEnabled) redirect("/");
-  const session = await auth();
+  // Note: no authEnabled gate — when auth isn't configured the button's
+  // sign-in POST 404s harmlessly; gate lives in the drawer (AuthButton).
+  const session = await auth().catch(() => null);
   if (session?.user) redirect("/director");
 
   return (

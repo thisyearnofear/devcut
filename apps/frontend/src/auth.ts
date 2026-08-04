@@ -19,6 +19,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth(
     ? {
         providers: [GitHub],
         session: { strategy: "jwt" },
+        // Standalone server behind Traefik: required or Auth.js rejects
+        // requests with UntrustedHost (0.0.0.0 / forwarded host).
+        trustHost: true,
         callbacks: {
           session({ session, token }) {
             if (token?.sub) session.user.id = token.sub;
