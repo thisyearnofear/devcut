@@ -73,6 +73,11 @@ const nextConfig: NextConfig = {
         destination: `${BFF_URL}/api/credentials/:path*`,
       },
       {
+        // Organizer dashboard (org-scoped thread list)
+        source: "/api/organizer/:path*",
+        destination: `${BFF_URL}/api/organizer/:path*`,
+      },
+      {
         source: "/api/x402/:path*",
         destination: `${BFF_URL}/api/x402/:path*`,
       },

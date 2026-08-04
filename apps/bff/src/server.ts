@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import Redis from "ioredis";
 import { identifyUser, identityFromCookie, authEnabled } from "./auth.js";
 import { getCredential, putCredential, deleteCredential, maskKey } from "./vault.js";
+import { listOrgThreads } from "./organizer.js";
 
 import {
   breakerCheck,
@@ -398,32 +399,17 @@ async function handleRequest(req: Request): Promise<Response> {
     });
   }
 
-  // ---- Non-copilotkit routes pass through unchanged ----
-  if (!url.pathname.startsWith("/api/copilotkit")) {
-    return copilotApp.fetch(req);
-  }
-
-  // ---- /info cache (short-circuit before hitting the runtime) ----
-  // Many CopilotKit client retries hammer /info; cache it briefly.
-  if (url.pathname === "/api/copilotkit/info" && req.method === "GET") {
-    const now = Date.now();
-    if (_infoCache && now - _infoCache.at < INFO_CACHE_TTL_MS) {
-      return rewriteWsUrl(
-        new Response(_infoCache.body, {
-          status: _infoCache.status,
-          headers: _infoCache.headers,
-        }),
-      );
+  // ---- Organizer dashboard (org-scoped thread list) ----
+  if (url.pathname === "/api/organizer/threads" && req.method === "GET") {
+    const data = await listOrgThreads(req.headers.get("cookie"));
+    if (!data) {
+      return new Response(JSON.stringify({ error: "auth_required" }), {
+        status: 401, headers: { "content-type": "application/json" },
+      });
     }
-    const fresh = await rewriteWsUrl(await copilotApp.fetch(req));
-    // Only cache 2xx — never cache failures.
-    if (fresh.status >= 200 && fresh.status < 300) {
-      try {
-        const body = await fresh.clone().text();
-        _infoCache = { at: now, status: fresh.status, headers: fresh.headers, body };
-      } catch { /* ignore caching failure */ }
-    }
-    return fresh;
+    return new Response(JSON.stringify(data), {
+      headers: { "content-type": "application/json" },
+    });
   }
 
   // ---- BYOK credential vault (per-user encrypted Runway key) ----
@@ -461,6 +447,34 @@ async function handleRequest(req: Request): Promise<Response> {
         headers: { "content-type": "application/json" },
       });
     }
+  }
+
+  // ---- Non-copilotkit routes pass through unchanged ----
+  if (!url.pathname.startsWith("/api/copilotkit")) {
+    return copilotApp.fetch(req);
+  }
+
+  // ---- /info cache (short-circuit before hitting the runtime) ----
+  // Many CopilotKit client retries hammer /info; cache it briefly.
+  if (url.pathname === "/api/copilotkit/info" && req.method === "GET") {
+    const now = Date.now();
+    if (_infoCache && now - _infoCache.at < INFO_CACHE_TTL_MS) {
+      return rewriteWsUrl(
+        new Response(_infoCache.body, {
+          status: _infoCache.status,
+          headers: _infoCache.headers,
+        }),
+      );
+    }
+    const fresh = await rewriteWsUrl(await copilotApp.fetch(req));
+    // Only cache 2xx — never cache failures.
+    if (fresh.status >= 200 && fresh.status < 300) {
+      try {
+        const body = await fresh.clone().text();
+        _infoCache = { at: now, status: fresh.status, headers: fresh.headers, body };
+      } catch { /* ignore caching failure */ }
+    }
+    return fresh;
   }
 
   // ---- Inject BYOK key + budget into POST body ----
