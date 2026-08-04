@@ -68,6 +68,11 @@ const nextConfig: NextConfig = {
         destination: `${BFF_URL}/api/auth-probe`,
       },
       {
+        // BYOK credential vault (per-user encrypted Runway key)
+        source: "/api/credentials/:path*",
+        destination: `${BFF_URL}/api/credentials/:path*`,
+      },
+      {
         source: "/api/x402/:path*",
         destination: `${BFF_URL}/api/x402/:path*`,
       },

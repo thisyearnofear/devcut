@@ -8,6 +8,7 @@ import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { randomUUID } from "node:crypto";
 import Redis from "ioredis";
 import { identifyUser, identityFromCookie, authEnabled } from "./auth.js";
+import { getCredential, putCredential, deleteCredential, maskKey } from "./vault.js";
 
 import {
   breakerCheck,
@@ -425,10 +426,51 @@ async function handleRequest(req: Request): Promise<Response> {
     return fresh;
   }
 
+  // ---- BYOK credential vault (per-user encrypted Runway key) ----
+  if (url.pathname === "/api/credentials/runway") {
+    const ident = await identityFromCookie(req.headers.get("cookie"));
+    if (!ident) {
+      return new Response(JSON.stringify({ error: "auth_required" }), {
+        status: 401, headers: { "content-type": "application/json" },
+      });
+    }
+    if (req.method === "GET") {
+      const key = await getCredential(ident.id, "runway");
+      return new Response(JSON.stringify({
+        set: Boolean(key),
+        masked: key ? maskKey(key) : null,
+      }), { headers: { "content-type": "application/json" } });
+    }
+    if (req.method === "PUT") {
+      let body: Record<string, unknown> = {};
+      try { body = await req.json() as Record<string, unknown>; } catch { /* ignore */ }
+      const key = (body.key as string ?? "").trim();
+      if (!key) {
+        return new Response(JSON.stringify({ error: "missing key" }), {
+          status: 400, headers: { "content-type": "application/json" },
+        });
+      }
+      await putCredential(ident.id, "runway", key);
+      return new Response(JSON.stringify({ ok: true, masked: maskKey(key) }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (req.method === "DELETE") {
+      await deleteCredential(ident.id, "runway");
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+  }
+
   // ---- Inject BYOK key + budget into POST body ----
   const requestId = randomUUID();
   const requestStart = Date.now();
-  const userRunwayKey = req.headers.get("x-runway-api-key") ?? "";
+  // BYOK: prefer the server-side vaulted key (per-user, encrypted); fall back
+  // to the legacy X-Runway-Api-Key header during migration.
+  const authIdent = await identityFromCookie(req.headers.get("cookie"));
+  const vaultedKey = authIdent ? await getCredential(authIdent.id, "runway").catch(() => null) : null;
+  const userRunwayKey = vaultedKey ?? req.headers.get("x-runway-api-key") ?? "";
 
   let proxiedReq = req;
   let threadId = "";
@@ -440,6 +482,16 @@ async function handleRequest(req: Request): Promise<Response> {
     } catch {
       // Not JSON — pass through as-is
       return rewriteErrors(await copilotApp.fetch(req));
+    }
+
+    // Hard gate: when auth is enabled, anonymous users cannot commission runs.
+    // (They can still browse /cut share pages and the landing — just not spend.)
+    if (authEnabled && !authIdent && url.pathname.includes("/agent/") && url.pathname.endsWith("/run")) {
+      return new Response(JSON.stringify({
+        error: "Sign in required",
+        hint: "Commissioning a cut requires a GitHub account — your threads, budget, and keys are per-user.",
+        command: "sign-in",
+      }), { status: 401, headers: { "content-type": "application/json" } });
     }
 
     // Extract thread ID and agent ID from the request body.

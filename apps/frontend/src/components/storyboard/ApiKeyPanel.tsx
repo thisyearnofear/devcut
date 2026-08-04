@@ -1,27 +1,75 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const STORAGE_KEY = "director_runway_api_key";
+const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED === "1";
 
+/**
+ * Runway API key hook.
+ *
+ * When auth is enabled and the user is signed in, the key lives in the
+ * server-side encrypted vault (POST /api/credentials/runway). When auth
+ * is disabled or the user is anonymous, it falls back to localStorage
+ * (legacy browser-only path).
+ */
 export function useRunwayApiKey() {
   const [key, setKeyState] = useState<string>("");
+  const [masked, setMasked] = useState<string | null>(null);
+  const [vaulted, setVaulted] = useState(false);
 
-  useEffect(() => {
+  const refresh = useCallback(async () => {
+    if (AUTH_ENABLED) {
+      try {
+        const r = await fetch("/api/credentials/runway");
+        if (r.ok) {
+          const d = await r.json();
+          setMasked(d.masked);
+          setVaulted(Boolean(d.set));
+          // The actual key is never sent to the client — the BFF injects it
+          // from the vault at run time. We only track whether one is set.
+          setKeyState(d.set ? "__vaulted__" : "");
+          return;
+        }
+      } catch { /* fall through to localStorage */ }
+    }
+    // Legacy / anonymous: localStorage
     setKeyState(localStorage.getItem(STORAGE_KEY) ?? "");
+    setVaulted(false);
+    setMasked(null);
   }, []);
 
-  const setKey = (k: string) => {
-    const trimmed = k.trim();
-    if (trimmed) {
-      localStorage.setItem(STORAGE_KEY, trimmed);
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-    setKeyState(trimmed);
-  };
+  useEffect(() => { refresh(); }, [refresh]);
 
-  return { key, setKey };
+  const setKey = useCallback(async (k: string) => {
+    const trimmed = k.trim();
+    if (AUTH_ENABLED) {
+      if (trimmed) {
+        const r = await fetch("/api/credentials/runway", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: trimmed }),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          setMasked(d.masked);
+          setVaulted(true);
+          setKeyState("__vaulted__");
+        }
+      } else {
+        await fetch("/api/credentials/runway", { method: "DELETE" });
+        setMasked(null);
+        setVaulted(false);
+        setKeyState("");
+      }
+    } else {
+      if (trimmed) localStorage.setItem(STORAGE_KEY, trimmed);
+      else localStorage.removeItem(STORAGE_KEY);
+      setKeyState(trimmed);
+    }
+  }, []);
+
+  return { key, setKey, masked, vaulted, refresh };
 }
 
 interface ApiKeyPanelProps {
@@ -33,29 +81,29 @@ interface ApiKeyPanelProps {
  * Inline key panel — edit-bay chrome.
  */
 export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
-  const { key, setKey } = useRunwayApiKey();
-  const [draft, setDraft] = useState(key);
+  const { key, setKey, masked, vaulted } = useRunwayApiKey();
+  const [draft, setDraft] = useState("");
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setDraft(key);
-  }, [key]);
-  useEffect(() => {
-    if (!key) inputRef.current?.focus();
-  }, [key]);
+  useEffect(() => { setDraft(""); }, []);
+  useEffect(() => { if (!key) inputRef.current?.focus(); }, [key]);
 
-  const handleSave = () => {
-    setKey(draft);
+  const handleSave = async () => {
+    if (!draft.trim()) return;
+    setBusy(true);
+    await setKey(draft);
+    setBusy(false);
+    setDraft("");
     setSaved(true);
-    setTimeout(() => {
-      setSaved(false);
-      onClose();
-    }, 1200);
+    setTimeout(() => { setSaved(false); onClose(); }, 1200);
   };
 
-  const handleClear = () => {
-    setKey("");
+  const handleClear = async () => {
+    setBusy(true);
+    await setKey("");
+    setBusy(false);
     setDraft("");
   };
 
@@ -68,7 +116,8 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
           <button
             type="button"
             onClick={handleClear}
-            className={`flex items-center gap-1.5 border px-3 py-1 dc-mono text-[11px] uppercase tracking-[0.12em] transition-colors ${
+            disabled={busy}
+            className={`flex items-center gap-1.5 border px-3 py-1 dc-mono text-[11px] uppercase tracking-[0.12em] transition-colors disabled:opacity-50 ${
               !usingByok
                 ? "border-[var(--dc-cyan)]/40 bg-[var(--dc-cyan-soft)] text-[var(--dc-cyan)]"
                 : "border-[var(--dc-line)] text-[var(--dc-dim)] hover:text-[var(--dc-mute)]"
@@ -92,7 +141,7 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
             <span
               className={`size-1.5 rounded-full ${usingByok ? "bg-[var(--dc-signal)]" : "bg-[var(--dc-dim)]"}`}
             />
-            Your key
+            Your key{vaulted && masked ? ` · ${masked}` : ""}
           </button>
         </div>
 
@@ -107,7 +156,9 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
 
       <p className="mb-3 dc-mono text-[11px] leading-relaxed text-[var(--dc-mute)]">
         {usingByok
-          ? `Using your key ···${key.slice(-6)} — charges go to your Runway account. No budget limit.`
+          ? vaulted
+            ? `Using your vaulted key (${masked}) — charges go to your Runway account. No budget limit. Stored encrypted server-side.`
+            : `Using your key ···${key.slice(-6)} — charges go to your Runway account. No budget limit.`
           : isLive
             ? "Shared server key — ~20 calls / thread. Add your key for unlimited."
             : "No Runway key — MOCK mode with placeholder media."}
@@ -120,7 +171,7 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && draft.trim() && handleSave()}
-          placeholder="key_xxxxxxxxxxxxxxxx"
+          placeholder={vaulted ? "Enter a new key to replace" : "key_xxxxxxxxxxxxxxxx"}
           className="min-w-0 flex-1 border border-[var(--dc-line)] bg-black/50 px-3 py-2 dc-mono text-xs text-[var(--dc-paper)] placeholder:text-[var(--dc-dim)] focus:border-[var(--dc-cyan)]/50 focus:outline-none"
           autoComplete="off"
           spellCheck={false}
@@ -129,16 +180,18 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
           <button
             type="button"
             onClick={handleSave}
-            className="border border-transparent bg-[var(--dc-signal)] px-4 py-2 dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)]"
+            disabled={busy}
+            className="border border-transparent bg-[var(--dc-signal)] px-4 py-2 dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-50"
           >
-            {saved ? "Saved" : "Use"}
+            {saved ? "Saved" : busy ? "…" : "Use"}
           </button>
         )}
         {usingByok && (
           <button
             type="button"
             onClick={handleClear}
-            className="border border-[var(--dc-line)] px-3 py-2 dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-mute)] hover:text-[var(--dc-paper)]"
+            disabled={busy}
+            className="border border-[var(--dc-line)] px-3 py-2 dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-mute)] hover:text-[var(--dc-paper)] disabled:opacity-50"
           >
             Remove
           </button>
@@ -155,7 +208,7 @@ export function ApiKeyPanel({ onClose, isLive }: ApiKeyPanelProps) {
         >
           dev.runwayml.com
         </a>
-        {" · "}browser only
+        {vaulted ? " · encrypted server-side" : " · browser only"}
       </p>
     </div>
   );

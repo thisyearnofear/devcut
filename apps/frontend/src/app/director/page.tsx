@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useSession } from "next-auth/react";
 import { z } from "zod";
 import { Toaster, toast } from "sonner";
 import {
@@ -568,7 +569,15 @@ function DirectorChat({
     }
   }, [messages, isRunning]);
 
+  const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED === "1";
+  const { data: session } = useSession();
+  const authRequired = AUTH_ENABLED && !session?.user;
+
   const handleSend = (text: string) => {
+    if (authRequired) {
+      window.location.href = "/signin";
+      return;
+    }
     const trimmed = text.trim();
     if (!trimmed || isRunning) return;
     setDraft("");
@@ -920,10 +929,10 @@ function DirectorChat({
           <button
             type="button"
             onClick={() => handleSend(draft)}
-            disabled={!draft.trim() || isRunning}
+            disabled={authRequired ? false : (!draft.trim() || isRunning)}
             className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white/75 transition-colors hover:bg-white/20 hover:text-white/90 disabled:opacity-30"
           >
-            Start cut
+            {authRequired ? "Sign in to cut" : "Start cut"}
           </button>
         </div>
         {commissionHint && draft.trim() && (
