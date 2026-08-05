@@ -1,6 +1,6 @@
 # ADR 0002 — Identity: GitHub OAuth + per-user scoping
 
-**Status:** Implemented (activated 2026-08-04 — OAuth App live, env-gated scaffold verified end-to-end: providers/csrf/sign-in POST→GitHub, probe `auth_enabled:true`) · **Date:** 2026-08-03
+**Status:** Implemented (activated 2026-08-04 — OAuth App live, env-gated scaffold verified end-to-end: providers/csrf/sign-in POST→GitHub, probe `auth_enabled:true`; hard gate on commissioning + BYOK server vault + organizer dashboard shipped) · **Date:** 2026-08-03
 
 ## Context
 
@@ -33,8 +33,15 @@ not code.
 3. Per-user budget keys: `runway:budget:<userId>:<threadId>` —
    today's per-thread counter becomes per-user-scoped; daily global cap
    (`devcut:cost:<day>`, shipped) stays global.
-4. BYOK keys: encrypted at rest (AES-GCM, key from env) in Postgres,
-   table `user_credentials`; only written/read server-side by the BFF.
+4. BYOK keys: encrypted at rest (AES-256-GCM, key derived from `AUTH_SECRET`
+   via HKDF) in Postgres table `devcut_credentials`; only written/read
+   server-side by the BFF (`apps/bff/src/vault.ts`). Legacy
+   `X-Runway-Api-Key` header kept as fallback during migration.
+5. **Hard gate**: anonymous `POST /agent/director/run` → 401 "Sign in
+   required". Browsing landing + `/cut` shares stays anonymous; only
+   commissioning (spending) requires identity.
+6. **Organizer dashboard** (`/organizer`): org-scoped thread list with
+   B2-snapshot enrichment (shots/export/video status). See ADR-0003.
 
 **Anonymous access:** the landing + `/cut/[id]` public share pages stay
 anonymous; commissioning a run requires login. (Golden-run "try" CTA can

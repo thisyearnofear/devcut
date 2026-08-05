@@ -1,6 +1,6 @@
 # ADR 0001 — Agent runtime: persistence & concurrency strategy
 
-**Status:** Proposed · **Date:** 2026-08-03
+**Status:** Interim implemented (2026-08-04) — langgraph-api 0.11.2, runtime-inmem 0.31.2, `--n-jobs-per-worker 4`; B2 snapshots shipped. Postgres checkpointer target deferred. · **Date:** 2026-08-03
 
 ## Context
 
@@ -19,10 +19,12 @@ production:
 
 ## Decision
 
-**Interim (now):** stay on `runtime-inmem`, raise `N_JOBS_PER_WORKER`
-(default 1) to a small fan-out (3–4, bounded by Runway rate limits), keep
-B2 snapshots as the durability story. Upgrade langgraph-api to current
-(0.11.x) in the same change.
+**Interim (shipped 2026-08-04):** `runtime-inmem` with
+`--n-jobs-per-worker 4` (env `LANGGRAPH_JOBS_PER_WORKER`), B2 snapshots as
+the durability story, langgraph-api upgraded from 0.8.7 (EOL) → 0.11.2,
+runtime-inmem 0.28.1 → 0.31.2, cli 0.4.25 → 0.4.31. Verified: full golden
+run (5/5 clips + LIVE stitch + durable MP4) on 0.11.2; concurrent runs
+confirmed via ThreadPoolExecutor fan-out.
 
 **Target (Phase 1):** self-hosted `langgraph-api` container backed by the
 existing Postgres (5433) — real checkpointer, durable run state, queue

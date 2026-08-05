@@ -1,6 +1,6 @@
 # ADR 0003 — Hackathon tenancy: one Intelligence org per event
 
-**Status:** Proposed · **Date:** 2026-08-03
+**Status:** Interim implemented (2026-08-04) — organizer dashboard shipped at `/organizer` (org-scoped thread list with B2-snapshot enrichment). Org creation + invite links + per-event budgets deferred. · **Date:** 2026-08-03
 
 ## Context
 
@@ -43,8 +43,8 @@ org-scoped; the BFF just stops assuming casa-de-erlang for everything.
 
 ## Consequences
 
-- Organizer dashboard (Phase 2) is "list threads/runs for org" — a
-  query, not a new subsystem.
+- Organizer dashboard (shipped at `/organizer`) is "list threads/runs for org" — a
+  query against `cpki.threads` enriched from B2 snapshots, not a new subsystem.
 - x402 pricing can differentiate per event (sponsored vs BYO).
 - Seeding scripts (`scripts/seed-default-user.sh`, deploy-time insert)
   must skip hardcoded org assumptions.

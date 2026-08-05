@@ -31,7 +31,8 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 ## Commands
 - **Dev**: `npm run dev` (frontend), `cd apps/bff && npm run dev` (BFF), `cd apps/agent && uv run langgraph dev` (agent)
 - **Build**: `npm run build` (frontend), `cd apps/bff && npx tsc` (BFF), `cd apps/mcp && npx mcp-use build --no-typecheck` (MCP)
-- **Deploy**: `bash scripts/deploy-local.sh` (build-local → rsync → server-side install → symlink flip → PM2 reload, targets nuncio-vultr)
+- **Deploy**: `bash scripts/deploy-local.sh` (selective restarts, drain gate, known-good rollback, import gate — targets nuncio-vultr). `FORCE_BUILD=1` forces a full rebuild (needed when build-time env flags like `NEXT_PUBLIC_AUTH_ENABLED` change). `FORCE_DEPLOY=1` skips the drain gate (interrupts in-flight runs).
+- **Auth activation**: set `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` + `AUTH_TRUST_HOST=true` + `AUTH_URL=https://devcut.thisyearnofear.com` in `/opt/gen-ui/.env`, then `FORCE_BUILD=1 bash scripts/deploy-local.sh`. Verify: `curl /api/auth-probe`.
 - **License renewal**: `npx copilotkit license create --write` (free Developer tier, expires every 30 days)
 
 ## CopilotKit Intelligence
@@ -48,13 +49,29 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - MCP build uses `--no-typecheck` flag (mcp-use build fails on typecheck due to monorepo peer-dep resolution)
 - `uv.lock` is not in the repo — generated locally with `uv lock` and uploaded to server during first deploy
 - Deploy script uses `host.docker.internal` for Traefik routing (not `127.0.0.1`, which refers to the container itself)
+- **Auth (ADR-0002)**: GitHub OAuth via Auth.js v5, env-gated. Anonymous browsing preserved; commissioning requires sign-in. Per-user threads/budgets/BYOK vault.
+- **BYOK vault**: Runway keys encrypted at rest (AES-256-GCM) in Postgres `devcut_credentials` table; BFF decrypts at run time. Legacy `X-Runway-Api-Key` header kept as fallback.
+- **B2 state snapshots**: agent writes `snapshots/<ui_thread_id>.json` to B2 after each mutating tool; BFF `/api/thread-state` falls back to them when LangGraph state is wiped (agent restart).
+- **CopilotKit 1.66.0** + `@ag-ui/langgraph@0.0.42` (upgraded from 1.57.1 to fix the `configurable`+`context` 400 dual-send bug).
+- **langgraph-api 0.11.2** (upgraded from EOL 0.8.7); `--n-jobs-per-worker 4` for concurrent runs.
+- **ffmpeg** installed on nuncio-vultr for LIVE stitch mode (without it, stitches return the MOCK Big Buck Bunny placeholder).
+- **Deploy safety**: selective restarts (per-app fingerprinting), drain gate (inflight==0 before agent restart), known-good rollback (`.health-ok` marker), agent import gate, `node --check` config gate, pid-change verification with `delete+start` fallback.
 
 ## Important Files
-- `scripts/deploy-local.sh`: Build + rsync deploy script (targets nuncio-vultr)
-- `ecosystem.config.js`: PM2 config for all 4 services (frontend, bff, agent, mcp)
-- `scripts/gen_ecosystem.py`: Generates ecosystem.config.js from .env
+- `scripts/deploy-local.sh`: Build + rsync deploy script (selective restarts, drain gate, import gate, known-good rollback)
+- `scripts/dirhash.py`: Content-addressed per-app fingerprinting for selective restarts
+- `ecosystem.config.js`: PM2 config for all 4 services (frontend, bff, agent, mcp); agent `--n-jobs-per-worker` env-tunable
 - `apps/agent/src/main.py`: LangGraph agent entry point
-- `apps/bff/src/index.ts`: CopilotKit runtime BFF
+- `apps/agent/src/state_snapshots.py`: B2 state snapshots (cross-restart canvas restore)
+- `apps/agent/src/runway_client.py`: Runway API client + billing (`_billing_thread_id`, `_billing_subject`)
+- `apps/agent/src/genblaze_bridge.py`: Genblaze Pipeline bridge (Runway image→video)
+- `apps/bff/src/server.ts`: CopilotKit runtime BFF (BYOK injection, budget, resume ledger, cost alert, auth, vault, organizer)
+- `apps/bff/src/auth.ts`: Auth.js v5 session-cookie JWE decode + ensure-user
+- `apps/bff/src/vault.ts`: BYOK credential vault (AES-256-GCM, Postgres)
+- `apps/bff/src/organizer.ts`: Org-scoped thread list for organizer dashboard
+- `apps/bff/src/health.ts`: Liveness, readiness, WS URL rewrite, error rewriting
+- `apps/frontend/src/auth.ts`: Auth.js v5 config (GitHub OAuth, env-gated)
+- `apps/frontend/src/app/organizer/`: Organizer dashboard (org-scoped thread list)
 - `apps/mcp/src/index.ts`: MCP server with widget definitions
 - `apps/frontend/`: Next.js app with storyboard canvas
 
@@ -62,10 +79,15 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - **WS topology**: browser → `wss://devcut.thisyearnofear.com/ws/client/websocket` → Traefik `PathPrefix(/ws)` + StripPrefix → Intelligence Phoenix gateway (4403) mounts `/client/websocket`. Phoenix JS appends `/websocket` to whatever base it's given; `PUBLIC_INTELLIGENCE_WS_URL` (ecosystem override for director-bff) must therefore end in `/ws/client`.
 - **Twin-thread model (Intelligence mode)**: runs execute on an internal execution thread while the UI owns another id. Budget/billing keys: the BFF injects `ui_thread_id` and the agent bills THAT (`_billing_thread_id()` in runway_client.py), matching BFF budget checks.
 - **langgraph runs in-memory**: restarts wipe all thread checkpoints. Restores survive via B2 snapshots (`snapshots/<thread>.json`, written by `state_snapshots.py` after each mutating tool) — BFF `/api/thread-state` falls back to them automatically.
-- **Deploy safety**: `deploy-local.sh` does per-app fingerprinting (scripts/dirhash.py) → selective PM2 restarts only for changed services; agent restarts wait for `/readyz.inflight==0` (FORCE_DEPLOY=1 overrides); rollback restores the exact pre-deploy symlink target only if it carries `.health-ok`; agent `import main, director` is gated pre-ship.
+- **Deploy safety**: `deploy-local.sh` does per-app fingerprinting (scripts/dirhash.py) → selective PM2 restarts only for changed services; agent restarts wait for `/readyz.inflight==0` (FORCE_DEPLOY=1 overrides); rollback restores the exact pre-deploy symlink target only if it carries `.health-ok`; agent `import main, director` is gated pre-ship; `node --check ecosystem.config.js` pre-rsync; per-service pid-change verification with `delete+start` fallback when `startOrReload` silently no-ops.
 - **Diagnostic traps**: never `GET /` on the intelligence app-api (unhandled rejection → s6 restart masquerades as a crash loop); its Phoenix gateway 500s unmatched WS paths instead of 404; langgraph thread-culler 'permission denied' spam is non-fatal.
 - **ffmpeg is required for stitcher LIVE mode** (installed on nuncio-vultr Aug 2026); without it stitches return the MOCK placeholder (Big Buck Bunny).
-- **langgraph-api 0.8.7 is EOL** — upgrade tracked in `docs/adr/0001-agent-runtime.md`.
+- **langgraph-api 0.11.2** (upgraded from EOL 0.8.7 on 2026-08-04); runtime-inmem 0.31.2; `--n-jobs-per-worker 4` (env `LANGGRAPH_JOBS_PER_WORKER`).
+- **Auth (ADR-0002)**: GitHub OAuth via Auth.js v5, env-gated. Anonymous browsing preserved; commissioning requires sign-in. Per-user threads/budgets/BYOK vault. `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET`/`AUTH_SECRET`/`AUTH_TRUST_HOST`/`AUTH_URL` in `.env`.
+- **BYOK vault**: Runway keys encrypted at rest (AES-256-GCM) in Postgres `devcut_credentials` table; BFF decrypts at run time. Legacy `X-Runway-Api-Key` header kept as fallback.
+- **B2 state snapshots**: agent writes `snapshots/<ui_thread_id>.json` to B2 after each mutating tool; BFF `/api/thread-state` falls back to them when LangGraph state is wiped (agent restart).
+- **CopilotKit 1.66.0** + `@ag-ui/langgraph@0.0.42` (upgraded from 1.57.1 to fix the `configurable`+`context` 400 dual-send bug).
+- **Organizer dashboard** (`/organizer`): org-scoped thread list with B2-snapshot enrichment (ADR-0003 interim).
 
 ## Migration Notes (July 2026)
 - Migrated from snel-bot (user `deploy`) to nuncio-vultr (user `linuxuser`)
