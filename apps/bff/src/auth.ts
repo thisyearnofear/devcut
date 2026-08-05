@@ -81,7 +81,10 @@ export async function identityFromCookie(cookieHeader: string | null): Promise<A
 // this with '1_default'). Seed new identities lazily on first sight.
 const INTELLIGENCE_PG_URL =
   process.env.INTELLIGENCE_PG_URL ?? "postgres://intelligence:intelligence@localhost:5433/intelligence_app";
-const INTELLIGENCE_ORG = process.env.INTELLIGENCE_ORG_ID ?? "casa-de-erlang";
+// Per-user org: each gh:<id> user gets their own org (user:<ghId>) for
+// privacy. Override with INTELLIGENCE_ORG_ID to group all users into one
+// org (e.g., for a collaborative test cohort or a sponsored event).
+const INTELLIGENCE_ORG_TEMPLATE = process.env.INTELLIGENCE_ORG_ID ?? "user:{id}";
 
 let _pgModule: typeof import("pg") | null = null;
 async function pgModule() {
@@ -104,7 +107,7 @@ export async function ensureUser(id: string, name: string): Promise<void> {
     try {
       await client.query(
         "INSERT INTO cpki.users (id, organization_id, created_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO NOTHING",
-        [id, INTELLIGENCE_ORG],
+        [id, INTELLIGENCE_ORG_TEMPLATE.replace("{id}", id)],
       );
     } finally {
       await client.end().catch(() => {});
