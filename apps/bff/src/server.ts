@@ -150,27 +150,56 @@ async function cutRecordRead(hash: string): Promise<Record<string, unknown> | nu
 // day crosses the threshold. ~150 calls ≈ ~10 full golden cuts on the
 // shared key — enough early warning before a surprise invoice.
 const COST_ALERT_DAILY_CALLS = Number(process.env.COST_ALERT_DAILY_CALLS ?? 150);
+const COST_ALERT_PER_USER_DAILY = Number(process.env.COST_ALERT_PER_USER_DAILY ?? 50);
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL ?? "";
 
-async function trackDailyCost(threadId: string): Promise<void> {
+async function trackDailyCost(threadId: string, userId: string): Promise<void> {
   const day = new Date().toISOString().slice(0, 10);
-  const key = `devcut:cost:${day}`;
-  let count = 0;
+  const globalKey = `devcut:cost:${day}`;
+  const userKey = `devcut:cost:${userId}:${day}`;
+  let globalCount = 0;
+  let userCount = 0;
   try {
-    count = await _redis.incr(key);
-    await _redis.expire(key, 48 * 3600);
+    globalCount = await _redis.incr(globalKey);
+    await _redis.expire(globalKey, 48 * 3600);
+    userCount = await _redis.incr(userKey);
+    await _redis.expire(userKey, 48 * 3600);
   } catch { return; }
-  if (count !== COST_ALERT_DAILY_CALLS) return; // alert exactly once, at crossing
-  if (!DISCORD_WEBHOOK_URL) return;
+  // Global alert (once, at crossing)
+  if (globalCount === COST_ALERT_DAILY_CALLS && DISCORD_WEBHOOK_URL) {
+    try {
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: `⚠️ DevCut daily Runway usage hit **${globalCount} calls** (threshold ${COST_ALERT_DAILY_CALLS}) on ${day} UTC. Last thread: \`${threadId}\`.`,
+        }),
+      });
+    } catch { /* best-effort */ }
+  }
+  // Per-user alert (once, at crossing)
+  if (userCount === COST_ALERT_PER_USER_DAILY && DISCORD_WEBHOOK_URL) {
+    try {
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: `⚠️ User \`${userId}\` hit **${userCount} Runway calls** today (per-user threshold ${COST_ALERT_PER_USER_DAILY}). Thread: \`${threadId}\`.`,
+        }),
+      });
+    } catch { /* best-effort */ }
+  }
+}
+
+/** Check if a user has exceeded their daily Runway call cap. */
+async function userDailyCallsRemaining(userId: string): Promise<number> {
+  const day = new Date().toISOString().slice(0, 10);
   try {
-    await fetch(DISCORD_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        content: `⚠️ DevCut daily Runway usage hit **${count} calls** (threshold ${COST_ALERT_DAILY_CALLS}) on ${day} UTC. Last thread: \`${threadId}\`. Consider raising COST_ALERT_DAILY_CALLS or checking for runaway loops.`,
-      }),
-    });
-  } catch { /* alerting is best-effort */ }
+    const used = parseInt(await _redis.get(`devcut:cost:${userId}:${day}`) ?? "0", 10);
+    return Math.max(0, COST_ALERT_PER_USER_DAILY - used);
+  } catch {
+    return COST_ALERT_PER_USER_DAILY;
+  }
 }
 
 async function cutRecordWrite(hash: string, patch: Record<string, unknown>): Promise<void> {
@@ -301,7 +330,7 @@ async function handleRequest(req: Request): Promise<Response> {
     if (threadId) {
       const userId = (body.user_id as string | undefined) || "default";
       const next = await incrementThreadCallCount(userId, threadId);
-      void trackDailyCost(threadId);
+      void trackDailyCost(threadId, userId);
       const remaining = Math.max(0, RUNWAY_BUDGET - next);
       return new Response(
         JSON.stringify({ calls_used: next, calls_remaining: remaining }),
@@ -396,6 +425,32 @@ async function handleRequest(req: Request): Promise<Response> {
       resumable,
       shotsReady,
       finalUrl,
+    });
+  }
+
+  // ---- Thread-id shareable cut card (for /cut/<threadId> URLs) ----
+  const cutCardMatch = url.pathname.match(/^\/api\/cut-card\/([^/]+)$/);
+  if (cutCardMatch && req.method === "GET") {
+    const tid = decodeURIComponent(cutCardMatch[1]);
+    const snap = await fetchSnapshot(tid);
+    if (!snap) {
+      return new Response(JSON.stringify({ error: "not_found" }), {
+        status: 404, headers: { "content-type": "application/json" },
+      });
+    }
+    const shots = Array.isArray(snap.shots) ? (snap.shots as Array<Record<string, unknown>>) : [];
+    const sb = (snap.storyboard as Record<string, unknown> | undefined) ?? {};
+    const videoUrl = (snap.final_video_url as string) ?? (snap.durable_url as string) ?? "";
+    const poster = shots.find((s) => s.ref_image_url)?.ref_image_url as string ?? "";
+    const card = {
+      v: videoUrl,
+      t: (sb.title as string) ?? "DevCut",
+      m: "challenge",
+      s: poster,
+      b: (sb.logline as string) ?? "",
+    };
+    return new Response(JSON.stringify(card), {
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=60" },
     });
   }
 
@@ -506,6 +561,20 @@ async function handleRequest(req: Request): Promise<Response> {
         hint: "Commissioning a cut requires a GitHub account — your threads, budget, and keys are per-user.",
         command: "sign-in",
       }), { status: 401, headers: { "content-type": "application/json" } });
+    }
+
+    // Per-user daily spend cap: protects the shared server key from any one
+    // user exhausting the daily Runway budget. BYOK users (vaulted key) are
+    // exempt — they're spending their own account.
+    if (authIdent && !vaultedKey && url.pathname.endsWith("/run")) {
+      const remaining = await userDailyCallsRemaining(authIdent.id);
+      if (remaining <= 0) {
+        return new Response(JSON.stringify({
+          error: "Daily limit reached",
+          hint: `You've used ${COST_ALERT_PER_USER_DAILY} Runway calls today on the shared key. Add your own key in settings for unlimited cuts, or try again tomorrow.`,
+          command: "add-key",
+        }), { status: 402, headers: { "content-type": "application/json" } });
+      }
     }
 
     // Extract thread ID and agent ID from the request body.

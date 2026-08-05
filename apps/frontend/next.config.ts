@@ -78,6 +78,11 @@ const nextConfig: NextConfig = {
         destination: `${BFF_URL}/api/organizer/:path*`,
       },
       {
+        // Thread-id shareable cut card (for /cut/<threadId> URLs)
+        source: "/api/cut-card/:path*",
+        destination: `${BFF_URL}/api/cut-card/:path*`,
+      },
+      {
         source: "/api/x402/:path*",
         destination: `${BFF_URL}/api/x402/:path*`,
       },

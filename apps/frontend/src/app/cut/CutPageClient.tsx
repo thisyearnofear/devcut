@@ -9,14 +9,14 @@ import "@/components/landing/landing.css";
 /**
  * Public watch page for a shared cut — viral hook + Remix CTA.
  */
-export function CutPageClient() {
+export function CutPageClient({ initialC }: { initialC?: string }) {
   const params = useSearchParams();
   const [copied, setCopied] = useState(false);
   const card = useMemo(() => {
-    const c = params.get("c");
+    const c = initialC ?? params.get("c");
     if (!c) return null;
     return decodeCutShare(c);
-  }, [params]);
+  }, [params, initialC]);
 
   const sharePage = useCallback(async () => {
     if (!card) return;
