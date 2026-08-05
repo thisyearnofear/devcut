@@ -1,6 +1,6 @@
 # ADR 0003 — Hackathon tenancy: one Intelligence org per event
 
-**Status:** Interim implemented (2026-08-04) — organizer dashboard shipped at `/organizer` (org-scoped thread list with B2-snapshot enrichment). Org creation + invite links + per-event budgets deferred. · **Date:** 2026-08-03
+**Status:** Interim implemented (2026-08-04) — organizer dashboard shipped at `/organizer` (org-scoped thread list with B2-snapshot enrichment). Per-user orgs adopted 2026-08-05 (each `gh:<id>` user gets `user:<ghId>` org for privacy). Event org creation + invite links + per-event budgets deferred. · **Date:** 2026-08-03
 
 ## Context
 
@@ -17,7 +17,14 @@ and per-event budgets are unenforceable.
 
 ## Decision
 
-**One Intelligence organization per hackathon event.**
+**Interim (shipped 2026-08-05): per-user orgs.** Each signed-in user
+(`gh:<id>`) gets their own Intelligence organization (`user:<ghId>`) on
+first sign-in (via `ensureUser` in `apps/bff/src/auth.ts`). Their threads
+land in their own org; the organizer dashboard shows only their own cuts.
+This provides privacy between testers without the full event-creation
+flow.
+
+**Target: one Intelligence organization per hackathon event.**
 
 - Organizer onboarding = create org (`hackathon:<slug>`) + mint:
   (a) a human API key for the organizer's dashboard view,
