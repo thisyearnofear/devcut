@@ -1,6 +1,6 @@
 # ADR 0001 — Agent runtime: persistence & concurrency strategy
 
-**Status:** Postgres checkpointer adopted (2026-08-05) — `langgraph dev --runtime-edition postgres` against the existing `langgraph_app` database. No license key required (ELv2, noop license middleware). B2 snapshots retained as secondary fallback. · **Date:** 2026-08-03
+**Status:** Interim (inmem + B2 snapshots). Postgres checkpointer **blocked** — `langgraph-runtime-postgres` package is not published on PyPI (404); it's gated behind the LangGraph Platform Docker distribution, not available via pip/uv. · **Date:** 2026-08-03
 
 ## Context
 
@@ -14,7 +14,7 @@ observed in production:
   snapshots (`snapshots/<thread>.json`, see
   `apps/agent/src/state_snapshots.py` + BFF `/api/thread-state` fallback)
   — but snapshots cover *canvas content*, not *run execution state*. A
-  run interrupted mid-pipeline could not resume.
+  run interrupted mid-pipeline cannot resume.
 - **Single global worker** — all runs for ALL users serialized through one
   in-process queue. Two concurrent users = one waits minutes behind the
   other's full pipeline. Fixed by `--n-jobs-per-worker 4` (shipped
@@ -22,49 +22,52 @@ observed in production:
 
 ## Decision
 
-**Postgres checkpointer (adopted 2026-08-05):** run the agent with
-`langgraph dev --runtime-edition postgres`, pointing at the existing
-`langgraph_app` Postgres database (already provisioned on the server at
-`localhost:5433`). Checkpoints persist to Postgres; runs survive restarts;
-the agent can resume mid-pipeline after a crash or deploy.
+**Interim (current):** `runtime-inmem` with `--n-jobs-per-worker 4` (env
+`LANGGRAPH_JOBS_PER_WORKER`), B2 snapshots as the durability story,
+langgraph-api 0.11.2, runtime-inmem 0.31.2, cli 0.4.31. Verified: full
+golden run (5/5 clips + LIVE stitch + durable MP4) on 0.11.2; concurrent
+runs confirmed via ThreadPoolExecutor fan-out.
 
-**B2 snapshots retained as secondary fallback** — the BFF
-`/api/thread-state` and `/api/cut-card` endpoints still fall back to B2
-snapshots when LangGraph state is unavailable (e.g., during a brief
-restart window). With Postgres checkpointer, this fallback rarely fires,
-but it remains as defense-in-depth.
+**Postgres checkpointer: BLOCKED.** The `--runtime-edition postgres` flag
+exists in `langgraph_api/cli.py` (line 468) and the `run_server` function
+accepts `runtime_edition: Literal["inmem", "community", "postgres"]`. The
+`langgraph_runtime` package dynamically imports `langgraph_runtime_postgres`
+when `LANGGRAPH_RUNTIME_EDITION=postgres`. **However, the
+`langgraph-runtime-postgres` package is not published on PyPI** (confirmed:
+`https://pypi.org/pypi/langgraph-runtime-postgres/json` → 404). It is
+gated behind the LangGraph Platform Docker distribution
+(`langchain/langgraph-server` image via `langgraph up`), not available as a
+standalone pip/uv install.
 
 ## Licensing research (2026-08-05)
 
 - `langgraph-api` 0.11.2 is licensed under **Elastic License 2.0 (ELv2)**.
   ELv2 permits self-hosting, internal use, modification, and use within a
-  larger product. The one restriction — "you may not provide the software
-  to third parties as a hosted or managed service" — does NOT apply to
-  DevCut, which is a video product that *uses* LangGraph internally, not a
-  hosted LangGraph service.
-- The `langgraph_license.validation` module in the installed package is a
-  **noop**: `get_license_status()` always returns `True`;
-  `plus_features_enabled()` always returns `True`;
-  `check_license_periodically()` logs "No license check is performed."
-  No `LANGGRAPH_CLOUD_LICENSE_KEY` is required.
+  larger product. The restriction ("you may not provide the software to
+  third parties as a hosted or managed service") does NOT apply to DevCut.
+- The `langgraph_license.validation` module is a **noop**: always returns
+  `True`. No `LANGGRAPH_CLOUD_LICENSE_KEY` is required for the inmem path.
 - `langgraph-cli` and `langgraph-sdk` are **MIT** licensed.
 - `langgraph-runtime-inmem` is ELv2 (same as langgraph-api).
-- `--runtime-edition postgres` is a first-class CLI flag (cli.py:467),
-  not a premium feature. It reads `DATABASE_URI` + `REDIS_URI` env vars
-  and auto-runs migrations against the target database.
-- **Cost: $0. No license key. No Docker changes. No new infrastructure.**
-  The `langgraph_app` database already exists on the server.
+- **The Postgres runtime backend (`langgraph-runtime-postgres`) is not
+  publicly available.** It ships only inside the `langchain/langgraph-server`
+  Docker image (used by `langgraph up`). Running it outside Docker would
+  require extracting the package from the image or using `langgraph up`
+  with `--postgres-uri`.
 
 ## Alternatives considered
 
-- **Keep `runtime-inmem` + B2 snapshots only** — cheapest, but runs
-  interrupted mid-pipeline cannot resume. B2 snapshots cover canvas
-  *content* but not *execution state* (which node was active, what tools
-  were pending). Rejected: the Postgres path is free and strictly better.
-- **`langgraph up` (Docker container)** — production-grade, but adds a
-  Docker container to the stack and requires `--postgres-uri`. The PM2
-  `langgraph dev --runtime-edition postgres` path is simpler (same process
-  model as today, no Docker changes) and uses the same Postgres.
+- **`langgraph up` (Docker)** — launches a Docker container with the
+  `langchain/langgraph-server` image, which includes the Postgres runtime.
+  Requires Docker on the server (already available). Would replace the PM2
+  `langgraph dev` process with a Docker container. This is the viable path
+  to Postgres checkpointer — but it's a bigger infrastructure change (Docker
+  networking, volume management, the agent runs inside a container instead
+  of PM2). **Deferred** — the B2 snapshot + drain gate covers the user-
+  facing pain for now.
+- **Keep `runtime-inmem` + B2 snapshots only** — current approach. Runs
+  interrupted mid-pipeline cannot resume, but completed work survives via
+  snapshots. The drain gate prevents deploying during active runs.
 - **LangSmith Deployment (hosted)** — least ops, most lock-in + cost;
   conflicts with the self-hosted/x402 narrative.
 - **Temporal / durable-execution rewrite** — over-engineered for current
@@ -72,35 +75,30 @@ but it remains as defense-in-depth.
 
 ## Consequences
 
-- Runs survive agent restarts (deploys, crashes). A run interrupted
-  mid-pipeline resumes from its last Postgres checkpoint.
-- The BFF drain gate (`/readyz.inflight==0` before agent restart) remains
-  valuable — it prevents interrupting a run *at all*. But if a run IS
-  interrupted (crash, `FORCE_DEPLOY=1`), it can now resume.
-- B2 snapshots become secondary: the BFF `/api/thread-state` fallback
-  chain is LangGraph (now persistent) → B2 snapshot → empty. The fallback
-  rarely fires but remains as defense-in-depth.
-- The `langgraph_app` database on the server (already provisioned) gets
-  langgraph-api's auto-migrations on first boot. No manual schema work.
+- Inmem interim: restarts wipe *locks* (separate lock TTL handling in BFF:
+  45s) and *run execution state* (cannot resume mid-pipeline). B2 snapshots
+  cover *canvas content* (shots, media URLs, export status) — the canvas
+  restores after restart, but an interrupted run must be re-commissioned.
+- The drain gate (`/readyz.inflight==0` before agent restart) prevents
+  interrupting runs during deploys. `FORCE_DEPLOY=1` overrides (interrupts).
+- B2 snapshots + `/api/thread-state` fallback + `/api/cut-card` endpoint
+  provide durable canvas restore and shareable cut URLs even after restart.
 - Worker count (`--n-jobs-per-worker 4`) is unchanged; bounded by Runway
-  rate limits. Postgres checkpointer unlocks horizontal scaling (multiple
-  agent replicas against the same Postgres) if needed later.
+  rate limits.
 
-## Configuration
+## Path to Postgres checkpointer (when ready)
 
-```bash
-# /opt/gen-ui/.env
-DATABASE_URI=postgresql://intelligence:intelligence@localhost:5433/langgraph_app
-REDIS_URI=redis://localhost:6381
-```
-
-```js
-// ecosystem.config.js — agent args
-args: `dev --host 0.0.0.0 --port 8123 --no-browser --n-jobs-per-worker ${process.env.LANGGRAPH_JOBS_PER_WORKER || '4'} --runtime-edition postgres`
-```
+1. Switch from PM2 `langgraph dev` to `langgraph up --postgres-uri ...`
+   (Docker container with the `langchain/langgraph-server` image).
+2. The container includes `langgraph-runtime-postgres` — no PyPI install
+   needed.
+3. Point at the existing `langgraph_app` Postgres database (5433).
+4. Runs survive restarts; the agent can resume mid-pipeline.
+5. B2 snapshots become secondary (defense-in-depth, not primary).
 
 ## Links
 
 - B2 snapshot fallback: `apps/agent/src/state_snapshots.py`, `apps/bff/src/server.ts`
 - Deploy safety (drain gate, selective restarts): `scripts/deploy-local.sh`
 - License research: `langgraph_license.validation` (noop), `langgraph-api` ELv2
+- PyPI 404: `https://pypi.org/pypi/langgraph-runtime-postgres/json`
