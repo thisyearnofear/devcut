@@ -13,8 +13,10 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 ## Now (product alignment)
 
 - [x] Lock thesis in docs / README / AGENTS
-- [x] Landing + `/director` empty state = three doors only
-- [x] Agent prompt = Challenge Cut / Submit Ready modes
+- [x] Landing + `/director` empty state = four doors (challenge / submit / product / agent)
+- [x] Agent prompt = Challenge Cut / Submit Ready / Product Launch modes
+- [x] Product Launch Cut — fourth door + `product_launch` x402 SKU ($1.50) for founders/PMs
+- [x] WebMCP — 5 canvas tools on `document.modelContext` (ADR-0004, PR #1, live on prod)
 - [x] x402 SKUs on BFF + Agent door (catalog, 402, demo settle, canvas unlock)
 - [x] Planner providers: NVIDIA → Venice → Gemini; AISA removed ([`providers.md`](./providers.md))
 - [x] Run ledger UX — DevCut-shaped stages + human tool cards (AG-UI)

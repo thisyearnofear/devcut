@@ -6,7 +6,7 @@ Docker required — services run via PM2.
 ## Architecture
 
 ```
-Local machine                  Hetzner server (snel-bot)
+Local machine                  Vultr server (nuncio-vultr)
 ┌─────────────┐   rsync       /opt/gen-ui/
 │ npm run build├──────────▶   ├── .env              (real file)
 │ BFF tsc      │              ├── current -> releases/<ts>/
@@ -41,13 +41,14 @@ sudo apt install -y rsync
 
 ```bash
 # On your local machine — add to ~/.ssh/config
-Host snel-bot
+Host nuncio-vultr
     HostName <server-ip>
-    User deploy
-    IdentityFile ~/.ssh/id_ed25519
+    HostName 144.202.117.160
+    User linuxuser
+    IdentityFile ~/.ssh/nuncio_vultr
 
 # Copy the .env to the server (one-time)
-scp .env snel-bot:/opt/gen-ui/.env
+scp .env nuncio-vultr:/opt/gen-ui/.env
 ```
 
 The `.env` file lives at `/opt/gen-ui/.env` on the server. Each release
@@ -78,7 +79,7 @@ This single command:
 
 ```bash
 # SSH to the server
-ssh snel-bot
+ssh nuncio-vultr
 
 # Check all services are up
 pm2 list
@@ -164,7 +165,7 @@ If a deploy fails the health check, the script automatically rolls back
 to the previous release. To manually roll back:
 
 ```bash
-ssh snel-bot
+ssh nuncio-vultr
 cd /opt/gen-ui/releases
 ls -t                          # see available releases
 ln -snf releases/<timestamp> /opt/gen-ui/current
@@ -179,8 +180,8 @@ after the first deploy.
 
 To check disk usage:
 ```bash
-ssh snel-bot 'du -sh /opt/gen-ui/* | sort -rh'
-ssh snel-bot 'df -h /opt/gen-ui'
+ssh nuncio-vultr 'du -sh /opt/gen-ui/* | sort -rh'
+ssh nuncio-vultr 'df -h /opt/gen-ui'
 ```
 
 ## Troubleshooting

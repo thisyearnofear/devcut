@@ -10,19 +10,31 @@
 ## Implementation status (updated 27 Aug)
 
 **Done in this pass (code + typecheck):**
-- **Phase 0/1:** License verified as existing (MIT); Phase 1 spike items are
-  pending-human (empirical browser/ChatGPT/prod).
+- **Phase 0:** MIT `LICENSE` added and GitHub-detected (API: `spdx_id: MIT`);
+  repo public at `thisyearnofear/devcut` (renamed from gen-ui). Devpost draft
+  + filming slot still open.
+- **Phase 1:** spike items pending-human (empirical browser/ChatGPT/prod).
+  1.5 baseline sanity partially done (auth-probe 200, auth_enabled:true).
 - **Phase 2:** `types.d.ts`, `controller.ts`, and `DirectorCanvas` wiring
   complete (with the `isRunningRef` bug-class-#1 fix).
 - **Phase 3:** `register-tools.ts` (2 read-only + 3 auth-gated mutating tools)
   wired into the page with SSR guards + defense-in-depth; `npx tsc` passes clean.
 - **Phase 6:** README WebMCP section added.
 
-**Pending human:** Phase 1 spike verification, Phase 4 deploy + 10+ live agent
-runs + budget/billing check, Phase 5 demo film, Phase 6 Devpost submission.
-The code is deploy-ready (no `FORCE_BUILD` needed). Deviations are called out in
-each phase's review notes (notably: wiring lives in `DirectorCanvas`, not
-`Page()`).
+**Merged + deployed (2026-08-27):** PR #1 reviewed and approved (stale-ref
+handling, auth gating, SSR guards verified against next-auth source; one
+pre-existing bug found and fixed — `AuthSessionProvider` now ALWAYS mounts
+SessionProvider, `session={null}` in anon mode, commit e2e0ff6). Deployed
+`release=20260827_160002` with `FORCE_BUILD=1`; all 5 tool names verified in
+the served prod bundle. Note: the playbook's "no FORCE_BUILD needed" claim
+was wrong in practice — the script's build check is artifact-*existence*,
+not freshness, so stale artifacts from an earlier build got shipped once.
+Always `FORCE_BUILD=1` after source changes if artifacts predate them.
+
+**Pending human:** Phase 1 spike verification (Chrome flag + ChatGPT
+in-app-browser against the now-live tools), Phase 4 4.2–4.6 (10+ live agent
+runs, description hardening, budget/billing check), Phase 5 demo film,
+Phase 6 Devpost submission.
 
 ---
 
@@ -504,9 +516,13 @@ assign-then-guard narrowing. `npx tsc` clean.
 
 ## Phase 4 — Real-agent testing & description hardening (Days 4–5)
 
-- [ ] **4.1 Deploy to prod**: standard path —
-      `bash scripts/deploy-local.sh` (no FORCE_BUILD needed; no build-time env
-      flags changed). Verify `/director` unchanged for humans.
+- [x] **4.1 Deploy to prod**: DONE 2026-08-27 — `FORCE_BUILD=1 bash
+      scripts/deploy-local.sh` → `release=20260827_160002`; all services
+      healthy; tools verified in the served bundle (grep for tool names in
+      `/_next/static/chunks/*`). Caveat learned: the script's build check is
+      existence-based, so `FORCE_BUILD=1` is required when sources changed
+      but stale artifacts exist. (`/director` unchanged for humans — tools
+      are additive and inert without a WebMCP-capable agent.)
 - [ ] **4.2 Scripted agent runs through ChatGPT's in-app browser**, 10+ times,
       varying phrasing. Log every misunderstanding:
       - Does it poll `get_storyboard_state` or assume instant completion?

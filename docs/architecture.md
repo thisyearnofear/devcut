@@ -154,7 +154,9 @@ The BFF also exposes `POST /api/runway-call-used` which the Python agent calls a
 | `JobOutcomePanel`    | After stitch: **Watch · Vault · HyperFrames · Share** (+ kit.zip + B2 verify) |
 | Chat run ledger      | DevCut-shaped stages + human tool cards (`devcut-ledger.ts`)         |
 
-Landing / empty canvas: three doors + **Run HyperFrames demo** CTA. See [`hyperframes.md`](./hyperframes.md).
+Landing / empty canvas: four doors (challenge / submit / product / agent) + **Run HyperFrames demo** CTA. See [`hyperframes.md`](./hyperframes.md).
+
+**WebMCP (ADR-0004):** `DirectorCanvas` publishes handlers + live `StoryboardState` to the `directorController` singleton and registers 5 tools on `document.modelContext` (`get_storyboard_state`/`get_export` read-only; `start_cutdown`/`regenerate_shot`/`cancel_run` auth-gated). Mutating tools start runs and return immediately — agents poll state. Same session ⇒ same BYOK vault, budget, and `ui_thread_id` billing.
 
 ### Stitched export
 

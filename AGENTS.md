@@ -1,7 +1,7 @@
 # DevCut — Agent-Directed Hackathon Video
 
 ## Project Goal
-**DevCut** is the x402-metered video desk for hackathons. Organizers commission Challenge Cuts (visual specs of winning work); builders enhance HyperFrames submissions into Devpost-ready cuts; agents pay per job.
+**DevCut** is the x402-metered video desk for hackathons. Organizers commission Challenge Cuts (visual specs of winning work); builders enhance HyperFrames submissions into Devpost-ready cuts; founders/PMs commission Product Launch Cuts; agents pay per job.
 
 North star: `docs/devcut-thesis.md`
 
@@ -10,13 +10,13 @@ Engine (unchanged): LangGraph agent → shot plan → Runway stills/clips → VO
 Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizers + HyperFrames builders (+ Backblaze Generative Media / x402 tracks).
 
 ## Architecture
-- **Frontend**: Next.js standalone (`apps/frontend/`) — DevCut landing + storyboard canvas at `/director`
+- **Frontend**: Next.js standalone (`apps/frontend/`) — DevCut landing + storyboard canvas at `/director`; WebMCP tools on `document.modelContext` expose the canvas to external agents (ADR-0004)
 - **BFF**: Hono / CopilotKit runtime (`apps/bff/`) — proxies agent + intelligence + x402
 - **Agent**: Python LangGraph (`apps/agent/`) — plans shots, calls Runway, assembles MP4s
 - **Planner LLM**: NVIDIA (primary) → Venice → Gemini — see `docs/providers.md` (AISA removed)
 - **MCP**: mcp-use server (`apps/mcp/`) — exposes agent to Claude / ChatGPT
 - **Infrastructure**: Postgres, Redis, CopilotKit Intelligence (Docker containers)
-- **Source**: https://github.com/thisyearnofear/gen-ui
+- **Source**: https://github.com/thisyearnofear/devcut (renamed from gen-ui, Aug 2026)
 
 ## Server Infrastructure (nuncio-vultr)
 - **Server**: nuncio-vultr (`144.202.117.160`), user `linuxuser`, 109GB disk
@@ -55,6 +55,8 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - **CopilotKit 1.66.0** + `@ag-ui/langgraph@0.0.42` (upgraded from 1.57.1 to fix the `configurable`+`context` 400 dual-send bug).
 - **langgraph-api 0.11.2** (upgraded from EOL 0.8.7); `--n-jobs-per-worker 4` for concurrent runs.
 - **ffmpeg** installed on nuncio-vultr for LIVE stitch mode (without it, stitches return the MOCK Big Buck Bunny placeholder).
+- **WebMCP (ADR-0004)**: `/director` registers 5 tools on `document.modelContext` (read: `get_storyboard_state`/`get_export`; auth-gated mutating: `start_cutdown`/`regenerate_shot`/`cancel_run`). Start-don't-block semantics — agents poll state, tools never block on the minutes-long pipeline. Merged via PR #1 (2026-08-27).
+- **Four doors / SKUs**: challenge_film, submission_polish, hero_shot_pack, product_launch ($1.50, founders/PMs). Doors: challenge/submit/product/agent ("Product Launch Cut" mode prompt in `storyboard_prompts.py` + x402 SKU in `apps/bff/src/x402/skus.ts`).
 - **Deploy safety**: selective restarts (per-app fingerprinting), drain gate (inflight==0 before agent restart), known-good rollback (`.health-ok` marker), agent import gate, `node --check` config gate, pid-change verification with `delete+start` fallback.
 
 ## Important Files
@@ -71,6 +73,8 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - `apps/bff/src/organizer.ts`: Org-scoped thread list for organizer dashboard
 - `apps/bff/src/health.ts`: Liveness, readiness, WS URL rewrite, error rewriting
 - `apps/frontend/src/auth.ts`: Auth.js v5 config (GitHub OAuth, env-gated)
+- `apps/frontend/src/components/auth/AuthSessionProvider.tsx`: ALWAYS mounts SessionProvider (auth-off ⇒ `session={null}`, no fetch) — useSession crashes without it
+- `apps/frontend/src/lib/webmcp/`: WebMCP integration — `controller.ts` (DirectorController singleton), `register-tools.ts` (5 canvas tools), `types.d.ts` (draft-spec typings; verify vs real runtime)
 - `apps/frontend/src/app/organizer/`: Organizer dashboard (org-scoped thread list)
 - `apps/mcp/src/index.ts`: MCP server with widget definitions
 - `apps/frontend/`: Next.js app with storyboard canvas
@@ -88,6 +92,10 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - **B2 state snapshots**: agent writes `snapshots/<ui_thread_id>.json` to B2 after each mutating tool; BFF `/api/thread-state` falls back to them when LangGraph state is wiped (agent restart).
 - **CopilotKit 1.66.0** + `@ag-ui/langgraph@0.0.42` (upgraded from 1.57.1 to fix the `configurable`+`context` 400 dual-send bug).
 - **Organizer dashboard** (`/organizer`): org-scoped thread list with B2-snapshot enrichment (ADR-0003 interim).
+- **Deploy artifact pitfall**: `deploy-local.sh` decides "build needed" by *existence* of `apps/frontend/.next` + `apps/bff/dist` — stale artifacts from a previous build get shipped silently. After changing frontend/bff sources with artifacts present, delete them or run `FORCE_BUILD=1`. (Bitten 2026-08-27: a killed mid-build left a partial `.next` that skipped the build then failed the standalone check.)
+- **Smoke-test false negative**: the deploy script's "Intelligence container" probe can report `n/a` while the container is healthy (verified 2026-08-27 ×2 via `docker ps` + port 4203). Don't treat it as a failed deploy; verify the container directly.
+- **WebMCP live (2026-08-27)**: the 5 canvas tools ship in the `/director` client bundle on prod (verified: tool names present in served chunks; `modelContext` referenced). Runtime flag/in-app-browser behavior still unverified — playbook Phase 1 spike pending.
+- **Long deploys**: run `deploy-local.sh` inside `screen -dmS` — plain background (`nohup … &`) gets reaped when the invoking shell ends, and a mid-build kill leaves partial artifacts (see pitfall above).
 
 ## Migration Notes (July 2026)
 - Migrated from snel-bot (user `deploy`) to nuncio-vultr (user `linuxuser`)
