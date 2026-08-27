@@ -41,6 +41,7 @@ import {
   DEVCUT_DOORS,
   DEVCUT_GOLDEN_CHALLENGE,
   DEVCUT_HF_DEMO,
+  DEVCUT_PRODUCT_EXAMPLES,
   DEVCUT_SUBMIT_EXAMPLES,
   type DevCutDoorId,
 } from "@/lib/devcut";
@@ -323,11 +324,13 @@ function PlanningSkeleton({
 const SUGGESTIONS = [
   ...DEVCUT_CHALLENGE_EXAMPLES.map((ex) => `${DEVCUT_DOORS[0].prompt} ${ex.brief}`),
   ...DEVCUT_SUBMIT_EXAMPLES.map((ex) => `${DEVCUT_DOORS[1].prompt} ${ex.brief}`),
+  ...DEVCUT_PRODUCT_EXAMPLES.map((ex) => `${DEVCUT_DOORS[2].prompt} ${ex.brief}`),
 ];
 
 const SUGGESTION_LABELS = [
   ...DEVCUT_CHALLENGE_EXAMPLES.map((ex) => `Challenge · ${ex.label}`),
   ...DEVCUT_SUBMIT_EXAMPLES.map((ex) => `Submit · ${ex.label}`),
+  ...DEVCUT_PRODUCT_EXAMPLES.map((ex) => `Product · ${ex.label}`),
 ];
 
 // ---------------------------------------------------------------------------
@@ -1837,18 +1840,24 @@ function DevCutEmptyState({
       ? (new URLSearchParams(window.location.search).get("mode") as DevCutDoorId | null)
       : null;
   const [door, setDoor] = useState<DevCutDoorId>(
-    initialMode === "submit" || initialMode === "agent" || initialMode === "challenge"
+    initialMode === "submit" || initialMode === "product" || initialMode === "agent" || initialMode === "challenge"
       ? initialMode
       : "challenge",
   );
   const [draft, setDraft] = useState(
     initialMode === "submit"
       ? DEVCUT_SUBMIT_EXAMPLES[0].brief
-      : DEVCUT_GOLDEN_CHALLENGE.brief,
+      : initialMode === "product"
+        ? DEVCUT_PRODUCT_EXAMPLES[0].brief
+        : DEVCUT_GOLDEN_CHALLENGE.brief,
   );
 
   const active = DEVCUT_DOORS.find((d) => d.id === door)!;
-  const examples = door === "submit" ? DEVCUT_SUBMIT_EXAMPLES : DEVCUT_CHALLENGE_EXAMPLES;
+  const examples = door === "submit"
+    ? DEVCUT_SUBMIT_EXAMPLES
+    : door === "product"
+      ? DEVCUT_PRODUCT_EXAMPLES
+      : DEVCUT_CHALLENGE_EXAMPLES;
 
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center gap-6 px-3 py-8 sm:px-6 lg:py-0">
@@ -1904,12 +1913,13 @@ function DevCutEmptyState({
                 setDoor(d.id);
                 if (d.id === "challenge") setDraft(DEVCUT_GOLDEN_CHALLENGE.brief);
                 if (d.id === "submit") setDraft(DEVCUT_SUBMIT_EXAMPLES[0].brief);
+                if (d.id === "product") setDraft(DEVCUT_PRODUCT_EXAMPLES[0].brief);
               }}
               className={`px-4 py-4 text-left transition-colors md:border-l md:first:border-l-0 ${
                 i > 0 ? "border-t border-[var(--dc-line)] md:border-t-0" : ""
               } ${
                 selected
-                  ? d.id === "submit"
+                  ? d.id === "submit" || d.id === "product"
                     ? "bg-[var(--dc-cyan-soft)]"
                     : "bg-[var(--dc-signal-soft)]"
                   : "bg-[var(--dc-panel)] hover:bg-white/[0.03]"
@@ -1969,7 +1979,11 @@ function DevCutEmptyState({
                 onClick={() => onStart(`${active.prompt} ${draft.trim()}`)}
                 className="shrink-0 self-stretch bg-[var(--dc-signal)] px-5 py-3 dc-mono text-xs font-medium uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40 sm:min-w-[10rem]"
               >
-                {door === "challenge" ? "Start Challenge Cut" : "Start Submit Ready cut"}
+                {door === "challenge"
+                  ? "Start Challenge Cut"
+                  : door === "product"
+                    ? "Start Product Launch"
+                    : "Start Submit Ready cut"}
               </button>
             </div>
           </div>

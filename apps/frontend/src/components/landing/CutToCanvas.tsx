@@ -8,6 +8,7 @@ import type { DevCutDoorId } from "@/lib/devcut";
 const LABELS: Record<string, string> = {
   challenge: "Challenge Cut",
   submit: "Submit Ready",
+  product: "Product Launch",
   agent: "x402 Agent",
   golden: "Golden cut",
   hf: "HyperFrames demo",

@@ -7,7 +7,7 @@ export const DEVCUT = {
     "Turn a hackathon brief or project into a storyboard, Runway footage, durable MP4, and HyperFrames handoff kit — without becoming a film studio.",
 } as const;
 
-export type DevCutDoorId = "challenge" | "submit" | "agent";
+export type DevCutDoorId = "challenge" | "submit" | "product" | "agent";
 
 export interface DevCutDoor {
   id: DevCutDoorId;
@@ -53,6 +53,34 @@ export const DEVCUT_DOORS: DevCutDoor[] = [
       "Call generate_storyboard_plan, then generate_all_references, generate_all_videos, and stitch_final_cut.",
       "After export, point at the HyperFrames handoff panel — paste BRIEF.md, stage heroes under assets/devcut/, finish in HF.",
       "Project / URL / brief follows:",
+    ].join(" "),
+  },
+  {
+    id: "product",
+    label: "For founders & PMs",
+    title: "Product Launch Cut",
+    body: "Polished demo video for a shipped product — no hackathon framing, just clean proof.",
+    prompt: [
+      "Mode: Product Launch Cut (founder / PM demo).",
+      "Create a ~30s polished product demo cut.",
+      "Shot grammar:",
+      "1) Logo reveal — brand mark animates in clean and stable.",
+      "2) Feature hero — screen recording or hero shot of the core workflow.",
+      "3) Second feature — another key capability.",
+      "4) Third feature — completing the value story.",
+      "5) Proof — metric, testimonial, or social proof visual.",
+      "6) CTA — website URL or tagline.",
+      "Constraint rules:",
+      "- All on-screen text must be spelled verbatim with exact case; no accidental characters or symbols beyond what is specified.",
+      "- Lock color palette to the accent color from the brief plus neutral pair (off-white, ink black, accent).",
+      "- Maintain 3 depth layers (background / mid / foreground) moving at different speeds until the final hold.",
+      "- Background layer features repeating outline text flowing horizontally at ultra-low speed.",
+      "- Mid decorative layer features barcode bands, UI ticks, or halftone grids moving at a different speed.",
+      "- Final shot holds completely still for 1.2s.",
+      "Prefer landscape 1280:720 unless the brief says vertical / TikTok / Reels.",
+      "Call generate_storyboard_plan, then generate_all_references, generate_all_videos, and stitch_final_cut.",
+      "After export, point at the HyperFrames handoff panel — paste BRIEF.md, stage heroes under assets/devcut/, finish in HF.",
+      "Product / URL / brief follows:",
     ].join(" "),
   },
   {
@@ -137,5 +165,27 @@ export const DEVCUT_SUBMIT_EXAMPLES = [
     scene: "Existing composition → heroes",
     brief:
       "Submit Ready for a HyperFrames product-launch project: add generative Runway hero shots around a data-chart beat and stitch a launch MP4. Product: a developer API that meters generative media via x402.",
+  },
+] as const;
+
+/** Example briefs for the Product Launch Cut door. */
+export const DEVCUT_PRODUCT_EXAMPLES = [
+  {
+    label: "SaaS landing",
+    scene: "Product URL → polished demo",
+    brief:
+      "Product: DevCut — the x402-metered video desk for hackathons. Demo a founder's journey: paste a product URL, get a storyboard, Runway heroes, and a polished MP4 with HyperFrames handoff. Accent color: #2de2c5 (cyan), neutral: off-white + ink black.",
+  },
+  {
+    label: "CLI tool",
+    scene: "Developer tool → feature tour",
+    brief:
+      "Product: a CLI tool that turns GitHub repos into motion graphics. Show the terminal workflow: clone, paste repo URL, select style, export. Accent: #ff9f1c (orange), neutral: black + white.",
+  },
+  {
+    label: "API product",
+    scene: "API docs → product cut",
+    brief:
+      "Product: an AI video generation API with REST endpoints. Show the API shape — POST /generate, stream response, MP4 delivery. Accent: #a78bfa (purple), neutral: dark gray + white.",
   },
 ] as const;

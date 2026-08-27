@@ -24,12 +24,13 @@ One page. Everything else is implementation detail.
 
 ## 3. The product (what DevCut *is*)
 
-Two modes, one pipeline:
+Four modes, one pipeline:
 
 1. **Challenge Cut (organizer)** — brief / Devpost URL / judging criteria → storyboard → generative hero shots → stitched reference film → **builder kit** (shot list, `BRIEF.md` seed, HyperFrames starter pointers, “what good looks like” stills).
 2. **Submit Ready (builder)** — HyperFrames project, deployed app, or product URL → generative heroes + packaging → Devpost-ready MP4 on durable storage (B2) with optional provenance.
+3. **Product Launch Cut (founder/PM)** — product URL / feature list → polished ~30s demo cut with logo reveal, feature highlights, social proof, and CTA — no hackathon framing.
 
-HyperFrames remains the **code-native composition OS**. DevCut is the **generative footage + hackathon packaging layer** that feeds it — not a competing authoring tool.
+HyperFrames remains the **code-native composition OS**. DevCut is the **generative footage + packaging layer** that feeds it — not a competing authoring tool.
 
 ## 4. Creative monopoly
 
@@ -41,26 +42,26 @@ HyperFrames remains the **code-native composition OS**. DevCut is the **generati
 
 **Design = distribution:** the challenge film *is* the invite; the Submit Ready cut *is* the Devpost artifact. Growth rides hackathon invites and submission links, not ads.
 
-## 5. x402 SKUs (max three)
+## 5. x402 SKUs
 
 | SKU | Who | What they buy |
 | --- | --- | --- |
 | `challenge_film` | Organizer | Reference film + builder kit |
 | `submission_polish` | Builder / agent | HyperFrames/repo/URL → submission MP4 |
 | `hero_shot_pack` | Builder / agent | N consistent generative stills/clips for an existing HF composition |
+| `product_launch` | Founder / PM | Polished product demo cut (~30s) |
 
-Price in stable units per job; meter generation + stitch + durable host. No fourth SKU until these three are sharp.
+Price in stable units per job; meter generation + stitch + durable host.
 
-## 6. Empty-state IA (the only three doors)
+## 6. Empty-state IA (the doors)
 
 ```
 DevCut
 ├── I’m hosting a hackathon     → Challenge Cut
 ├── I’m submitting              → Submit Ready
+├── I have a product to launch  → Product Launch Cut
 └── I’m an agent                → OpenAPI + x402 (skill / docs)
 ```
-
-Every other path is a distraction until these three convert.
 
 ## 7. Success metrics (north-star, not vanity)
 

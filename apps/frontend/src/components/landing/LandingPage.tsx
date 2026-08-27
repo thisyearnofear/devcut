@@ -10,6 +10,7 @@ import {
   DEVCUT_DOORS,
   DEVCUT_GOLDEN_CHALLENGE,
   DEVCUT_HF_DEMO,
+  DEVCUT_PRODUCT_EXAMPLES,
   DEVCUT_SUBMIT_EXAMPLES,
   type DevCutDoorId,
 } from "@/lib/devcut";
@@ -178,7 +179,12 @@ export function LandingPage() {
   }, [introDone]);
 
   const examples = useMemo(
-    () => (door === "submit" ? DEVCUT_SUBMIT_EXAMPLES : DEVCUT_CHALLENGE_EXAMPLES),
+    () =>
+      door === "submit"
+        ? DEVCUT_SUBMIT_EXAMPLES
+        : door === "product"
+          ? DEVCUT_PRODUCT_EXAMPLES
+          : DEVCUT_CHALLENGE_EXAMPLES,
     [door],
   );
 
@@ -248,6 +254,7 @@ export function LandingPage() {
       setDoor(id);
       if (id === "challenge") setBrief(DEVCUT_CHALLENGE_EXAMPLES[0].brief);
       if (id === "submit") setBrief(DEVCUT_SUBMIT_EXAMPLES[0].brief);
+      if (id === "product") setBrief(DEVCUT_PRODUCT_EXAMPLES[0].brief);
     },
     [playCut],
   );
@@ -534,7 +541,9 @@ export function LandingPage() {
                         placeholder={
                           door === "challenge"
                             ? "What should builders understand, build, or avoid?"
-                            : "Paste a product URL, GitHub repo, or HyperFrames notes…"
+                            : door === "product"
+                              ? "Paste a product URL, brand guidelines, or feature list…"
+                              : "Paste a product URL, GitHub repo, or HyperFrames notes…"
                         }
                       />
                       <button
@@ -545,7 +554,11 @@ export function LandingPage() {
                         data-cuelume-release
                         className="dc-btn inline-flex shrink-0 items-center justify-center self-stretch bg-[var(--dc-signal)] px-5 py-3 dc-mono text-xs font-medium uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40 sm:min-w-[11rem]"
                       >
-                        {door === "challenge" ? "Start Challenge Cut" : "Start Submit Ready cut"}
+                        {door === "challenge"
+                          ? "Start Challenge Cut"
+                          : door === "product"
+                            ? "Start Product Launch"
+                            : "Start Submit Ready cut"}
                       </button>
                     </div>
                     <p className="border-t border-[var(--dc-line)] px-4 py-2 dc-mono text-[10px] text-[var(--dc-dim)]">

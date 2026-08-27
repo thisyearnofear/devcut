@@ -69,6 +69,11 @@ export const LANDING_DOOR_CLIPS = {
     panelLine: "Package a launch-ready stitch",
     image: "/landing/doors/submit.jpg",
   },
+  product: {
+    clipLabel: "Product Launch",
+    panelLine: "Polished demo without the hackathon frame",
+    image: "/landing/doors/product.jpg",
+  },
   agent: {
     clipLabel: "x402 Agent",
     panelLine: "Meter the job. Unlock the canvas",
