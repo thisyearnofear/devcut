@@ -203,7 +203,7 @@ def generate_voiceover(line: str, voice: Optional[str] = None) -> RunwayAudioRes
     if audio_is_live():
         _check_budget()
         result = _live_voiceover(line, voice)
-        _notify_bff_call_used(_billing_thread_id())
+        _notify_bff_call_used()
         return _persist_audio_to_b2(result)
 
     return _mock_audio(line, duration=0.0, kind="voiceover", voice=voice)
@@ -222,7 +222,7 @@ def generate_sound_effect(
     if audio_is_live():
         _check_budget()
         result = _live_sound_effect(prompt, duration or 0.0, loop=loop)
-        _notify_bff_call_used(_billing_thread_id())
+        _notify_bff_call_used()
         return _persist_audio_to_b2(result)
 
     return _mock_audio(prompt, duration or 5.0, kind="sfx", voice=None)
