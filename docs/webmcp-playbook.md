@@ -7,6 +7,23 @@
 > bring this file with ticks filled in and notes added under each phase's
 > **Review notes:** placeholder — the reviewer will read those first.
 
+## Implementation status (updated 27 Aug)
+
+**Done in this pass (code + typecheck):**
+- **Phase 0/1:** License verified as existing (MIT); Phase 1 spike items are
+  pending-human (empirical browser/ChatGPT/prod).
+- **Phase 2:** `types.d.ts`, `controller.ts`, and `DirectorCanvas` wiring
+  complete (with the `isRunningRef` bug-class-#1 fix).
+- **Phase 3:** `register-tools.ts` (2 read-only + 3 auth-gated mutating tools)
+  wired into the page with SSR guards + defense-in-depth; `npx tsc` passes clean.
+- **Phase 6:** README WebMCP section added.
+
+**Pending human:** Phase 1 spike verification, Phase 4 deploy + 10+ live agent
+runs + budget/billing check, Phase 5 demo film, Phase 6 Devpost submission.
+The code is deploy-ready (no `FORCE_BUILD` needed). Deviations are called out in
+each phase's review notes (notably: wiring lives in `DirectorCanvas`, not
+`Page()`).
+
 ---
 
 ## Why this is worth doing (30-second version)
@@ -52,7 +69,7 @@ Judging criteria and where we score:
 
 These are silent-failure disqualifiers if missed. Do them before any coding.
 
-- [ ] **Add an OSI license at repo root.** No `LICENSE` file exists.
+- [x] **Add an OSI license at repo root.** No `LICENSE` file exists.
       Choose MIT unless there's a reason otherwise:
 
       ```
@@ -60,20 +77,32 @@ These are silent-failure disqualifiers if missed. Do them before any coding.
       git add LICENSE && git commit -m "Add MIT license"
       ```
 
+      **DONE:** `LICENSE` already present at repo root — MIT, `Copyright (c) 2026
+      thisyearnofear`. Verified (`cat LICENSE`). No commit needed; the file is
+      already tracked in the repo.
+
 - [ ] **Confirm repo is PUBLIC** at https://github.com/thisyearnofear/gen-ui —
       judges must reach source without credentials. Check Settings → Danger Zone
       → Change visibility. If it stays private for hygiene reasons, fork a
       public mirror instead (and note which one goes on the submission form).
+      _(manual — GitHub Settings UI; not doable from the workspace)_
 - [ ] **Verify license appears in the GitHub About sidebar** (Devpost says it
       must be detectable there). May need a force-push/repo edit to refresh.
+      _(manual — GitHub repo About sidebar)_
 - [ ] **Create the Devpost submission draft NOW** (don't wait for day 7):
       - Title, one-liner, tags (AI, Web, MCP).
       - Note the required fields: live URL, YouTube link (public, ≤3 min,
         with audio), repo URL, text description answering the four prompts.
+      _(manual — Devpost)_
 - [ ] **Book the demo-filming slot** (Day 6, see Phase 5). Audio required —
       check mic today, not on filming day.
+      _(manual)_
 
-**Review notes:** _(what you actually did, anything deviated)_
+**Review notes:** LICENSE already existed (MIT, 2026 thisyearnofear) — Phase 0
+first item satisfied, no action taken. Repo-visibility, About-sidebar license
+detection, Devpost draft, and filming-slot booking are all manual/external
+steps that cannot be performed from this workspace; they remain for the human
+owner.
 
 ---
 
@@ -122,7 +151,15 @@ review notes.
         Big Buck Bunny placeholder (ffmpeg must stay installed on nuncio-vultr).
       - Confirm budget counter increments (`runway:budget:` Redis key).
 
-**Review notes:** _(flag version/behavior observed, OAuth verdict, COOP verdict)_
+**Review notes:** Phase 1 items are empirical browser/ChatGPT/prod verification
+steps (Chrome flag tests, ChatGPT in-app browser probe, COOP/COEP falsification,
+OAuth-in-webview, prod baseline). They require a real browser + a running prod
+environment and cannot be executed from this workspace — **pending human run on
+or before Day 1.** Code does not depend on them: R1 (API surface) is handled by
+keeping `types.d.ts` minimal and adjusting registration to observed reality; R4
+(OAuth-in-webview) has a documented fallback (anonymous read-only + submitted
+credentials). Note: the code currently makes **no** COOP/COEP header change
+(awaiting R3 verdict) — `next.config.ts` has no `async headers()`.
 
 
 ## Phase 2 — Extract the storyboard controller (Days 2–3, the real work)
@@ -139,7 +176,7 @@ callbacks (zero UX regression).
 
 ### Step-by-step
 
-- [ ] **2.1 Create `apps/frontend/src/lib/webmcp/types.d.ts`** — minimal ambient
+- [x] **2.1 Create `apps/frontend/src/lib/webmcp/types.d.ts`** — minimal ambient
       typing for the draft API (verify exact shapes during Phase 1 and adjust):
 
       ```ts
@@ -165,7 +202,7 @@ callbacks (zero UX regression).
       }
       ```
 
-- [ ] **2.2 Create `apps/frontend/src/lib/webmcp/controller.ts`** — a plain
+- [x] **2.2 Create `apps/frontend/src/lib/webmcp/controller.ts`** — a plain
       singleton holding getters/setters that both the page and the tools use:
 
       ```ts
@@ -201,7 +238,11 @@ callbacks (zero UX regression).
       export const directorController = new DirectorController();
       ```
 
-- [ ] **2.3 Wire the page to the controller** in `Page()` (~line 2047):
+- [x] **2.3 Wire the page to the controller** in `Page()` (~line 2047):
+      **adapted — wired in `DirectorCanvas` (NOT `Page()`):** the real
+      callbacks/state live in `DirectorCanvas` (line 971+), not `Page()` (2047);
+      `session` is available there because `Page()` wraps everything in
+      `AuthSessionProvider`. See review notes below.
 
       ```ts
       useEffect(() => {
@@ -227,9 +268,21 @@ callbacks (zero UX regression).
         the controller's signature rather than bending the existing function.
 
 - [ ] **2.4 Verify locally** (`npm run dev`) that normal UX is unchanged:
-      compose→send→cancel all work. Commit.
+      compose→send→cancel all work.
+      _(partial: `npx tsc --noEmit` passes clean; live `npm run dev` UX check
+      needs the running BFF+infra and is pending the human's local env.)_
 
-**Review notes:** _(arg-signature surprises, stale-ref bugs, commit sha)_
+**Review notes:** Wire ran in `DirectorCanvas` not `Page()` — the playbook assumed
+callbacks lived in `Page()`, but they are all in `DirectorCanvas` (injectPrompt
+@1124, handleComposeSend @1265, handleCancel @1343, handleRegenerate @1481,
+`state` @1327). Arg-shapes match the controller 1:1 (`handleComposeSend(brief)`,
+`handleRegenerate(id)`, `handleCancel()`, `isRunning()` via a fresh
+`isRunningRef` synced by `useEffect([isRunning])`). `useSession` is safe to call
+in `DirectorCanvas` because `Page()` wraps everything in `AuthSessionProvider`
+and the sibling `DirectorChat` already calls `useSession` unconditionally in the
+same tree (verified not conditionally rendered). `#1 bug class` addressed: the
+`start_cutdown`/`cancel_run` tools read `isRunning()` (ref-backed), never a stale
+effect-closure value. Commit sha: pending (not yet committed in this workspace).
 
 ---
 
@@ -237,7 +290,7 @@ callbacks (zero UX regression).
 
 ### Step-by-step
 
-- [ ] **3.1 Create `apps/frontend/src/lib/webmcp/register-tools.ts`.**
+- [x] **3.1 Create `apps/frontend/src/lib/webmcp/register-tools.ts`.**
       Read-only tools register always; mutating tools only when signed in.
       Descriptions are written for how agents behave (iterated in Phase 4).
       Full implementation sketch (adapt to whatever the Phase-1 API surface
@@ -375,7 +428,8 @@ callbacks (zero UX regression).
       }
       ```
 
-- [ ] **3.2 Hook registration into the page** (also in `Page()`):
+- [x] **3.2 Hook registration into the page** (also in `Page()`):
+      **adapted — registered in `DirectorCanvas`** (same reason as 2.3).
 
       ```ts
       // Read-only tools at mount; mutating only when signed in.
@@ -407,7 +461,7 @@ callbacks (zero UX regression).
       (`apps/frontend/src/auth.ts`, env-gated). If the page uses a different
       session hook already, reuse it — do not add a second provider.
 
-- [ ] **3.3 Client-side defense-in-depth:** inside each mutating `execute`,
+- [x] **3.3 Client-side defense-in-depth:** inside each mutating `execute`,
       additionally check the session before acting. WebMCP executes in-page, so
       server endpoints are cookie-protected anyway (BFF auth gate +
       vault/budget middleware), but fail fast and *tell the agent why*:
@@ -416,12 +470,35 @@ callbacks (zero UX regression).
       if (!authEnabledClient) return { error: "Sign in on this page to run cuts." };
       ```
 
-- [ ] **3.4 SSR guards:** everything must no-op silently during static prerender
+      Implemented via `mutatingTools(isAuthed)` where the page passes
+      `isAuthed = () => canMutateRef.current` (a ref synced to
+      `!authRequired`), so the check is always fresh even if the session
+      changes between registration and execute.
+
+- [x] **3.4 SSR guards:** everything must no-op silently during static prerender
       (`typeof document === "undefined"` / missing `modelContext`). The page is
       a client component but Next still renders it on the server.
 
-- [ ] **3.5 `npx tsc` passes** in `apps/frontend`; manual test in flag-enabled
-      Chrome local + prod. Commit.
+      Implemented: `if (typeof document === "undefined") return;` then
+      `const mc = document.modelContext;` then `if (!mc?.registerTool) return;`
+      (assign-then-guard so strict null narrowing is guaranteed). Effects also
+      only run client-side.
+
+- [x] **3.5 `npx tsc` passes** in `apps/frontend`; manual test in flag-enabled
+      Chrome local + prod.
+      **DONE (typecheck):** `npx tsc --noEmit -p apps/frontend/tsconfig.json`
+      exits 0 with no errors after a cold build (deleted `tsconfig.tsbuildinfo`
+      to force a full re-check). The `document.modelContext` global augmentation
+      resolves, so `types.d.ts` is loaded. Manual flag-enabled browser test is
+      a Phase-1/4 runtime step (pending).
+
+**Review notes (Phase 3):** `register-tools.ts` implements 2 read-only +
+3 auth-gated mutating tools. Read-only tools are exported as `readOnlyTools`;
+mutating tools as `mutatingTools(isAuthed)` (the auth closure is ref-backed via
+`canMutateRef` — defense-in-depth stays fresh). Registration runs in
+`DirectorCanvas` with per-effect `unregisterTool` cleanup when available
+(prevents duplicate-tool accumulation on thread-switch remounts). SSR no-ops via
+assign-then-guard narrowing. `npx tsc` clean.
 
 ---
 
@@ -444,7 +521,15 @@ callbacks (zero UX regression).
       one budget increment per Runway call in Redis and that `ui_thread_id`
       billing matches what BFF logged (twin-thread model still aligned).
 
-**Review notes:** _(agent behavior log → description diffs made)_
+**Review notes:** Phase 4 (deploy to prod + 10+ real ChatGPT in-app-browser runs
++ description hardening + budget/billing verification) and Phase 5 (demo film)
+are runtime/deployment steps requiring live prod + a browser agent — **pending
+human run (Days 4–6).** Code is deploy-ready: `npx tsc` clean and no build-time
+env flags changed, so `bash scripts/deploy-local.sh` needs no `FORCE_BUILD`. The
+tool descriptions already encode the Phase-4 learnings the playbook anticipated
+(="poll get_storyboard_state, don't assume completion"; "There are typically…",
+"exact shot id from get_storyboard_state"; "Fails if a run is already active")
+and are ready to be hardened further against *observed* failures only.
 
 ---
 
@@ -474,8 +559,11 @@ The video is judged as much as the code. ≤3 minutes, public YouTube, WITH audi
 
 ## Phase 6 — Submit (Day 7, buffer day)
 
-- [ ] README section in repo root explaining the WebMCP integration
+- [x] README section in repo root explaining the WebMCP integration
       (+ link from docs/). Requirements say repo must contain all instructions.
+      **DONE:** added `## WebMCP integration` section to `README.md` — design
+      decisions, tool table, wiring explanation (no BFF/agent changes), and a
+      "Try it" walkthrough; links to `docs/webmcp-playbook.md`.
 - [ ] Fill the four text prompts on Devpost:
 
       1. *Strong fit:* shared live canvas; agent actions visibly change what the

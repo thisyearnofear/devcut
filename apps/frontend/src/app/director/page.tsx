@@ -22,6 +22,8 @@ import {
   type StoryboardState,
   initialStoryboardState,
 } from "@/lib/storyboard/types";
+import { directorController } from "@/lib/webmcp/controller";
+import { readOnlyTools, mutatingTools } from "@/lib/webmcp/register-tools";
 import { BriefHeader } from "@/components/storyboard/BriefHeader";
 import { JobOutcomePanel } from "@/components/devcut/JobOutcomePanel";
 import { ApiKeyPanel, useRunwayApiKey } from "@/components/storyboard/ApiKeyPanel";
@@ -983,6 +985,16 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   const watchdogRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastEventAtRef = useRef<number>(0);
   const cancelledRef = useRef(false);
+  // Ref mirror of `isRunning` so WebMCP tools read a *fresh* value — state
+  // captured at effect-registration time goes stale (bug class #1 in the
+  // playbook). Same pattern as cancelledRef above.
+  const isRunningRef = useRef(false);
+  // WebMCP mutating tools are gated on session. Mirror the DirectorChat auth
+  // gate: auth-disabled ⇒ mutation always allowed; auth-enabled ⇒ signed in.
+  const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED === "1";
+  const { data: session } = useSession();
+  const authRequired = AUTH_ENABLED && !session?.user;
+  const canMutateRef = useRef(!authRequired);
   const { key: runwayKey } = useRunwayApiKey();
   const [paidSku, setPaidSku] = useState<string | null>(null);
   const [doorMode, setDoorMode] = useState<DevCutDoorId | null>(null);
@@ -1505,6 +1517,78 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   const selectedShot: Shot | undefined = state.selectedShotId
     ? state.shots.find((s) => s.id === state.selectedShotId)
     : undefined;
+
+  // ── WebMCP controller wiring ───────────────────────────────────────────
+  // Publish the page's own handlers + latest canvas state to the controller
+  // singleton so out-of-React consumers (tools registered on
+  // document.modelContext) can drive the same actions a human clicks.
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+  }, [isRunning]);
+
+  useEffect(() => {
+    canMutateRef.current = !authRequired;
+  }, [authRequired]);
+
+  useEffect(() => {
+    directorController.setStateSnapshot(state);
+  }, [state]);
+
+  useEffect(() => {
+    directorController.setActions({
+      startRun: (brief) => handleComposeSend(brief),
+      regenerateShot: (id) => handleRegenerate(id),
+      cancelRun: () => handleCancel(),
+      isRunning: () => isRunningRef.current,
+    });
+    return () => directorController.setActions(null);
+  }, [handleComposeSend, handleRegenerate, handleCancel]);
+
+  // Read-only tools register at mount; mutating tools only when the session
+  // permits mutation (auth-disabled ⇒ always; auth-enabled ⇒ signed in).
+  // SSR guard: Next still prerenders this client component on the server.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const mc = document.modelContext;
+    if (!mc?.registerTool) return;
+    const register = async () => {
+      for (const tool of readOnlyTools) {
+        try { await mc.registerTool(tool); }
+        catch (e) { console.error("[webmcp] register failed", tool.name, e); }
+      }
+    };
+    void register();
+    return () => {
+      if (!mc.unregisterTool) return;
+      for (const tool of readOnlyTools) {
+        try { void mc.unregisterTool(tool.name); }
+        catch { /* unregister best-effort */ }
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authRequired) return; // not permitted to mutate
+    if (typeof document === "undefined") return;
+    const mc = document.modelContext;
+    if (!mc?.registerTool) return;
+    const tools = mutatingTools(() => canMutateRef.current);
+    const register = async () => {
+      for (const tool of tools) {
+        try { await mc.registerTool(tool); }
+        catch (e) { console.error("[webmcp] register failed", tool.name, e); }
+      }
+    };
+    void register();
+    return () => {
+      if (!mc.unregisterTool) return;
+      for (const tool of tools) {
+        try { void mc.unregisterTool(tool.name); }
+        catch { /* unregister best-effort */ }
+      }
+    };
+  }, [authRequired]);
+  // ── end WebMCP wiring ──────────────────────────────────────────────────
 
   return (
     <>
