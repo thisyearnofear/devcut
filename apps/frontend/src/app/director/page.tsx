@@ -1003,7 +1003,7 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
     const sku = params.get("sku");
     if (sku) setPaidSku(sku);
     const mode = params.get("mode");
-    if (mode === "challenge" || mode === "submit" || mode === "agent") {
+    if (mode === "challenge" || mode === "submit" || mode === "product" || mode === "agent") {
       setDoorMode(mode);
     }
   }, []);
@@ -1034,7 +1034,12 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   // Staged commission (brief pre-filled, awaiting explicit send) + early
   // thread naming so the drawer shows a real title instead of "New thread".
   const [pendingCommission, setPendingCommission] = useState<{
+    /** Full text injected on send (mode instructions + brief); also ledger-hashed. */
     prompt: string;
+    /** The user's own words only — what the composer textarea displays. */
+    brief: string;
+    /** The door's mode instructions, prepended to the brief at send time. */
+    modePrompt: string;
     hint: string;
     title: string;
   } | null>(null);
@@ -1093,25 +1098,35 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
 
     if (!brief) return;
     briefInjectedRef.current = true;
-    const remix = params.get("remix") === "1";
     const modeSlug = params.get("mode");
     const door = modeSlug
       ? DEVCUT_DOORS.find((d) => d.id === modeSlug)
       : undefined;
     cleanUrl();
-    // Landing usually prepends the door prompt; Remix /cut links send bare brief + mode.
+    // Landing passes a clean brief + ?mode; Remix /cut links may send a bare
+    // brief + mode; legacy links may already embed the mode prompt. Compose the
+    // full agent prompt once and never double-prepend the mode instructions.
+    const modePrompt = door?.prompt ?? "";
+    const userBrief = brief.trim();
     const prompt =
-      remix && door?.prompt && !brief.includes(door.prompt.slice(0, 40))
-        ? `${door.prompt} ${brief}`
-        : brief;
+      modePrompt && !userBrief.includes(modePrompt.slice(0, 40))
+        ? `${modePrompt} ${userBrief}`.trim()
+        : userBrief;
+    // What the composer shows: the user's words, not the agent's instructions.
+    const displayBrief =
+      modePrompt && userBrief.startsWith(modePrompt)
+        ? userBrief.slice(modePrompt.length).trim()
+        : userBrief;
     // Stage, don't auto-send: each run spends real credits, so the launch is
     // an explicit user decision (and existing threads stay visible meanwhile).
     setPendingCommission({
       prompt,
+      brief: displayBrief,
+      modePrompt,
       title: deriveThreadTitle(prompt, modeSlug),
       hint:
-        "Staged brief — hero stills + motion clips + stitched MP4 · ~5 min · " +
-        `${runwayKey ? "your Runway key" : "server key"} · press ↵ Start cut to begin.`,
+        "Ready to cut — stills + clips + stitched MP4 · ~5 min · " +
+        `${runwayKey ? "your Runway key" : "server key"} · press Start cut.`,
     });
     pendingHashRef.current = "";
     void briefHash(prompt).then((h) => { pendingHashRef.current = h; }).catch(() => {});
@@ -1280,6 +1295,16 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         setPendingThreadTitle(pendingCommission.title);
         lastStagedRef.current = { hash: pendingHashRef.current, title: pendingCommission.title };
         setPendingCommission(null);
+        // The composer shows the user's brief only — prepend the door's mode
+        // instructions here so the agent gets the full prompt. The ledger hash
+        // (pendingHashRef) was computed over the canonical staged prompt, which
+        // matches the landing-side payload for unedited sends.
+        injectPrompt(
+          pendingCommission.modePrompt
+            ? `${pendingCommission.modePrompt} Brief follows: ${msg}`
+            : msg,
+        );
+        return;
       }
       injectPrompt(msg);
     },
@@ -1661,10 +1686,22 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                     </button>
                   </div>
                 )}
-                <DevCutEmptyState
-                  isRunning={isRunning}
-                  onStart={(prompt) => injectPrompt(prompt)}
-                />
+                {pendingCommission ? (
+                  <StagedCommissionPanel
+                    title={pendingCommission.title}
+                    brief={pendingCommission.brief}
+                    hint={pendingCommission.hint}
+                    disabled={isRunning}
+                    onStart={() =>
+                      handleComposeSend(pendingCommission.brief + settingsSuffix(DEFAULT_SETTINGS))
+                    }
+                  />
+                ) : (
+                  <DevCutEmptyState
+                    isRunning={isRunning}
+                    onStart={(prompt) => injectPrompt(prompt)}
+                  />
+                )}
               </>
             )
           ) : (
@@ -1869,7 +1906,7 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         >
           <DirectorChat
             onSend={handleComposeSend}
-            preseededDraft={pendingCommission?.prompt ?? null}
+            preseededDraft={pendingCommission?.brief ?? null}
             commissionHint={pendingCommission?.hint ?? null}
             isRunning={isRunning}
             progress={progress}
@@ -1905,6 +1942,51 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         }}
       />
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Staged commission — brief arrived from landing / a share link, awaiting the
+// user's explicit Start (each run spends credits). Shown instead of the door
+// grid so we never ask "what are you making?" twice.
+// ---------------------------------------------------------------------------
+
+function StagedCommissionPanel({
+  title,
+  brief,
+  hint,
+  disabled,
+  onStart,
+}: {
+  title: string;
+  brief: string;
+  hint?: string | null;
+  disabled?: boolean;
+  onStart: () => void;
+}) {
+  return (
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-5 px-4 py-10 text-center">
+      <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-signal)]">
+        Ready to cut
+      </p>
+      <h2 className="dc-display max-w-xl text-2xl font-semibold tracking-tight text-[var(--dc-paper)] md:text-3xl">
+        {title}
+      </h2>
+      <p className="max-w-2xl text-sm leading-6 text-[var(--dc-mute)] line-clamp-3">
+        &ldquo;{brief}&rdquo;
+      </p>
+      <button
+        type="button"
+        onClick={onStart}
+        disabled={disabled}
+        className="dc-btn bg-[var(--dc-signal)] px-6 py-3 dc-mono text-xs font-medium uppercase tracking-[0.14em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40"
+      >
+        Start cut
+      </button>
+      <p className="dc-mono text-[11px] text-[var(--dc-dim)]">
+        {hint ?? "Stills → clips → stitched MP4 · ~5 min"}
+      </p>
+    </div>
   );
 }
 
@@ -1987,7 +2069,7 @@ function DevCutEmptyState({
       </div>
 
       <div className="grid w-full max-w-3xl gap-0 border border-[var(--dc-line)] md:grid-cols-3">
-        {DEVCUT_DOORS.map((d, i) => {
+        {DEVCUT_DOORS.filter((d) => d.id !== "agent").map((d, i) => {
           const selected = door === d.id;
           return (
             <button
