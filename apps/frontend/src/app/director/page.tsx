@@ -1,7 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useSession } from "next-auth/react";
 import { z } from "zod";
 import { Toaster, toast } from "sonner";
@@ -530,6 +539,8 @@ function DirectorChat({
   canvasIsEmpty,
   preseededDraft,
   commissionHint,
+  settings,
+  onSettingsChange: setSettings,
 }: {
   onSend: (msg: string) => void;
   isRunning: boolean;
@@ -548,8 +559,10 @@ function DirectorChat({
   shots: Shot[];
   storyboard: Storyboard;
   canvasIsEmpty: boolean;
+  /** Owned by the canvas so staged-commission sends use the same settings. */
+  settings: ProductionSettings;
+  onSettingsChange: Dispatch<SetStateAction<ProductionSettings>>;
 }) {
-  const [settings, setSettings] = useState<ProductionSettings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
   const [draft, setDraft] = useState("");
   // Stage externally-supplied briefs (?brief= / remix links) into the composer —
@@ -1044,6 +1057,9 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
     title: string;
   } | null>(null);
   const [pendingThreadTitle, setPendingThreadTitle] = useState<string | null>(null);
+  // Production settings live here (not inside DirectorChat) so the staged
+  // commission's explicit Start applies exactly what the composer would.
+  const [settings, setSettings] = useState<ProductionSettings>(DEFAULT_SETTINGS);
   // Brief-hash ledger plumbing: hash computed at staging time is moved to
   // lastStagedRef on send, then recorded against the run's threadId so
   // landing CTAs can offer "view previous cut (free)" next time.
@@ -1113,9 +1129,17 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         ? `${modePrompt} ${userBrief}`.trim()
         : userBrief;
     // What the composer shows: the user's words, not the agent's instructions.
+    // Legacy links embed the full prompt ("...Brief follows: <brief>") — strip
+    // the door's trailing brief label so the staged draft reads clean.
     const displayBrief =
       modePrompt && userBrief.startsWith(modePrompt)
-        ? userBrief.slice(modePrompt.length).trim()
+        ? userBrief
+            .slice(modePrompt.length)
+            .trim()
+            .replace(
+              /^(?:Project \/ URL \/ brief follows:|Product \/ URL \/ brief follows:|Brief follows:)\s*/i,
+              "",
+            )
         : userBrief;
     // Stage, don't auto-send: each run spends real credits, so the launch is
     // an explicit user decision (and existing threads stay visible meanwhile).
@@ -1296,13 +1320,11 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         lastStagedRef.current = { hash: pendingHashRef.current, title: pendingCommission.title };
         setPendingCommission(null);
         // The composer shows the user's brief only — prepend the door's mode
-        // instructions here so the agent gets the full prompt. The ledger hash
-        // (pendingHashRef) was computed over the canonical staged prompt, which
-        // matches the landing-side payload for unedited sends.
+        // instructions here so the agent gets the full prompt. The door prompts
+        // already end with "Brief follows:", so this reproduces the canonical
+        // staged prompt (pendingCommission.prompt) plus the settings suffix.
         injectPrompt(
-          pendingCommission.modePrompt
-            ? `${pendingCommission.modePrompt} Brief follows: ${msg}`
-            : msg,
+          pendingCommission.modePrompt ? `${pendingCommission.modePrompt} ${msg}` : msg,
         );
         return;
       }
@@ -1693,7 +1715,7 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                     hint={pendingCommission.hint}
                     disabled={isRunning}
                     onStart={() =>
-                      handleComposeSend(pendingCommission.brief + settingsSuffix(DEFAULT_SETTINGS))
+                      handleComposeSend(pendingCommission.brief + settingsSuffix(settings))
                     }
                   />
                 ) : (
@@ -1906,6 +1928,8 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
         >
           <DirectorChat
             onSend={handleComposeSend}
+            settings={settings}
+            onSettingsChange={setSettings}
             preseededDraft={pendingCommission?.brief ?? null}
             commissionHint={pendingCommission?.hint ?? null}
             isRunning={isRunning}
