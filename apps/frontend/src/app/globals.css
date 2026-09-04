@@ -229,6 +229,35 @@ html {
 
 /*
   ─────────────────────────────────────────────────────────────────────
+  ShotCard render scanline — a soft light sweep across the film-frame
+  skeleton while a shot is generating. Used by ShotCard.tsx.
+  ─────────────────────────────────────────────────────────────────────
+*/
+@keyframes dc-scan {
+  0% {
+    transform: translateX(-150%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(350%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="dc-scan"] {
+    animation: none !important;
+  }
+}
+
+/*
+  ─────────────────────────────────────────────────────────────────────
   Lead-card "agent just did this" pulse
   ─────────────────────────────────────────────────────────────────────
   Driven by data-pulse="true" on a LeadCard root, set by usePulse() when

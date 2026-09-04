@@ -36,22 +36,42 @@ export function OrganizerDashboard() {
   }, []);
 
   if (loading) {
-    return <p className="font-mono text-sm text-white/40">Loading cuts…</p>;
+    return (
+      <div className="space-y-2">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="rounded-lg border border-white/10 bg-white/[0.02] p-4"
+            style={{ animation: "pulse 1.8s ease-in-out infinite", animationDelay: `${i * 200}ms` }}
+          >
+            <div className="h-4 w-1/2 rounded bg-white/10" />
+            <div className="mt-2 h-3 w-1/3 rounded bg-white/5" />
+          </div>
+        ))}
+      </div>
+    );
   }
   if (error) {
     return (
       <div className="rounded-lg border border-rose-400/25 bg-rose-500/10 p-4">
-        <p className="font-mono text-sm text-rose-200">Failed to load: {error}</p>
+        <p className="font-mono text-sm text-rose-200">Failed to load cuts</p>
+        <p className="mt-1 font-mono text-xs text-rose-300/70">{error}</p>
       </div>
     );
   }
   if (threads.length === 0) {
     return (
-      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-8 text-center">
-        <p className="font-mono text-sm text-white/45">No cuts yet in this org.</p>
-        <p className="mt-2 font-mono text-xs text-white/30">
-          When builders commission cuts they appear here.
+      <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.015] p-10 text-center">
+        <p className="font-mono text-sm text-white/50">No cuts yet in this org</p>
+        <p className="mt-2 max-w-sm mx-auto font-mono text-xs leading-5 text-white/30">
+          When builders commission cuts they appear here with live progress and export status.
         </p>
+        <a
+          href="/director"
+          className="mt-5 inline-block rounded-full border border-[#2de2c5]/40 bg-[#2de2c5]/10 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#2de2c5] transition-colors hover:bg-[#2de2c5]/20"
+        >
+          Commission a cut →
+        </a>
       </div>
     );
   }
@@ -83,6 +103,14 @@ export function OrganizerDashboard() {
                   <p className="mt-0.5 font-mono text-[11px] text-white/35">
                     {t.user_id.startsWith("gh:") ? `gh:${t.user_id.slice(3, 11)}…` : t.user_id} · {dateStr}
                   </p>
+                  {total > 0 && !exportReady && (
+                    <div className="mt-2 h-1 w-full max-w-[12rem] overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-[#2de2c5]/60 transition-all duration-500"
+                        style={{ width: `${total > 0 ? Math.round((ready / total) * 100) : 0}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-3 font-mono text-[11px]">
                   {total > 0 && (

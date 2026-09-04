@@ -15,7 +15,10 @@ export default async function OrganizerPage() {
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#2de2c5]">
               DevCut Organizer
             </p>
-            <h1 className="text-lg font-bold">All cuts</h1>
+            <h1 className="text-lg font-bold">Cuts in your org</h1>
+            <p className="mt-0.5 font-mono text-[11px] text-white/35">
+              Live progress and export status for every commissioned cut
+            </p>
           </div>
           <a
             href="/director"
