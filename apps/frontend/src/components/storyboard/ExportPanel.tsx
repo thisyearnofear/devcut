@@ -41,15 +41,17 @@ export function ExportPanel({
       <div className="flex items-center gap-3 rounded-xl border border-border bg-card/60 p-4 shadow-sm">
         {/* Spinner */}
         <span className="inline-block size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">
-            Stitching final cut…
+            Stitching your final cut…
           </p>
           <p className="text-xs text-muted-foreground">
-            Downloading clips and running FFmpeg concat — this may take a
-            minute.
+            Combining clips into one MP4 — this usually takes under a minute.
           </p>
         </div>
+        <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 sm:block">
+            stitching
+          </span>
       </div>
     );
   }
@@ -59,19 +61,22 @@ export function ExportPanel({
       <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-sm">
         <span className="mt-0.5 text-rose-500">✕</span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-rose-800">Export failed</p>
+          <p className="text-sm font-medium text-rose-800">Stitch failed</p>
           {exportError && (
             <p className="mt-0.5 break-words text-xs text-rose-600">
               {exportError}
             </p>
           )}
+          <p className="mt-1.5 text-xs text-rose-500/80">
+            This is usually a clip download timeout. Try again — it often works on retry.
+          </p>
         </div>
         <button
           type="button"
           onClick={onExport}
           className="shrink-0 rounded-full border border-rose-300 bg-white px-3 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"
         >
-          Retry
+          Retry stitch
         </button>
       </div>
     );

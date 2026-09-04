@@ -83,15 +83,35 @@ export function ShotCard({
             alt={shot.beat}
             className="h-full w-full object-cover"
           />
+        ) : shot.status === "error" ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-rose-950/30 text-center">
+            <span className="text-lg leading-none text-rose-400/80">⚠</span>
+            <span className="text-[11px] uppercase tracking-wider text-rose-400/70">
+              Generation failed
+            </span>
+          </div>
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-wider text-muted-foreground">
-            {shot.status === "error" ? "Error" : "Awaiting reference"}
+          /* Cinematic film-frame skeleton — the "waiting for the reel" state. */
+          <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-950">
+            {/* Subtle perforated-film top/bottom rails */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-2 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_6px,rgba(255,255,255,0.06)_6px,rgba(255,255,255,0.06)_10px)]" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_6px,rgba(255,255,255,0.06)_6px,rgba(255,255,255,0.06)_10px)]" />
+            {/* Animated scanline sweep while generating */}
+            {shot.status === "image" && (
+              <div
+                className="pointer-events-none absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-amber-400/15 to-transparent"
+                style={{ animation: "dc-scan 1.8s ease-in-out infinite" }}
+              />
+            )}
+            <span className="relative text-[11px] uppercase tracking-[0.14em] text-muted-foreground/60">
+              {shot.status === "image" ? "Rendering…" : "Awaiting reel"}
+            </span>
           </div>
         )}
         {(shot.status === "image" || shot.status === "pending") && !shot.video_url && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
             <span className="rounded-full bg-black/70 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-white">
-              {shot.progress_label ?? (shot.status === "image" ? "Generating video…" : "Generating still…")}
+              {shot.progress_label ?? (shot.status === "image" ? "Rendering video…" : "Queued for render…")}
             </span>
           </div>
         )}

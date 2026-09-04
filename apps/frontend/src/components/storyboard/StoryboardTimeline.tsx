@@ -23,10 +23,26 @@ export function StoryboardTimeline({
   onDownload,
 }: StoryboardTimelineProps) {
   if (shots.length === 0) return (
-    <div className="flex min-h-[120px] flex-1 items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 px-6 py-8 text-center">
-      <div className="space-y-1.5">
-        <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/40">Timeline empty</p>
-        <p className="text-xs text-white/30">Shots will appear here as the agent plans your storyboard</p>
+    <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-10 text-center">
+      <div className="flex items-center gap-1.5" aria-hidden>
+        {[0, 1, 2, 3].map((i) => (
+          <span
+            key={i}
+            className="h-8 w-12 rounded-sm border border-white/10 bg-white/[0.02]"
+            style={{
+              animation: "pulse 1.6s ease-in-out infinite",
+              animationDelay: `${i * 180}ms`,
+            }}
+          />
+        ))}
+      </div>
+      <div className="space-y-1">
+        <p className="font-mono text-xs uppercase tracking-[0.14em] text-white/45">
+          The canvas is ready
+        </p>
+        <p className="text-xs text-white/30">
+          Send a brief and shot cards will appear here as the agent plans your storyboard
+        </p>
       </div>
     </div>
   );

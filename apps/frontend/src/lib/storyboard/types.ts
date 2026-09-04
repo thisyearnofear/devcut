@@ -119,10 +119,10 @@ export const initialStoryboardState: StoryboardState = {
 };
 
 export const STATUS_LABEL: Record<ShotStatus, string> = {
-  pending: "Pending",
-  image: "Generating still…",
+  pending: "Queued",
+  image: "Rendering",
   ready: "Ready",
-  error: "Error",
+  error: "Failed",
 };
 
 export const STATUS_COLOR: Record<ShotStatus, string> = {

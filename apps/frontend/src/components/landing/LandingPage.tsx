@@ -35,21 +35,24 @@ const CUT_DOORS = DEVCUT_DOORS.filter(
   (d): d is DevCutDoor & { id: CutDoorId } => d.id !== "agent",
 );
 
-const DOOR_META: Record<CutDoorId, { tab: string; cta: string; placeholder: string }> = {
+const DOOR_META: Record<CutDoorId, { tab: string; cta: string; placeholder: string; hint: string }> = {
   submit: {
-    tab: "Demo my project",
+    tab: "Submit my project",
     cta: "Get my demo video",
     placeholder: "Paste a product URL, repo, or one-line pitch…",
+    hint: "For builders — turn your project into a Devpost-ready demo cut",
   },
   challenge: {
     tab: "Challenge cut",
     cta: "Start challenge cut",
     placeholder: "What should builders understand, build, or avoid?",
+    hint: "For organizers — a reference film + forkable builder kit",
   },
   product: {
     tab: "Product launch",
     cta: "Start launch cut",
     placeholder: "Paste a product URL, brand guidelines, or feature list…",
+    hint: "For founders & PMs — a polished demo video for a shipped product",
   },
 };
 
@@ -244,7 +247,7 @@ export function LandingPage() {
               About
             </Link>
             <a
-              href="https://github.com/thisyearnofear/gen-ui"
+              href="https://github.com/thisyearnofear/devcut"
               target="_blank"
               rel="noopener noreferrer"
               className="transition-colors duration-200 hover:text-[var(--dc-paper)]"
@@ -328,6 +331,9 @@ export function LandingPage() {
               })}
             </div>
 
+            <p className="mt-2 dc-mono text-[10px] uppercase tracking-[0.1em] text-[var(--dc-dim)]">
+              {meta.hint}
+            </p>
 
             {/* Brief + one action */}
             <div className="mt-3 border border-[var(--dc-line)] bg-[var(--dc-panel)]/80 backdrop-blur">
@@ -432,7 +438,7 @@ export function LandingPage() {
             About
           </Link>
           <a
-            href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/x402.md"
+            href="https://github.com/thisyearnofear/devcut/blob/main/docs/x402.md"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-[var(--dc-mute)]"
@@ -440,7 +446,7 @@ export function LandingPage() {
             For agents · x402
           </a>
           <a
-            href="https://github.com/thisyearnofear/gen-ui/blob/main/docs/devcut-thesis.md"
+            href="https://github.com/thisyearnofear/devcut/blob/main/docs/devcut-thesis.md"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-[var(--dc-mute)]"

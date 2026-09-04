@@ -49,12 +49,24 @@ export function CutPageClient({ initialC }: { initialC?: string }) {
         <p className="dc-display mt-3 text-2xl font-semibold text-[var(--dc-paper)]">
           This share link is missing or expired.
         </p>
-        <Link
-          href="/#desk"
-          className="dc-btn mt-8 bg-[var(--dc-signal)] px-5 py-3 dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-ink)]"
-        >
-          Open the desk
-        </Link>
+        <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--dc-mute)]">
+          The cut may have been removed or the link is incomplete. You can still
+          make your own demo video in a few minutes.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/#desk"
+            className="dc-btn bg-[var(--dc-signal)] px-5 py-3 dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-ink)]"
+          >
+            Open the desk
+          </Link>
+          <Link
+            href="/about"
+            className="dc-btn border border-[var(--dc-line)] px-5 py-3 dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-mute)]"
+          >
+            What is DevCut?
+          </Link>
+        </div>
       </div>
     );
   }
@@ -128,6 +140,25 @@ export function CutPageClient({ initialC }: { initialC?: string }) {
           Remix opens the live canvas with this brief seeded — regenerate Runway heroes, restitch,
           hand off to HyperFrames. DevCut is the Runway desk for developers.
         </p>
+
+        {/* First-time viewer context — what is this? */}
+        <div className="flex flex-col gap-3 border border-[var(--dc-line)] bg-[var(--dc-panel)]/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="dc-mono text-[10px] uppercase tracking-[0.16em] text-[var(--dc-cyan)]">
+              What is DevCut?
+            </p>
+            <p className="mt-1.5 text-sm leading-6 text-[var(--dc-mute)]">
+              Paste a project URL or brief → get a judge-ready demo video with Runway footage,
+              stitched MP4, and a HyperFrames handoff kit. Built for hackathon builders.
+            </p>
+          </div>
+          <Link
+            href="/#desk"
+            className="dc-btn shrink-0 bg-[var(--dc-signal)] px-5 py-3 dc-mono text-[11px] uppercase tracking-[0.14em] text-[var(--dc-ink)]"
+          >
+            Make your own →
+          </Link>
+        </div>
       </main>
     </div>
   );
