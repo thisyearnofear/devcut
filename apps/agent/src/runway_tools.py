@@ -64,11 +64,12 @@ from langgraph.types import Command
 
 from .audio_client import audio_mode_label
 from .audio_tools import load_audio_tools
-from .runway_client import (
+from .media_provider import (
+    active_media_provider,
     generate_reference_image,
     generate_shot_video as _runway_video,
-    runway_is_live,
-    runway_mode_label,
+    media_is_live as runway_is_live,
+    media_mode_label as runway_mode_label,
 )
 from .stitcher import stitch_storyboard as _stitch, stitcher_mode_label
 
@@ -151,6 +152,7 @@ def generate_storyboard_plan(
         "logline": logline,
         "aspect_ratio": aspect_ratio,
         "runway_mode": runway_mode_label(),
+        "media_provider": active_media_provider(),
         "audio_mode": audio_mode_label(),
         "style_ref_url": None,  # set to shot-0's ref_image_url once generated
         # Lock the narrator at plan time so every voiceover sounds like
@@ -160,7 +162,7 @@ def generate_storyboard_plan(
 
     msg = (
         f"Planned {len(out_shots)} shots for '{title}'. "
-        f"Runway mode: {runway_mode_label()}. "
+        f"Media mode: {runway_mode_label()} via {active_media_provider()}. "
         "Ready to generate references."
     )
     _log("INFO", "tool_exit", tool="generate_storyboard_plan", title=title, n_shots=len(out_shots), logline=logline)
@@ -171,7 +173,7 @@ def generate_storyboard_plan(
             "shots": out_shots,
             "header": {
                 "title": title or "DevCut",
-                "subtitle": logline or f"Runway {runway_mode_label()}",
+                "subtitle": logline or f"{active_media_provider().upper()} {runway_mode_label()}",
             },
             "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
         })

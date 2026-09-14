@@ -176,6 +176,10 @@ class RunwayImageResult:
     prompt: str
     mode: str  # "LIVE" | "MOCK"
     sha256: Optional[str] = None
+    # Which generation backend produced the asset ("runway" | "fal").
+    # Set by media_provider.py after routing; None = runway (legacy default).
+    provider: Optional[str] = None
+
 
 
 @dataclass
@@ -186,6 +190,10 @@ class RunwayVideoResult:
     mode: str
     image_url: Optional[str] = None
     manifest_uri: Optional[str] = None
+    # Which generation backend produced the asset ("runway" | "fal").
+    # Set by media_provider.py after routing; None = runway (legacy default).
+    provider: Optional[str] = None
+
     sha256: Optional[str] = None
     canonical_hash: Optional[str] = None
 

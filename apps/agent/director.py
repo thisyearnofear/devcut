@@ -23,7 +23,8 @@ from src.llm_providers import (
     provider_inventory,
     resolve_planner_chain,
 )
-from src.runway_client import boot_status as _runway_boot_status
+from src.fal_client import boot_status as _fal_boot_status
+from src.media_provider import boot_status as _media_boot_status
 from src.runway_tools import load_runway_tools
 from src.storyboard_prompts import build_director_prompt
 from src.storyboard_state import StoryboardStateMiddleware
@@ -67,12 +68,13 @@ _log(
         for p in provider_inventory()
     ],
 )
-_log("INFO", "runway_status", status=_runway_boot_status())
+_log("INFO", "runway_status", status=_media_boot_status())
+_log("INFO", "fal_status", status=_fal_boot_status())
 _log("INFO", "audio_status", status=_audio_boot_status())
 
 
 backend_tools = load_runway_tools()
-SYSTEM_PROMPT = build_director_prompt(_runway_boot_status())
+SYSTEM_PROMPT = build_director_prompt(_media_boot_status())
 
 
 from langgraph.graph.state import CompiledStateGraph

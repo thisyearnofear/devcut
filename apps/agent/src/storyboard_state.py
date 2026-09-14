@@ -49,6 +49,7 @@ class _Storyboard(TypedDict, total=False):
     logline: str
     aspect_ratio: str
     runway_mode: str   # "LIVE" | "MOCK"
+    media_provider: str  # "runway" | "fal" | "mock" — generation backend (media_provider.py)
     stitch_mode: str   # "LIVE" | "MOCK" — set after first stitch
     audio_mode: str    # "LIVE" | "MOCK" — set on plan creation
     style_ref_url: Optional[str]  # ref_image_url of shot 0; consistency anchor
@@ -85,6 +86,8 @@ class StoryboardCanvasState(AgentState):
     export_error: NotRequired[Annotated[Optional[str], _replace]]
     # HyperFrames handoff — BRIEF.md seed + asset drop map (see hyperframes_kit.py).
     builder_kit: NotRequired[Annotated[Optional[dict], _replace]]
+    # Remotion composition kit scaffold (remotion_kit.py) — optional sibling.
+    remotion_kit: NotRequired[Annotated[Optional[dict], _replace]]
 
 
 class StoryboardStateMiddleware(AgentMiddleware[StoryboardCanvasState, Any]):  # type: ignore[type-arg]
@@ -103,15 +106,17 @@ class StoryboardStateMiddleware(AgentMiddleware[StoryboardCanvasState, Any]):  #
         if existing_header or existing_shots:
             return None
 
-        from .runway_client import runway_mode_label
-
+        from .media_provider import (
+            active_media_provider as _media_provider,
+            media_mode_label as _media_mode_label,
+        )
         from .stitcher import stitcher_mode_label
 
         return {
             "header": {
                 "title": "DevCut",
                 "subtitle": (
-                    f"Hackathon video desk · Runway {runway_mode_label()}"
+                    f"Hackathon video desk · {_media_mode_label()} ({_media_provider()})"
                 ),
             },
             "shots": [],
@@ -119,7 +124,8 @@ class StoryboardStateMiddleware(AgentMiddleware[StoryboardCanvasState, Any]):  #
                 "title": "",
                 "logline": "",
                 "aspect_ratio": "1280:720",
-                "runway_mode": runway_mode_label(),
+                "runway_mode": _media_mode_label(),
+                "media_provider": _media_provider(),
                 "stitch_mode": stitcher_mode_label(),
             },
             "final_video_url": None,
