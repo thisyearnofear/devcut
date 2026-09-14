@@ -911,8 +911,8 @@ def load_runway_tools() -> list:
 
     Includes the image / video pipeline (planning, references, videos,
     stitching), the audio pipeline (TTS voiceovers + SFX beds), and the
-    gen4_aleph restyle tools — every Runway capability the director
-    needs lives in this single registration list.
+    gen4_aleph restyle tools, and both composition kits (HyperFrames
+    build_builder_kit + Remotion build_remotion_kit).
     """
     return [
         generate_storyboard_plan,

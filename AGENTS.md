@@ -12,7 +12,7 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 ## Architecture
 - **Frontend**: Next.js standalone (`apps/frontend/`) — DevCut landing + storyboard canvas at `/director`; WebMCP tools on `document.modelContext` expose the canvas to external agents (ADR-0004)
 - **BFF**: Hono / CopilotKit runtime (`apps/bff/`) — proxies agent + intelligence + x402
-- **Agent**: Python LangGraph (`apps/agent/`) — plans shots, calls Runway, assembles MP4s
+- **Agent**: Python LangGraph (`apps/agent/`) — plans shots, generates media (Runway primary, fal.ai fallback), assembles MP4s, and emits HyperFrames→Remotion composition kits
 - **Planner LLM**: NVIDIA (primary) → Venice → Gemini — see `docs/providers.md` (AISA removed)
 - **MCP**: mcp-use server (`apps/mcp/`) — exposes agent to Claude / ChatGPT
 - **Infrastructure**: Postgres, Redis, CopilotKit Intelligence (Docker containers)
@@ -56,6 +56,8 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - **langgraph-api 0.11.2** (upgraded from EOL 0.8.7); `--n-jobs-per-worker 4` for concurrent runs.
 - **ffmpeg** installed on nuncio-vultr for LIVE stitch mode (without it, stitches return the MOCK Big Buck Bunny placeholder).
 - **WebMCP (ADR-0004)**: `/director` registers 5 tools on `document.modelContext` (read: `get_storyboard_state`/`get_export`; auth-gated mutating: `start_cutdown`/`regenerate_shot`/`cancel_run`). Start-don't-block semantics — agents poll state, tools never block on the minutes-long pipeline. Merged via PR #1 (2026-08-27).
+- **Media provider router**: `DEVCUT_MEDIA_PROVIDER=auto|runway|fal` + `DEVCUT_MEDIA_FALLBACK` (retry the other provider on error). Server-side only — the UI never exposes a model picker; both backends share one per-thread budget ledger.
+- **Composition kits**: DevCut feeds generative assets to BOTH HyperFrames (`builder_kit`) and Remotion (`remotion_kit`) — never renders either itself.
 - **Four doors / SKUs**: challenge_film, submission_polish, hero_shot_pack, product_launch ($1.50, founders/PMs). Doors: challenge/submit/product/agent ("Product Launch Cut" mode prompt in `storyboard_prompts.py` + x402 SKU in `apps/bff/src/x402/skus.ts`).
 - **Deploy safety**: selective restarts (per-app fingerprinting), drain gate (inflight==0 before agent restart), known-good rollback (`.health-ok` marker), agent import gate, `node --check` config gate, pid-change verification with `delete+start` fallback.
 
@@ -66,6 +68,9 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - `apps/agent/src/main.py`: LangGraph agent entry point
 - `apps/agent/src/state_snapshots.py`: B2 state snapshots (cross-restart canvas restore)
 - `apps/agent/src/runway_client.py`: Runway API client + billing (`_billing_thread_id`, `_billing_subject`)
+- `apps/agent/src/fal_client.py`: fal.ai media client (stills + video queue) — Runway fallback
+- `apps/agent/src/media_provider.py`: Runway↔fal router (`DEVCUT_MEDIA_PROVIDER`, `DEVCUT_MEDIA_FALLBACK`)
+- `apps/agent/src/remotion_kit.py`: Remotion composition scaffold (React sibling to HyperFrames)
 - `apps/agent/src/genblaze_bridge.py`: Genblaze Pipeline bridge (Runway image→video)
 - `apps/bff/src/server.ts`: CopilotKit runtime BFF (BYOK injection, budget, resume ledger, cost alert, auth, vault, organizer)
 - `apps/bff/src/auth.ts`: Auth.js v5 session-cookie JWE decode + ensure-user

@@ -609,7 +609,6 @@ function RemotionHandoff({ kit }: { kit: RemotionKit }) {
   );
 }
 
-function CopyChip({
 
 function CopyChip({
   text,

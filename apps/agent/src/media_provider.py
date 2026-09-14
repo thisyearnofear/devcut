@@ -70,11 +70,6 @@ def media_mode_label() -> str:
     return "LIVE" if media_is_live() else "MOCK"
 
 
-def _run_by_provider(provider: str) -> Optional[str]:
-    """Runway and fal use different per-provider functions; map to a token."""
-    return provider
-
-
 def generate_reference_image(
     prompt: str,
     ratio: str = "1280:720",
