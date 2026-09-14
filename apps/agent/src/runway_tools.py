@@ -772,6 +772,7 @@ def stitch_final_cut(
     from src.hyperframes_kit import build_builder_kit
     from src.job_manifest import build_job_manifest, persist_job_manifest
     from src.runway_client import _current_thread_id
+    from src.remotion_kit import build_remotion_kit
 
     kit_state = {
         **(state or {}),
@@ -782,6 +783,11 @@ def stitch_final_cut(
         "manifest_uri": result.manifest_uri or (state or {}).get("manifest_uri"),
     }
     builder_kit = build_builder_kit(
+        kit_state,
+        final_video_url=result.url,
+        durable_url=result.durable_url,
+    )
+    remotion_kit = build_remotion_kit(
         kit_state,
         final_video_url=result.url,
         durable_url=result.durable_url,
@@ -798,6 +804,7 @@ def stitch_final_cut(
         clip_manifest_uris=clip_manifests,
         canonical_hashes=canonicals,
         builder_kit=builder_kit,
+        remotion_kit=remotion_kit,
         agent_loop=(state or {}).get("agent_loop"),
     )
     try:
@@ -819,6 +826,7 @@ def stitch_final_cut(
         "export_status": "ready",
         "export_error": None,
         "builder_kit": builder_kit,
+        "remotion_kit": remotion_kit,
         "job_manifest": job_doc,
         "storyboard": {**storyboard, "stitch_mode": result.mode},
         "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
@@ -868,6 +876,36 @@ def emit_hyperframes_kit(
     )
 
 
+@tool
+def emit_remotion_kit(
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Emit the Remotion composition kit (scaffold + assets) on the canvas.
+
+    Call after planning or stitch when the user builds in React/Remotion —
+    DevCut feeds generative assets; Remotion owns composition. Sibling to
+    emit_hyperframes_kit, no re-stitch required.
+    """
+    from src.remotion_kit import build_remotion_kit
+
+    kit = build_remotion_kit(state or {})
+    return Command(
+        update={
+            "remotion_kit": kit,
+            "messages": [
+                ToolMessage(
+                    content=(
+                        f"Remotion kit ready ({kit.get('mode')}): "
+                        f"{kit.get('summary')} npm i && npx remotion render."
+                    ),
+                    tool_call_id=tool_call_id,
+                )
+            ],
+        }
+    )
+
+
 def load_runway_tools() -> list:
     """All director-side backend tools the agent should have wired in.
 
@@ -885,5 +923,6 @@ def load_runway_tools() -> list:
         generate_all_videos,
         stitch_final_cut,
         emit_hyperframes_kit,
+        emit_remotion_kit,
         *load_audio_tools(),
     ]
