@@ -12,6 +12,9 @@ How we **supplement** HyperFrames — not compete with it.
 
 HyperFrames already owns **code-native video**. DevCut fills the gap organizers and builders hit mid-hack: *“I need consistent generative heroes and a Devpost-shaped cut without becoming a video team.”*
 
+> **Remotion siblings:** DevCut emits the same packaging for React/Remotion
+> teams — `remotion_kit` + Handoff tab toggle (see [`remotion.md`](./remotion.md)).
+
 ## What builders get from a DevCut run
 
 After stitch, the canvas **Job outcome** panel co-primaries:

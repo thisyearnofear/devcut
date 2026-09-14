@@ -3,7 +3,7 @@
 
 CANVAS_SHAPE = (
     "CANVAS STATE SHAPE (authoritative — match field names exactly):\n"
-    "- storyboard: { title, logline, aspect_ratio, runway_mode, audio_mode,\n"
+    "- storyboard: { title, logline, aspect_ratio, runway_mode, media_provider, audio_mode,\n"
     "                style_ref_url, narrator_voice }\n"
     "- shots: Shot[]\n"
     "  - Shot = {\n"
@@ -30,7 +30,7 @@ CANVAS_SHAPE = (
 
 
 BACKEND_TOOLS = (
-    "BACKEND TOOLS (Runway-powered, side-effects on canvas state):\n"
+    "BACKEND TOOLS (Runway + fal media generation, side-effects on canvas state; provider is server-routed):\n"
     "\n"
     "PLANNING + IMAGE/VIDEO:\n"
     "- generate_storyboard_plan(title, logline, shots[], aspect_ratio?):\n"
@@ -49,7 +49,7 @@ BACKEND_TOOLS = (
     "EXPORT: stitch_final_cut() — FFmpeg concat; sets final_video_url\n"
     "  (+ durable_url / manifest_uri when B2/Genblaze is enabled).\n"
     "  Also attaches builder_kit (HyperFrames BRIEF.md + asset drop map).\n"
-    "- emit_hyperframes_kit() — refresh BRIEF/assets handoff without re-stitching.\n"
+    "- emit_hyperframes_kit() / emit_remotion_kit() — refresh HF BRIEF or the Remotion scaffold without re-stitching.\n"
 )
 
 
@@ -77,7 +77,7 @@ MODES = (
     "  Job: generative heroes + packaging for a HyperFrames / repo / product URL cut.\n"
     "  Shot grammar: Problem → Product → Proof → optional CTA.\n"
     "  Prefer 1280:720 unless vertical is requested. Keep it product-clear.\n"
-    "  Remind the user: HyperFrames owns HTML composition; DevCut feeds assets.\n"
+    "  Remind the user: HyperFrames owns HTML composition; DevCut feeds assets; emit_remotion_kit() for React/Remotion developers.\n"
     "\n"
     "PRODUCT CUT (founder / PM — Mode: Product Launch Cut):\n"
     "  Job: polished product demo video without hackathon framing.\n"
@@ -90,7 +90,7 @@ MODES = (
     "  - Mid decorative layer: barcode bands, UI ticks, or halftone grids moving at different speed.\n"
     "  - Final shot holds completely still for 1.2s.\n"
     "  Prefer 1280:720 unless vertical is requested.\n"
-    "  Remind the user: HyperFrames owns HTML composition; DevCut feeds assets.\n"
+    "  Remind the user: HyperFrames owns HTML composition; DevCut feeds assets; emit_remotion_kit() for React/Remotion developers.\n"
     "\n"
     "If no Mode is specified but the brief is a Devpost/hackathon URL or\n"
     "'builders must use X', treat as Challenge Cut. If it is a product URL,\n"

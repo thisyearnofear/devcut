@@ -31,6 +31,7 @@ def build_job_manifest(
     clip_manifest_uris: list[str],
     canonical_hashes: list[str],
     builder_kit: dict[str, Any] | None,
+    remotion_kit: dict[str, Any] | None = None,
     agent_loop: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Pure builder — no I/O."""
@@ -71,6 +72,12 @@ def build_job_manifest(
             "workflow": (builder_kit or {}).get("workflow"),
             "summary": (builder_kit or {}).get("summary"),
             "asset_count": len((builder_kit or {}).get("assets") or []),
+        },
+        "remotion_kit": {
+            "attached": bool(remotion_kit),
+            "workflow": (remotion_kit or {}).get("workflow"),
+            "summary": (remotion_kit or {}).get("summary"),
+            "file_count": len((remotion_kit or {}).get("files") or {}),
         },
         "agent_loop": agent_loop,
         "monday_test": {

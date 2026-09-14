@@ -64,11 +64,12 @@ from langgraph.types import Command
 
 from .audio_client import audio_mode_label
 from .audio_tools import load_audio_tools
-from .runway_client import (
+from .media_provider import (
+    active_media_provider,
     generate_reference_image,
     generate_shot_video as _runway_video,
-    runway_is_live,
-    runway_mode_label,
+    media_is_live as runway_is_live,
+    media_mode_label as runway_mode_label,
 )
 from .stitcher import stitch_storyboard as _stitch, stitcher_mode_label
 
@@ -151,6 +152,7 @@ def generate_storyboard_plan(
         "logline": logline,
         "aspect_ratio": aspect_ratio,
         "runway_mode": runway_mode_label(),
+        "media_provider": active_media_provider(),
         "audio_mode": audio_mode_label(),
         "style_ref_url": None,  # set to shot-0's ref_image_url once generated
         # Lock the narrator at plan time so every voiceover sounds like
@@ -160,7 +162,7 @@ def generate_storyboard_plan(
 
     msg = (
         f"Planned {len(out_shots)} shots for '{title}'. "
-        f"Runway mode: {runway_mode_label()}. "
+        f"Media mode: {runway_mode_label()} via {active_media_provider()}. "
         "Ready to generate references."
     )
     _log("INFO", "tool_exit", tool="generate_storyboard_plan", title=title, n_shots=len(out_shots), logline=logline)
@@ -171,7 +173,7 @@ def generate_storyboard_plan(
             "shots": out_shots,
             "header": {
                 "title": title or "DevCut",
-                "subtitle": logline or f"Runway {runway_mode_label()}",
+                "subtitle": logline or f"{active_media_provider().upper()} {runway_mode_label()}",
             },
             "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
         })
@@ -770,6 +772,7 @@ def stitch_final_cut(
     from src.hyperframes_kit import build_builder_kit
     from src.job_manifest import build_job_manifest, persist_job_manifest
     from src.runway_client import _current_thread_id
+    from src.remotion_kit import build_remotion_kit
 
     kit_state = {
         **(state or {}),
@@ -780,6 +783,11 @@ def stitch_final_cut(
         "manifest_uri": result.manifest_uri or (state or {}).get("manifest_uri"),
     }
     builder_kit = build_builder_kit(
+        kit_state,
+        final_video_url=result.url,
+        durable_url=result.durable_url,
+    )
+    remotion_kit = build_remotion_kit(
         kit_state,
         final_video_url=result.url,
         durable_url=result.durable_url,
@@ -796,6 +804,7 @@ def stitch_final_cut(
         clip_manifest_uris=clip_manifests,
         canonical_hashes=canonicals,
         builder_kit=builder_kit,
+        remotion_kit=remotion_kit,
         agent_loop=(state or {}).get("agent_loop"),
     )
     try:
@@ -817,6 +826,7 @@ def stitch_final_cut(
         "export_status": "ready",
         "export_error": None,
         "builder_kit": builder_kit,
+        "remotion_kit": remotion_kit,
         "job_manifest": job_doc,
         "storyboard": {**storyboard, "stitch_mode": result.mode},
         "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
@@ -866,13 +876,43 @@ def emit_hyperframes_kit(
     )
 
 
+@tool
+def emit_remotion_kit(
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Emit the Remotion composition kit (scaffold + assets) on the canvas.
+
+    Call after planning or stitch when the user builds in React/Remotion —
+    DevCut feeds generative assets; Remotion owns composition. Sibling to
+    emit_hyperframes_kit, no re-stitch required.
+    """
+    from src.remotion_kit import build_remotion_kit
+
+    kit = build_remotion_kit(state or {})
+    return Command(
+        update={
+            "remotion_kit": kit,
+            "messages": [
+                ToolMessage(
+                    content=(
+                        f"Remotion kit ready ({kit.get('mode')}): "
+                        f"{kit.get('summary')} npm i && npx remotion render."
+                    ),
+                    tool_call_id=tool_call_id,
+                )
+            ],
+        }
+    )
+
+
 def load_runway_tools() -> list:
     """All director-side backend tools the agent should have wired in.
 
     Includes the image / video pipeline (planning, references, videos,
     stitching), the audio pipeline (TTS voiceovers + SFX beds), and the
-    gen4_aleph restyle tools — every Runway capability the director
-    needs lives in this single registration list.
+    gen4_aleph restyle tools, and both composition kits (HyperFrames
+    build_builder_kit + Remotion build_remotion_kit).
     """
     return [
         generate_storyboard_plan,
@@ -883,5 +923,6 @@ def load_runway_tools() -> list:
         generate_all_videos,
         stitch_final_cut,
         emit_hyperframes_kit,
+        emit_remotion_kit,
         *load_audio_tools(),
     ]

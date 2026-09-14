@@ -25,6 +25,8 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 - [x] Golden Challenge Cut **brief + demo script** ([`demos/golden-challenge-cut.md`](./demos/golden-challenge-cut.md), [`demo-script.md`](./demo-script.md))
 - [x] MOCK golden path — unit tests + materialize fixture kit ([`scripts/smoke-golden-mock.sh`](../scripts/smoke-golden-mock.sh), [`demos/fixtures/golden-challenge-cut/`](./demos/fixtures/golden-challenge-cut/))
 - [x] Genblaze spine — Pipeline+sink, AgentLoop winning beat, job manifest, Vault UI, B2 CORS/lifecycle/Object Lock knobs, B2→Discord events
+- [x] fal.ai media fallback — `DEVCUT_MEDIA_PROVIDER` router (Runway → fal → MOCK, retry-on-error)
+- [x] Remotion composition kit — `emit_remotion_kit` + Handoff tab toggle + `*-remotion-kit.zip`
 - [ ] Film the golden cut LIVE (fill fixture table) + pin kit for partners
 - [ ] `X402_MODE=live` facilitator settle in production
 
@@ -34,6 +36,7 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 - Hero shot pack SKU → `assets/devcut/` only (no stitch) for existing compositions
 - Agent OpenAPI surface documented for Cursor/Claude skills
 - Optional: Venice x402 for inference metering (agent wallets) — after job SKUs are live
+- Optional: fal key in the BYOK vault (configurable `fal_api_key` is already read by `fal_client`)
 
 ## Explicit non-goals
 

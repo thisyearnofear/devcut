@@ -1794,6 +1794,7 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   manifestUri={state.manifest_uri}
                   storyboardTitle={state.storyboard.title}
                   builderKit={state.builder_kit}
+                  remotionKit={state.remotion_kit}
                   jobMode={jobMode}
                   jobBrief={
                     state.storyboard.logline ||
@@ -1841,6 +1842,7 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                   manifestUri={state.manifest_uri}
                   storyboardTitle={state.storyboard.title}
                   builderKit={state.builder_kit}
+                  remotionKit={state.remotion_kit}
                   jobMode={jobMode}
                   jobBrief={
                     state.storyboard.logline ||

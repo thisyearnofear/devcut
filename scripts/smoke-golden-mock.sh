@@ -8,8 +8,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-echo "==> hyperframes_kit unit tests"
-(cd apps/agent && uv run python -m unittest tests.test_hyperframes_kit -v)
+echo "==> media + composition unit tests"
+(cd apps/agent && uv run python -m unittest tests.test_hyperframes_kit tests.test_remotion_kit tests.test_fal_client tests.test_media_provider -v)
 
 echo "==> frontend kit + golden constant"
 node "$REPO_ROOT/scripts/assert-frontend-kit.mjs"
