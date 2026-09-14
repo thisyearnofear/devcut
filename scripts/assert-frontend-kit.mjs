@@ -57,6 +57,26 @@ const expected = [
 ];
 must(expected.length === 3, "zip file set size");
 
+
+// Remotion kit download surface
+const kitSrc2 = readFileSync(
+  join(root, "apps/frontend/src/lib/builder-kit-download.ts"),
+  "utf8",
+);
+must(kitSrc2.includes("buildRemotionKitFiles"), "missing buildRemotionKitFiles");
+must(kitSrc2.includes("downloadRemotionKitZip"), "missing downloadRemotionKitZip");
+must(kitSrc2.includes("-remotion-kit"), "remotion kit root suffix");
+
+const typesSrc = readFileSync(join(root, "apps/frontend/src/lib/storyboard/types.ts"), "utf8");
+must(typesSrc.includes("interface RemotionKit"), "missing RemotionKit type");
+must(typesSrc.includes("remotion_kit"), "missing remotion_kit state field");
+must(typesSrc.includes("media_provider"), "missing media_provider field");
+
+const panelSrc = readFileSync(join(root, "apps/frontend/src/components/devcut/JobOutcomePanel.tsx"), "utf8");
+must(panelSrc.includes("RemotionHandoff"), "missing RemotionHandoff");
+must(panelSrc.includes("downloadRemotionKitZip"), "panel must download remotion kit");
+
+console.log("OK: remotion kit surface (types + download + outcome panel)");
 console.log("OK: frontend kit + golden constant asserts");
 console.log(`    kit root: ${rootName}`);
 console.log(`    files: ${expected.join(", ")}`);

@@ -48,7 +48,7 @@ export const DEVCUT_SKUS: Record<DevCutSkuId, DevCutSku> = {
     amountAtomic: usdc(1),
     door: "submit",
     modePrompt:
-      "Mode: Submit Ready (hackathon builder). Paid via x402 SKU submission_polish. Create a Devpost demo cut: problem → product → proof. Call generate_storyboard_plan, generate_all_references, generate_all_videos, stitch_final_cut.",
+      "Mode: Submit Ready (hackathon builder). Paid via x402 SKU submission_polish. Create a Devpost demo cut: problem → product → proof. Call generate_storyboard_plan, generate_all_references, generate_all_videos, stitch_final_cut. Composition stays in HyperFrames or Remotion via the Handoff tab.",
   },
   hero_shot_pack: {
     id: "hero_shot_pack",
@@ -70,7 +70,7 @@ export const DEVCUT_SKUS: Record<DevCutSkuId, DevCutSku> = {
     amountAtomic: usdc(1.5),
     door: "product",
     modePrompt:
-      "Mode: Product Launch Cut (founder / PM demo). Paid via x402 SKU product_launch. Create a ~30s polished product demo cut. Shot grammar: 1) Logo reveal — brand mark animates in clean, 2) Feature A — screen recording or hero shot of core workflow, 3) Feature B — second capability, 4) Feature C — third capability, 5) Proof — metric, testimonial, or social proof visual, 6) CTA — website URL or tagline. Constraint rules: all on-screen text must be spelled verbatim with exact case; no accidental characters or symbols beyond what is specified; lock color palette to the accent color from the brief plus neutral pair; maintain 3 depth layers (background / mid / foreground) moving at different speeds until the final hold. Prefer landscape 1280:720 unless the brief says vertical / TikTok / Reels. Call generate_storyboard_plan, then generate_all_references, generate_all_videos, and stitch_final_cut. After export, point at the HyperFrames handoff panel — paste BRIEF.md, stage heroes under assets/devcut/, finish in HF.",
+      "Mode: Product Launch Cut (founder / PM demo). Paid via x402 SKU product_launch. Create a ~30s polished product demo cut. Shot grammar: 1) Logo reveal — brand mark animates in clean, 2) Feature A — screen recording or hero shot of core workflow, 3) Feature B — second capability, 4) Feature C — third capability, 5) Proof — metric, testimonial, or social proof visual, 6) CTA — website URL or tagline. Constraint rules: all on-screen text must be spelled verbatim with exact case; no accidental characters or symbols beyond what is specified; lock color palette to the accent color from the brief plus neutral pair; maintain 3 depth layers (background / mid / foreground) moving at different speeds until the final hold. Prefer landscape 1280:720 unless the brief says vertical / TikTok / Reels. Call generate_storyboard_plan, then generate_all_references, generate_all_videos, and stitch_final_cut. After export, open the Handoff tab — HyperFrames kit (paste BRIEF.md, stage heroes under assets/devcut/) or Remotion kit (emit_remotion_kit scaffold) based on the user stack",
   },
 };
 

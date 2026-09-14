@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { BuilderKit, ExportStatus } from "@/lib/storyboard/types";
-import { downloadBuilderKitZip } from "@/lib/builder-kit-download";
+import type { BuilderKit, ExportStatus, RemotionKit } from "@/lib/storyboard/types";
+import { downloadBuilderKitZip, downloadRemotionKitZip } from "@/lib/builder-kit-download";
 import { HyperFramesHandoffPanel } from "@/components/devcut/HyperFramesHandoffPanel";
 import { ProvenanceVaultPanel } from "@/components/devcut/ProvenanceVaultPanel";
 import type { StoryboardState } from "@/lib/storyboard/types";
@@ -21,6 +21,8 @@ interface JobOutcomePanelProps {
   manifestUri: string | null;
   storyboardTitle: string;
   builderKit: BuilderKit | null;
+  /** Remotion composition scaffold (emit_remotion_kit). */
+  remotionKit: RemotionKit | null;
   /** Challenge Cut vs Submit Ready — drives share copy. */
   jobMode?: "challenge" | "submit" | string | null;
   /** Brief seed for remix / last-job loop */
@@ -57,6 +59,7 @@ export function JobOutcomePanel({
   manifestUri,
   storyboardTitle,
   builderKit,
+  remotionKit,
   jobMode,
   jobBrief,
   stillUrls = [],
@@ -67,6 +70,7 @@ export function JobOutcomePanel({
 }: JobOutcomePanelProps) {
   const mode = jobMode || builderKit?.mode || "submit";
   const [tab, setTab] = useState<OutcomeTab>("watch");
+  const [handoffTarget, setHandoffTarget] = useState<"hyperframes" | "remotion">("hyperframes");
   const [watchUrl, setWatchUrl] = useState<string | null>(null);
   const [remixHref, setRemixHref] = useState("/director");
 
@@ -166,8 +170,8 @@ export function JobOutcomePanel({
     },
     {
       id: "handoff",
-      label: "HyperFrames",
-      hint: builderKit ? "BRIEF + assets kit" : "Kit after stitch",
+      label: "Handoff",
+      hint: "HyperFrames · Remotion kit",
     },
     {
       id: "share",
@@ -277,10 +281,19 @@ export function JobOutcomePanel({
               {builderKit && (
                 <button
                   type="button"
-                  onClick={() => setTab("handoff")}
+                  onClick={() => { setHandoffTarget("hyperframes"); setTab("handoff"); }}
                   className="rounded-full border border-[var(--dc-signal,#ff9f1c)]/45 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-signal,#ff9f1c)] hover:bg-[var(--dc-signal,#ff9f1c)]/15"
                 >
                   Open HyperFrames kit
+                </button>
+              )}
+              {remotionKit && (
+                <button
+                  type="button"
+                  onClick={() => { setHandoffTarget("remotion"); setTab("handoff"); }}
+                  className="rounded-full border border-white/20 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white/70 hover:bg-white/10"
+                >
+                  Open Remotion kit
                 </button>
               )}
               <button
@@ -318,22 +331,55 @@ export function JobOutcomePanel({
           />
         )}
 
-        {tab === "handoff" && builderKit && (
+        {tab === "handoff" && (builderKit || remotionKit) && (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => downloadBuilderKitZip(builderKit)}
-                className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white"
-              >
-                Download HF kit (.zip)
-              </button>
-              <p className="self-center text-[11px] text-white/45">
-                BRIEF.md · assets.json · README — paste into{" "}
-                <code className="text-white/65">hyperframes init</code>
-              </p>
-            </div>
-            <HyperFramesHandoffPanel kit={builderKit} compact />
+            {(builderKit && remotionKit) && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setHandoffTarget("hyperframes")}
+                  className={`rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                    handoffTarget === "hyperframes"
+                      ? "border-[var(--dc-signal,#ff9f1c)]/70 bg-[var(--dc-signal,#ff9f1c)]/15 text-[var(--dc-signal,#ff9f1c)]"
+                      : "border-white/15 text-white/50 hover:text-white/80"
+                  }`}
+                >
+                  HyperFrames
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHandoffTarget("remotion")}
+                  className={`rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                    handoffTarget === "remotion"
+                      ? "border-[var(--dc-cyan,#2de2c5)]/70 bg-[var(--dc-cyan,#2de2c5)]/15 text-[var(--dc-cyan,#2de2c5)]"
+                      : "border-white/15 text-white/50 hover:text-white/80"
+                  }`}
+                >
+                  Remotion
+                </button>
+              </div>
+            )}
+            {builderKit && handoffTarget === "hyperframes" && (
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => downloadBuilderKitZip(builderKit)}
+                    className="rounded-full bg-[var(--dc-signal,#ff9f1c)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white"
+                  >
+                    Download HF kit (.zip)
+                  </button>
+                  <p className="self-center text-[11px] text-white/45">
+                    BRIEF.md · assets.json · README — paste into{" "}
+                    <code className="text-white/65">hyperframes init</code>
+                  </p>
+                </div>
+                <HyperFramesHandoffPanel kit={builderKit} compact />
+              </div>
+            )}
+            {remotionKit && handoffTarget === "remotion" && (
+              <RemotionHandoff kit={remotionKit} />
+            )}
           </div>
         )}
 
@@ -488,6 +534,82 @@ function SharePack({
     </div>
   );
 }
+
+function RemotionHandoff({ kit }: { kit: RemotionKit }) {
+  const [copied, setCopied] = useState(false);
+  const fileCount = Object.keys(kit.files ?? {}).length;
+  const fileList = Object.keys(kit.files ?? {});
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-[var(--dc-cyan,#2de2c5)]/35 bg-[var(--dc-cyan,#2de2c5)]/[0.07] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-cyan,#2de2c5)]">
+            Remotion composition kit
+          </p>
+          <p className="text-sm font-medium text-white/90">
+            {kit.mode === "challenge" ? "Challenge Cut → Remotion scaffold" : "Submit Ready → Remotion scaffold"}
+          </p>
+          <p className="text-xs leading-5 text-white/55">
+            {kit.summary} DevCut feeds the media; Remotion owns the timeline.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => downloadRemotionKitZip(kit)}
+          className="shrink-0 rounded-full bg-[var(--dc-cyan,#2de2c5)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white"
+        >
+          Download Remotion kit.zip
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(kit.drop_instructions);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } catch {
+              /* ignore */
+            }
+          }}
+          className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white/80 hover:border-white/30"
+        >
+          {copied ? "Copied steps" : "Copy run steps"}
+        </button>
+        <span className="self-center font-mono text-[10px] uppercase tracking-[0.1em] text-white/35">
+          workflow · {kit.workflow}
+        </span>
+      </div>
+
+      {fileList.length > 0 && (
+        <div className="space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/40">
+            Sub-files in kit.zip ({fileCount})
+          </p>
+          <ul className="max-h-40 space-y-1.5 overflow-y-auto">
+            {fileList.map((f) => (
+              <li
+                key={f}
+                className="flex items-baseline gap-x-2 rounded-lg border border-white/8 bg-black/20 px-2.5 py-1.5 font-mono text-[11px]"
+              >
+                <span className="text-white/40">{f.split("/").pop()}</span>
+                <code className="truncate text-white/75">{f}</code>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <pre className="max-h-48 overflow-auto rounded-lg border border-white/8 bg-black/35 p-3 font-mono text-[10px] leading-4 text-white/55">
+        {kit.drop_instructions}
+      </pre>
+    </div>
+  );
+}
+
+function CopyChip({
 
 function CopyChip({
   text,

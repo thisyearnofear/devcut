@@ -26,6 +26,8 @@ export interface Storyboard {
   logline: string;
   aspect_ratio: AspectRatio;
   runway_mode: "LIVE" | "MOCK" | string;
+  /** Generation backend routed server-side: "runway" | "fal" | "mock". */
+  media_provider?: "runway" | "fal" | "mock" | string;
   stitch_mode?: "LIVE" | "MOCK" | string;
   /** ref_image_url of shot 0 — used as the character/style anchor for all subsequent shots. */
   style_ref_url?: string | null;
@@ -48,6 +50,19 @@ export interface BuilderKit {
   title: string;
   brief_md: string;
   assets: BuilderKitAsset[];
+  drop_instructions: string;
+  summary: string;
+}
+
+/** Remotion composition kit scaffold (emitted with remotion_kit state). */
+export interface RemotionKit {
+  mode: "challenge" | "submit" | string;
+  workflow: string;
+  title: string;
+  brief_md: string;
+  assets: BuilderKitAsset[];
+  /** Path → content scaffold files (package.json, src/…, README.md, …). */
+  files: Record<string, string>;
   drop_instructions: string;
   summary: string;
 }
@@ -85,6 +100,8 @@ export interface StoryboardState {
   export_error: string | null;
   /** BRIEF.md seed + asset drop map for HyperFrames. */
   builder_kit: BuilderKit | null;
+  /** Remotion composition scaffold (sibling to builder_kit). */
+  remotion_kit: RemotionKit | null;
 }
 
 export const initialStoryboardState: StoryboardState = {
@@ -116,6 +133,7 @@ export const initialStoryboardState: StoryboardState = {
   export_status: "idle",
   export_error: null,
   builder_kit: null,
+  remotion_kit: null,
 };
 
 export const STATUS_LABEL: Record<ShotStatus, string> = {

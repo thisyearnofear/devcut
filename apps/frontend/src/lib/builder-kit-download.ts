@@ -1,6 +1,6 @@
 /** Client-side HyperFrames builder kit files + minimal ZIP (store). */
 
-import type { BuilderKit } from "@/lib/storyboard/types";
+import type { BuilderKit, RemotionKit } from "@/lib/storyboard/types";
 
 export function kitReadme(kit: BuilderKit): string {
   const modeLabel =
@@ -198,3 +198,24 @@ export function downloadBuilderKitZip(kit: BuilderKit): void {
   const blob = zipStore(files);
   downloadBlob(blob, `${slugifyKitTitle(kit.title)}-hyperframes-kit.zip`);
 }
+/**
+ * Remotion kit files → ZIP. The agent emits a full scaffold (package.json,
+ * src/Root.tsx, src/DevCutComposition.tsx, generated src/shots.ts, BRIEF.md,
+ * assets.json, README.md …) as kit.files; we namespace each under a
+ * `*-remotion-kit/` root so the downloaded zip is an instant npm project.
+ */
+export function buildRemotionKitFiles(kit: RemotionKit): Record<string, string> {
+  const root = `${slugifyKitTitle(kit.title)}-remotion-kit`;
+  const files: Record<string, string> = {};
+  for (const [path, content] of Object.entries(kit.files ?? {})) {
+    files[`${root}/${path}`] = content;
+  }
+  return files;
+}
+
+export function downloadRemotionKitZip(kit: RemotionKit): void {
+  const files = buildRemotionKitFiles(kit);
+  const blob = zipStore(files);
+  downloadBlob(blob, `${slugifyKitTitle(kit.title)}-remotion-kit.zip`);
+}
+

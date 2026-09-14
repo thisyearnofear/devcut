@@ -28,15 +28,27 @@ AGENT_RUNTIME=nvidia-react   # default — chain above + create_agent
 
 AISA is **removed** (no longer available).
 
-## Media (unchanged)
+## Media
 
 | Stage | Provider |
 | --- | --- |
-| Stills / clips / VO / SFX | Runway |
+| Stills / clips / VO / SFX | Runway (primary) → fal.ai (fallback) — see [`media_provider.py`](../apps/agent/src/media_provider.py) |
 | Durable URL + provenance | B2 via Genblaze (optional) |
-| Composition handoff | HyperFrames (external) — see [`hyperframes.md`](./hyperframes.md) |
+| Composition handoff | HyperFrames (default) or Remotion (React) — [`hyperframes.md`](./hyperframes.md) / [`remotion.md`](./remotion.md) |
 
-Do not multi-provider remix video in the UI. Planner modernization ≠ media marketplace.
+Routing is server-side only: `DEVCUT_MEDIA_PROVIDER=auto|runway|fal`
+(default `auto`: prefer Runway → fal → MOCK) and
+`DEVCUT_MEDIA_FALLBACK=1` retries a failed call once via the other
+provider. The UI only ever sees LIVE/MOCK — planner modernization ≠
+media marketplace, and we never expose a model picker to end users.
+
+```bash
+FAL_KEY=…                          # fal.ai (fallback) — https://fal.ai/dashboard/keys
+# FAL_IMAGE_MODEL=fal-ai/flux/schnell
+# FAL_VIDEO_MODEL=fal-ai/kling-video/v2.1/master/image-to-video
+DEVCUT_MEDIA_PROVIDER=auto         # auto | runway | fal
+DEVCUT_MEDIA_FALLBACK=1            # 0 disables cross-provider retry
+```
 
 ## Payments
 
@@ -61,7 +73,7 @@ Spine we keep:
 | Chat / ledger | Process (unlock → plan → stills → clips → stitch) |
 | Tool cards | One-line human status; payload collapsed |
 
-Implemented: run ledger (`devcut-ledger.ts`) + **JobOutcomePanel** (Watch / HyperFrames / Share + kit.zip). Prefer controlled generative UI over open-ended HTML dumps. See [`hyperframes.md`](./hyperframes.md).
+Implemented: run ledger (`devcut-ledger.ts`) + **JobOutcomePanel** (Watch / Handoff / Share + kit.zip). Prefer controlled generative UI over open-ended HTML dumps. See [`hyperframes.md`](./hyperframes.md).
 
 ## Non-goals
 
@@ -76,3 +88,6 @@ Implemented: run ledger (`devcut-ledger.ts`) + **JobOutcomePanel** (Watch / Hype
 | `apps/agent/src/llm_providers.py` | Chain factory + env defaults |
 | `apps/agent/director.py` | Director graph |
 | `apps/agent/src/runtime.py` | Leads graph |
+| `apps/agent/src/fal_client.py` | fal.ai client (images + video queue) |
+| `apps/agent/src/media_provider.py` | Runway→fal router (`DEVCUT_MEDIA_PROVIDER`) |
+| `apps/agent/src/remotion_kit.py` | Remotion composition scaffold |
