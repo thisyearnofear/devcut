@@ -16,7 +16,7 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 - [x] Landing + `/director` empty state = four doors (challenge / submit / product / agent)
 - [x] Agent prompt = Challenge Cut / Submit Ready / Product Launch modes
 - [x] Product Launch Cut — fourth door + `product_launch` x402 SKU ($1.50) for founders/PMs
-- [x] WebMCP — 5 canvas tools on `document.modelContext` (ADR-0004, PR #1, live on prod)
+- [x] WebMCP — 5 canvas tools on `document.modelContext` (ADR-0004, PR #1, live on prod; Phase-1 spike verified 2026-10-03 on Chrome 154 behind `#enable-webmcp-testing`)
 - [x] x402 SKUs on BFF + Agent door (catalog, 402, demo settle, canvas unlock)
 - [x] Planner providers: NVIDIA → Venice → Gemini; AISA removed ([`providers.md`](./providers.md))
 - [x] Run ledger UX — DevCut-shaped stages + human tool cards (AG-UI)
@@ -30,10 +30,18 @@ Aligned to [`devcut-thesis.md`](./devcut-thesis.md). If it doesn’t sharpen Cha
 
 ## Next
 
+- **Organizer GTM surface** ([ADR-0005](./adr/0005-organizer-gtm-variant-pack-recap.md), **implemented 2026-10-03, awaiting deploy**):
+  - `variant_pack` SKU — accepted submission cut → judge (16:9) / customer (captioned 1:1) / builder teaser (9:16 ≤15s) renditions via re-stitch only (no re-generation)
+  - `recap_reel` SKU — organizer picks winners from the dashboard → 60–90s post-hackathon recap with sponsor lockups + next-edition CTA
+  - Sponsor brand kit as required `challenge_film` input (logos, lockup rules, palette, mandatory mentions)
+  - Hackathon graph edge: `hackathon_thread_id` thread metadata linking submissions/recaps to their challenge thread
+- **Event tenancy** ([ADR-0006](./adr/0006-event-tenancy.md), proposed): `hackathon:<slug>` orgs, `/join/<slug>` invite links, centralized organizer/member authorization (unblocks multiplayer dashboards + real recap selection), per-event budget counters
+- **Conformance loop ("judge view")** — score a builder's cut against the challenge brief before submission; leans on the same hackathon-graph edge
 - Film golden Challenge Cut with real keys → record film URL / kit in fixture table
 - Hero shot pack SKU → `assets/devcut/` only (no stitch) for existing compositions
 - Agent OpenAPI surface documented for Cursor/Claude skills
 - Optional: Venice x402 for inference metering (agent wallets) — after job SKUs are live
+- Follow-on pricing experiment: per-hackathon organizer bundle (kit + variants + recap) vs per-job SKUs
 
 ## Explicit non-goals
 

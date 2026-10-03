@@ -56,7 +56,9 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - **langgraph-api 0.11.2** (upgraded from EOL 0.8.7); `--n-jobs-per-worker 4` for concurrent runs.
 - **ffmpeg** installed on nuncio-vultr for LIVE stitch mode (without it, stitches return the MOCK Big Buck Bunny placeholder).
 - **WebMCP (ADR-0004)**: `/director` registers 5 tools on `document.modelContext` (read: `get_storyboard_state`/`get_export`; auth-gated mutating: `start_cutdown`/`regenerate_shot`/`cancel_run`). Start-don't-block semantics — agents poll state, tools never block on the minutes-long pipeline. Merged via PR #1 (2026-08-27).
-- **Four doors / SKUs**: challenge_film, submission_polish, hero_shot_pack, product_launch ($1.50, founders/PMs). Doors: challenge/submit/product/agent ("Product Launch Cut" mode prompt in `storyboard_prompts.py` + x402 SKU in `apps/bff/src/x402/skus.ts`).
+- **Four doors / six SKUs**: challenge_film, submission_polish, hero_shot_pack, product_launch ($1.50, founders/PMs), variant_pack ($1, builder platform cuts), recap_reel ($4, organizer recap) (ADR-0005). Doors: challenge/submit/product/agent ("Product Launch Cut" + "Variant Pack" mode prompts in `storyboard_prompts.py` + x402 SKUs in `apps/bff/src/x402/skus.ts`).
+- **Variant pack (ADR-0005)**: `cut_variant_pack` agent tool + plan-driven `stitch_plan()` in the stitcher — judge 16:9 / customer 1:1 captions / teaser 9:16 ≤15s, re-stitch only (zero Runway generation by default). Captions degrade libass → drawtext → SRT sidecar; never fail a paid job. `variants` + `brand_kit` in canvas state + B2 snapshots.
+- **Hackathon graph + recap (ADR-0005)**: Postgres `devcut_thread_links` (submission → `hackathon_thread_id`, org-scoped) written via `POST /api/thread-links` when a `&hackathon=` run settles on the canvas; organizer dashboard groups entries per event. `recap_reel` SKU ($4, auth-gated `POST /api/organizer/recap` → `fulfillPaidJob`) validates same-org + ready threads, then agent tool `generate_recap` cross-reads B2 snapshots and `build_recap_plan` + `stitch_plan` deliver a 60–90s silent reel — re-stitch only.
 - **Deploy safety**: selective restarts (per-app fingerprinting), drain gate (inflight==0 before agent restart), known-good rollback (`.health-ok` marker), agent import gate, `node --check` config gate, pid-change verification with `delete+start` fallback.
 
 ## Important Files
@@ -70,7 +72,10 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - `apps/bff/src/server.ts`: CopilotKit runtime BFF (BYOK injection, budget, resume ledger, cost alert, auth, vault, organizer)
 - `apps/bff/src/auth.ts`: Auth.js v5 session-cookie JWE decode + ensure-user
 - `apps/bff/src/vault.ts`: BYOK credential vault (AES-256-GCM, Postgres)
-- `apps/bff/src/organizer.ts`: Org-scoped thread list for organizer dashboard
+- `apps/bff/src/organizer.ts`: Org-scoped thread list for organizer dashboard; recap-request validation
+- `apps/bff/src/thread-links.ts`: Hackathon graph edges (`devcut_thread_links` Postgres table, ADR-0005)
+- `apps/agent/src/variant_plan.py`: Variant/recap plan builders — reframe/caption/overlay plans + ASS/SRT writers
+- `apps/agent/src/recap_sources.py`: Cross-thread B2 snapshot reads for recap reels
 - `apps/bff/src/health.ts`: Liveness, readiness, WS URL rewrite, error rewriting
 - `apps/frontend/src/auth.ts`: Auth.js v5 config (GitHub OAuth, env-gated)
 - `apps/frontend/src/components/auth/AuthSessionProvider.tsx`: ALWAYS mounts SessionProvider (auth-off ⇒ `session={null}`, no fetch) — useSession crashes without it

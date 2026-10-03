@@ -50,6 +50,8 @@ HyperFrames remains the **code-native composition OS**. DevCut is the **generati
 | `submission_polish` | Builder / agent | HyperFrames/repo/URL → submission MP4 |
 | `hero_shot_pack` | Builder / agent | N consistent generative stills/clips for an existing HF composition |
 | `product_launch` | Founder / PM | Polished product demo cut (~30s) |
+| `variant_pack` | Builder / agent | 3 platform cuts (judge 16:9 · customer 1:1 captions · teaser 9:16 ≤15s) re-stitched from a finished thread — no new generation |
+| `recap_reel` | Organizer | 60–90s post-hackathon recap from selected winner threads + sponsor logo overlay + CTA |
 
 Price in stable units per job; meter generation + stitch + durable host.
 
