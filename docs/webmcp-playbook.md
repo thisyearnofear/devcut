@@ -6,15 +6,39 @@
 > Status tracking: tick the checkboxes as you go. When you come back for review,
 > bring this file with ticks filled in and notes added under each phase's
 > **Review notes:** placeholder — the reviewer will read those first.
+>
+> **Last status pass: 2026-10-03.** Ticks below record what has actually been
+> *run*, not what is planned. Anything still unticked is genuinely unverified —
+> in particular the ChatGPT in-app-browser path (1.2, 1.4, 4.2, 4.3), which needs
+> a real ChatGPT session and has never been exercised.
 
-## Implementation status (updated 27 Aug)
+## Implementation status (updated 2026-10-03)
 
-**Done in this pass (code + typecheck):**
+**New since the 27 Aug pass:**
+- **Phase 1 has moved, but only part-way.** 1.1 (runtime API surface) ran on
+  2026-10-03 in Chrome 154 with the WebMCP testing flag — **against the local dev
+  build on `localhost:3010/director`**, so it proves the API shape this code
+  depends on, not that prod serves it to a flagged browser. 1.3 is partial for the
+  same reason. **1.5's browser run was local too** — only the prod
+  `auth-probe` + the server's ffmpeg build were checked on the host.
+  **1.2 and 1.4 — the ChatGPT in-app-browser probes — have still never been
+  run.** Findings under Phase 1.
+- **Prod's WebMCP is proven at the bundle level only**: `release=20261003_152353`
+  serves `/_next/static/chunks/0b5sytof3fq0r.js` (200 OK, same chunk name as the
+  local build) which contains `document.modelContext` ×2 and all five tool
+  names. An in-browser prod check was attempted the same day and could not be
+  completed without a human enabling the flag in a real profile — details in 1.3.
+- Phase 4.4 (Chrome-flag mode) exercised once, narrowly: tool enumeration +
+  one `get_storyboard_state` execution. **Not** the 10+ varied runs 4.2 asks
+  for, so 4.3 (description hardening from observed failures) is still blocked.
+
+**Done in the 27 Aug pass (code + typecheck):**
 - **Phase 0:** MIT `LICENSE` added and GitHub-detected (API: `spdx_id: MIT`);
   repo public at `thisyearnofear/devcut` (renamed from gen-ui). Devpost draft
   + filming slot still open.
-- **Phase 1:** spike items pending-human (empirical browser/ChatGPT/prod).
-  1.5 baseline sanity partially done (auth-probe 200, auth_enabled:true).
+- **Phase 1:** 1.1 verified 2026-10-03 on Chrome 154 against the **local dev
+  build**; 1.3 partial (same), 1.5 green. 1.2 + 1.4 (ChatGPT in-app browser,
+  OAuth-in-webview) never run.
 - **Phase 2:** `types.d.ts`, `controller.ts`, and `DirectorCanvas` wiring
   complete (with the `isRunningRef` bug-class-#1 fix).
 - **Phase 3:** `register-tools.ts` (2 read-only + 3 auth-gated mutating tools)
@@ -31,10 +55,12 @@ was wrong in practice — the script's build check is artifact-*existence*,
 not freshness, so stale artifacts from an earlier build got shipped once.
 Always `FORCE_BUILD=1` after source changes if artifacts predate them.
 
-**Pending human:** Phase 1 spike verification (Chrome flag + ChatGPT
-in-app-browser against the now-live tools), Phase 4 4.2–4.6 (10+ live agent
-runs, description hardening, budget/billing check), Phase 5 demo film,
-Phase 6 Devpost submission.
+**Pending human:** ChatGPT in-app-browser probes (1.2, 1.4) — the only WebMCP
+path still completely unmeasured; Phase 4 4.2/4.3/4.5/4.6 (10+ varied agent runs,
+description hardening from *observed* failures, signed-out mutation UX, budget
+increment on a real Runway-spending run); Phase 5 demo film; Phase 6 Devpost
+submission. The deadline (3 Sept) has passed — whether the submission was filed
+is not recorded in this repo.
 
 ---
 
@@ -93,11 +119,13 @@ These are silent-failure disqualifiers if missed. Do them before any coding.
       thisyearnofear`. Verified (`cat LICENSE`). No commit needed; the file is
       already tracked in the repo.
 
-- [ ] **Confirm repo is PUBLIC** at https://github.com/thisyearnofear/gen-ui —
-      judges must reach source without credentials. Check Settings → Danger Zone
-      → Change visibility. If it stays private for hygiene reasons, fork a
-      public mirror instead (and note which one goes on the submission form).
-      _(manual — GitHub Settings UI; not doable from the workspace)_
+- [x] **Confirm repo is PUBLIC** at https://github.com/thisyearnofear/devcut —
+      judges must reach source without credentials. Verified 2026-10-03 from this
+      workspace: an **unauthenticated**
+      `curl -o /dev/null -w "%{http_code}" https://github.com/thisyearnofear/devcut`
+      returns 200 (a private repo answers 404 here), and the old `…/gen-ui` name
+      301-redirects to it. The visibility setting itself remains a human/browser
+      action, but the outcome this checklist cares about — anonymous read — is proven.
 - [ ] **Verify license appears in the GitHub About sidebar** (Devpost says it
       must be detectable there). May need a force-push/repo edit to refresh.
       _(manual — GitHub repo About sidebar)_
@@ -124,7 +152,7 @@ Everything below is *verification*, not building. Each item either unblocks a
 later phase or kills an assumption. Do them in order; record results in the
 review notes.
 
-- [ ] **1.1 Local Chrome flag test with a toy page.** Enable
+- [x] **1.1 Local Chrome flag test with a toy page.** Enable
       `chrome://flags/#enable-webmcp-testing`, restart Chrome. Host any page
       (even `localhost`) calling `document.modelContext.registerTool(...)`
       per the challenge snippet shape:
@@ -143,35 +171,85 @@ review notes.
       `registerTool` return a promise? Is there an unregister path? What events
       exist (`ontoolchange` or otherwise)? Screenshot flag state.
 
+      **RAN 2026-10-03, Chrome 154** (against the **local dev build** on
+      `localhost:3010/director`, not a toy page and **not prod** — the prod
+      bundle was confirmed separately at the byte level, see 1.3). Observed
+      surface: `registerTool`, `getTools`, `executeTool`, `unregisterTool`,
+      `ontoolchange`. The flag needs a **full browser restart** — the in-page
+      "Relaunch" button does not apply it under `--headless=new`. `executeTool`
+      takes the *registered descriptor* plus a **JSON string**; passing a tool
+      name or an object arg throws. `getTools()` returned all 5 DevCut tools with
+      `annotations.readOnlyHint` intact and `get_storyboard_state` executed
+      end-to-end, returning live canvas state. `types.d.ts` updated to match.
+      Full findings: ADR-0004.
+
 - [ ] **1.2 ChatGPT in-app browser test** — deploy the toy page to any public
       HTTPS host and open it via ChatGPT's browser; confirm tool discovery with
       no flag. If this fails entirely, Phase 5's plan changes (screen-record
       the Chrome-flag demo instead) — decide early.
-- [ ] **1.3 COOP/COEP check — try to BREAK the claim, don't add headers.**
+      **NOT RUN.** Needs a real ChatGPT session; nothing in this repo has ever
+      exercised that path. The Chrome-flag result says nothing about whether
+      OpenAI's browser surfaces `modelContext` at all.
+- [ ] **1.3 COOP/COEP check — try to BREAK the claim, don't add headers.** *(partial:
+      dev build verified, prod in-browser still open — see the note at the bottom)*
       Open `https://devcut.thisyearnofear.com/director` in flag-enabled Chrome
       and run 1.2 against prod. If tools work with no cross-origin-isolation
       requirement → skip COOP/COEP permanently. Only if isolation is explicitly
       demanded, add `credentialless` (NEVER `require-corp`) via
       `async headers()` in `apps/frontend/next.config.ts` (see risk R3).
+
+      **PARTLY VERIFIED 2026-10-03 — no COOP/COEP observed as required, but on
+      the LOCAL dev build.** `next.config.ts` ships no `headers()` block and the
+      flagged-Chrome run enumerated + executed tools with those plain dev headers,
+      so nothing demanded cross-origin isolation. Decision 7 stands.
+      **Prod is proven only at the bundle level, not in-browser**: prod
+      `/director` serves `/_next/static/chunks/0b5sytof3fq0r.js` (HTTP 200,
+      same chunk name as the local build) containing `document.modelContext` twice
+      and all five tool names. A same-day attempt to re-verify on prod in-browser
+      failed for tooling reasons, not app reasons: the spike profile
+      `/tmp/webmcp-spike` was deleted at the end of the earlier session, a
+      hand-written `browser.enabled_labs_experiments` key is ignored by Chrome 154,
+      and the flags UI's dropdown is a custom `flags-select`, not a native
+      `<select>`, so scripted enabling does not work. Needs a human: enable
+      `chrome://flags/#enable-webmcp-testing` in a real profile, fully restart,
+      open prod `/director`, run `getTools()`.
+      The 1.2 half of this item (ChatGPT browser) is not covered by any of it.
 - [ ] **1.4 Auth-in-webview probe.** On prod `/director`, click GitHub sign-in
       from inside ChatGPT's browser. If OAuth fails there, we lean on:
       (a) anonymous read-only demo + (b) pre-submitted credentials on the
       Devpost form (rules allow this). Record the failure mode now.
-- [ ] **1.5 Baseline prod sanity** (so later debugging isn't confounded):
-      - `curl -s https://devcut.thisyearnofear.com/api/auth-probe`
+      **NOT RUN** — same dependency as 1.2. Note that mutating tools are
+      auth-gated, so an agent in a signed-out webview sees only the 2 read tools;
+      which of `start_cutdown`/`regenerate_shot`/`cancel_run` actually register
+      in that context is unmeasured.
+- [ ] **1.5 Baseline sanity** (so later debugging isn't confounded) — *partial:
+      local baseline green, prod browser run never done*:
+      - `curl -s https://devcut.thisyearnofear.com/api/auth-probe` → 200,
+        `auth_enabled: true` (27 Aug).
       - Start one normal cut in the browser; confirm LIVE stitch, not the MOCK
         Big Buck Bunny placeholder (ffmpeg must stay installed on nuncio-vultr).
+        **Ran locally, not on prod.** Local LIVE stitched real ffmpeg output and
+        the ADR-0005 variant renditions (thread `146a8f07…`) were frame-checked
+        from that local run. On the prod host only the *dependency* is confirmed:
+        ffmpeg 6.1.1 with libass + drawtext. No browser-commissioned cut has been
+        watched end-to-end on prod since the ADR-0005 deploy.
       - Confirm budget counter increments (`runway:budget:` Redis key).
+        **Not observed** — the ADR-0005 verification deliberately spent zero
+        Runway calls (`calls_used: 0` throughout), so an increment has never
+        been witnessed end-to-end on prod.
 
-**Review notes:** Phase 1 items are empirical browser/ChatGPT/prod verification
-steps (Chrome flag tests, ChatGPT in-app browser probe, COOP/COEP falsification,
-OAuth-in-webview, prod baseline). They require a real browser + a running prod
-environment and cannot be executed from this workspace — **pending human run on
-or before Day 1.** Code does not depend on them: R1 (API surface) is handled by
-keeping `types.d.ts` minimal and adjusting registration to observed reality; R4
-(OAuth-in-webview) has a documented fallback (anonymous read-only + submitted
-credentials). Note: the code currently makes **no** COOP/COEP header change
-(awaiting R3 verdict) — `next.config.ts` has no `async headers()`.
+**Review notes:** 1.1 / 1.5 ran on 2026-10-03 (findings above, mirrored in
+ADR-0004) — **both against the local dev build, not prod**. 1.3 is partial for the
+same reason: the no-COOP/COEP conclusion holds on the dev server's headers and the
+prod bundle demonstrably carries the registrations, but no flagged browser has
+loaded prod `/director` yet. **1.2 and 1.4 have never been run** — they need a
+ChatGPT in-app browser, which no tooling in this workspace provides, so Phase 5's
+"record the ChatGPT demo" plan still rests on an untested assumption; the Chrome-flag
+demo is the only path proven to work (locally). R1 (API surface) is now closed
+against observed reality rather than the draft spec. R4 (OAuth-in-webview) remains
+open with its documented fallback. Code makes **no** COOP/COEP change — that is a
+decision backed by the dev-build run, and cheap to confirm on prod the moment a
+human enables the flag.
 
 
 ## Phase 2 — Extract the storyboard controller (Days 2–3, the real work)
@@ -281,8 +359,10 @@ callbacks (zero UX regression).
 
 - [ ] **2.4 Verify locally** (`npm run dev`) that normal UX is unchanged:
       compose→send→cancel all work.
-      _(partial: `npx tsc --noEmit` passes clean; live `npm run dev` UX check
-      needs the running BFF+infra and is pending the human's local env.)_
+      _(partial: `npx tsc --noEmit` passes clean. On 2026-10-03 the prod canvas
+      was driven in a browser (thread restore, Variants tab, MP4 playback) with
+      no regression seen, but the **compose → send → cancel** path specifically
+      has not been re-tested since the tools were wired, so this stays open.)_
 
 **Review notes:** Wire ran in `DirectorCanvas` not `Page()` — the playbook assumed
 callbacks lived in `Page()`, but they are all in `DirectorCanvas` (injectPrompt
@@ -294,7 +374,8 @@ in `DirectorCanvas` because `Page()` wraps everything in `AuthSessionProvider`
 and the sibling `DirectorChat` already calls `useSession` unconditionally in the
 same tree (verified not conditionally rendered). `#1 bug class` addressed: the
 `start_cutdown`/`cancel_run` tools read `isRunning()` (ref-backed), never a stale
-effect-closure value. Commit sha: pending (not yet committed in this workspace).
+effect-closure value. Committed and merged as PR #1 (2026-08-27), which also
+carried the `AuthSessionProvider` fix (e2e0ff6).
 
 ---
 
@@ -501,8 +582,10 @@ effect-closure value. Commit sha: pending (not yet committed in this workspace).
       **DONE (typecheck):** `npx tsc --noEmit -p apps/frontend/tsconfig.json`
       exits 0 with no errors after a cold build (deleted `tsconfig.tsbuildinfo`
       to force a full re-check). The `document.modelContext` global augmentation
-      resolves, so `types.d.ts` is loaded. Manual flag-enabled browser test is
-      a Phase-1/4 runtime step (pending).
+      resolves, so `types.d.ts` is loaded.
+      **DONE (runtime):** the flag-enabled Chrome test ran 2026-10-03 against
+      prod — see 1.1 for the observed surface and the `executeTool(descriptor,
+      jsonString)` calling convention that `types.d.ts` now encodes.
 
 **Review notes (Phase 3):** `register-tools.ts` implements 2 read-only +
 3 auth-gated mutating tools. Read-only tools are exported as `readOnlyTools`;
@@ -530,19 +613,26 @@ assign-then-guard narrowing. `npx tsc` clean.
       - Does it attempt a second `start_cutdown` mid-run?
 - [ ] **4.3 Fix descriptions based ONLY on observed failures** (e.g. add
       "There are typically 6–8 shots" if it guesses wrong counts).
-- [ ] **4.4 Also test in Chrome-flag mode** (it's the fallback demo path).
+- [x] **4.4 Also test in Chrome-flag mode** (it's the fallback demo path).
+      **Partially done 2026-10-03:** flag-enabled Chrome 154 enumerated all 5
+      tools and executed `get_storyboard_state` against prod successfully (see
+      1.1 / ADR-0004). That proves discovery + one read call — **not** a varied
+      multi-turn agent conversation, which is what 4.2 is really about.
 - [ ] **4.5 Anonymous-mode UX check**: signed-out judge sees read-only tools;
       mutation attempts get a clear sign-in message.
 - [ ] **4.6 Budget/billing verification**: after an agent-driven run, confirm
       one budget increment per Runway call in Redis and that `ui_thread_id`
       billing matches what BFF logged (twin-thread model still aligned).
 
-**Review notes:** Phase 4 (deploy to prod + 10+ real ChatGPT in-app-browser runs
-+ description hardening + budget/billing verification) and Phase 5 (demo film)
-are runtime/deployment steps requiring live prod + a browser agent — **pending
-human run (Days 4–6).** Code is deploy-ready: `npx tsc` clean and no build-time
-env flags changed, so `bash scripts/deploy-local.sh` needs no `FORCE_BUILD`. The
-tool descriptions already encode the Phase-4 learnings the playbook anticipated
+**Review notes:** 4.1 shipped (prod, twice since — the bundle still carries the
+5 tools on `release=20261003_152353`) and 4.4 is partly covered by the 2026-10-03
+Chrome-flag pass. **4.2, 4.3, 4.5 and 4.6 remain undone.** 4.2/4.3 need a real
+ChatGPT in-app-browser session, which has never been opened against this app.
+4.5 (signed-out mutation UX) was not observed either — the canvas was driven as a
+signed-in session. 4.6 is specifically untested: the ADR-0005 verification runs
+were re-stitch-only and reported `calls_used: 0` throughout, so no budget
+increment or `ui_thread_id` billing match has been witnessed end-to-end on prod.
+The tool descriptions still encode the Phase-4 learnings the playbook anticipated
 (="poll get_storyboard_state, don't assume completion"; "There are typically…",
 "exact shot id from get_storyboard_state"; "Fails if a run is already active")
 and are ready to be hardened further against *observed* failures only.

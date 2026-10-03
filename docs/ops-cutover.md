@@ -5,8 +5,8 @@ Do **not** put secrets in this file — only status and pointers.
 
 ## Hostname cutover
 
-**Primary:** `https://devcut.thisyearnofear.com`  
-**Legacy:** `https://director.thisyearnofear.com` (still routed during cutover)  
+**Primary:** `https://devcut.thisyearnofear.com` — the only host that resolves (re-verified 2026-10-03)  
+**Legacy:** `https://director.thisyearnofear.com` — **retired**; DNS removed 2026-08-01, now NXDOMAIN. Do not print it anywhere.  
 **Canvas path:** `/director` (unchanged)
 
 | Step | Status |
@@ -56,3 +56,4 @@ Do **not** put secrets in this file — only status and pointers.
 | 2026-08-01 | Bucket flipped **public**; anonymous smoke GET HTTP 200. |
 | 2026-08-01 | Deployed release `20260801_143804` with Genblaze/Vault; `devcut` HTTPS 200. |
 | 2026-08-01 | Fixed `ERR_CERT_AUTHORITY_INVALID`: issued Let's Encrypt cert for `devcut.thisyearnofear.com`; dropped director Traefik host (DNS NXDOMAIN). |
+| 2026-10-03 | Re-verified: `devcut…/director` → 200, `director…` → NXDOMAIN. Removed the "legacy during cutover" wording from the other docs. |

@@ -26,16 +26,17 @@ B2/Genblaze submission: [`hackathon-backblaze.md`](./hackathon-backblaze.md).
 
 | Step | Action | Say / show |
 | --- | --- | --- |
-| 0 | Open `/` | “Three doors only — Challenge Cut for organizers.” |
+| 0 | Open `/` | “Three doors here — Challenge Cut for organizers. The fourth door is for agents, and it lives on `/director`.” |
 | 1 | Select **I’m hosting** · chip **Golden · Genblaze+B2** (or paste golden brief) | Judging intent is durable media + HF kit, not sci-fi. |
 | 2 | **Commission Challenge Cut** → canvas | Mode badge: Challenge Cut + beat grammar. |
 | 3 | Watch **Run ledger** | Brief → stills → Genblaze clips (AgentLoop on Winning) → stitch. |
 | 4 | When ready: **Job outcome** → **Vault** (when durable_url set) | Co-primary with the MP4 — B2 + verify. |
 | 5 | **HyperFrames** → **Download HF kit (.zip)** | BRIEF.md + assets.json + README. |
 | 6 | **Share** tab | Copy invite blurb — Discord/email pin pack. |
-| 7 | Optional: unzip → `hyperframes init` → paste BRIEF | “Composition stays in HyperFrames.” |
+| 7 | **Variants** tab → *Make 3 platform cuts ($1)* | “Judge 16:9, customer 1:1 with captions, teaser 9:16 under 15s. Same shots, re-stitched — zero new generation, so the price is a dollar, not a budget.” |
+| 8 | Optional: unzip → `hyperframes init` → paste BRIEF | “Composition stays in HyperFrames.” |
 
-**Pass:** Vault opens durable URL; kit opens; BRIEF has Challenge Cut intent.
+**Pass:** Vault opens durable URL; kit opens; BRIEF has Challenge Cut intent; Variants tab shows three aspects with the same `ffprobe` dims as the composer promised.
 
 ---
 
@@ -52,6 +53,15 @@ Use Path B when time is short or the room is HF-native.
 
 ---
 
+## Deliberately not in this script
+
+**Recap Reel (`recap_reel`, $4)** — the cross-thread organizer film — has never been rendered
+end-to-end on production (the local mock/LIVE paths pass; the paid commission and the
+`devcut_thread_links` graph rows are still unproven on prod). Demo it once it has, not before.
+Talking about it as shipped is the fastest way to lose the room when the click fails.
+
+---
+
 ## Path C — Agent door (optional · 5 min)
 
 | Step | Action | Say / show |
@@ -65,7 +75,7 @@ Use Path B when time is short or the room is HF-native.
 ## Talking points (keep short)
 
 1. **Split:** HyperFrames owns composition; DevCut owns generative heroes + hackathon packaging + x402.  
-2. **End state:** Watch / **Vault** / HyperFrames / Share — durable provenance is not a footer.  
+2. **End state:** Watch / **Vault** / Variants / HyperFrames / Share — durable provenance is not a footer.  
 3. **Golden brief:** Winning = B2 durable + Genblaze verify + forkable HF kit.  
 4. **Non-goals:** No NLE, no cinema playground, no replacing `/product-launch-video`.
 

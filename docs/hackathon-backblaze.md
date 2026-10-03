@@ -2,14 +2,13 @@
 
 ## App
 
-**DevCut** (repo: gen-ui) — hackathon video desk.
-Organizers commission Challenge Cuts; builders run Submit Ready (HyperFrames / repo / URL → Devpost MP4).
+**DevCut** (repo: devcut, formerly gen-ui) — hackathon video desk.
+Organizers commission Challenge Cuts; builders run Submit Ready (HyperFrames / repo / URL → Devpost MP4) and platform variants; organizers close an event with a recap reel.
 Engine: LangGraph storyboard → Runway stills → **Genblaze Pipeline** clips → stitch → **B2 durable objects + job manifest** → HyperFrames kit.
 
-- Live app (primary): https://devcut.thisyearnofear.com/director  
-  Legacy during cutover: https://director.thisyearnofear.com/director  
+- Live app: https://devcut.thisyearnofear.com/director  
   Ops checklist: [`ops-cutover.md`](./ops-cutover.md)
-- Repo: https://github.com/thisyearnofear/gen-ui
+- Repo: https://github.com/thisyearnofear/devcut
 
 ## AI providers and models
 

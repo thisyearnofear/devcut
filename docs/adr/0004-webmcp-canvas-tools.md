@@ -1,6 +1,6 @@
 # ADR 0004 — WebMCP: expose the director canvas to external browser agents
 
-**Status:** Implemented + Phase-1 spike verified (merged 2026-08-27, PR #1; live on prod `release=20260827_160002`. Spike 2026-10-03: Chrome 154, `#enable-webmcp-testing` flag → all 5 tools enumerated via `document.modelContext.getTools()`, `get_storyboard_state` executed end-to-end returning live canvas state) · **Date:** 2026-08-27
+**Status:** Implemented + Phase-1 spike verified (merged 2026-08-27, PR #1; prod `release=20261003_152353` serves the registration code — chunk `0b5sytof3fq0r.js` contains `document.modelContext` + all tool names, confirmed by fetch 2026-10-03). Spike 2026-10-03 ran in Chrome 154 with `#enable-webmcp-testing`: all 5 tools enumerated via `document.modelContext.getTools()` and `get_storyboard_state` executed end-to-end returning live canvas state — **against the local dev build on `localhost:3010`, i.e. same code, not the prod origin**. A flagged in-browser check of prod is still owed. · **Date:** 2026-08-27
 
 ## Context
 
@@ -82,6 +82,8 @@ Constraints that shaped the design:
   - `executeTool` takes the *registered descriptor* + a **JSON string**
     (`executeTool(tool, "{}")`); a name or object arg throws.
   - No COOP/COEP needed — decision 7 stands. Canvas media unaffected.
+    (Observed on the **local dev server's** headers; prod serves the same
+    registration code but has not been loaded in a flagged browser yet.)
   - `getTools()` returned all 5 DevCut tools with `annotations.readOnlyHint`
     intact; executing `get_storyboard_state` returned the live snapshot.
   - Also present with the flag: `WebMCPEvent`, `ModelContext`,

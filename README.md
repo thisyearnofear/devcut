@@ -4,6 +4,8 @@
 
 Organizers commission a **Challenge Cut** (visual spec of what winning looks like).
 Builders run **Submit Ready** (HyperFrames / repo / product URL → Devpost-ready MP4).
+After the cut exists, both keep working: builders re-stitch it into **platform variants**
+($1) and organizers commission a **recap reel** ($4) — neither spends new generation.
 Agents pay per job via **x402** — no Runway key paste as the default path.
 
 **North star:** [`docs/devcut-thesis.md`](docs/devcut-thesis.md)
@@ -14,8 +16,10 @@ Formerly “Director’s Canvas” — same agent pipeline (storyboard → Runwa
 
 | Route | What it is |
 | --- | --- |
-| `/` | DevCut landing — three doors |
-| `/director` | Live storyboard canvas (Challenge Cut / Submit Ready) |
+| `/` | DevCut landing — the three human doors (hosting / submitting / product launch) |
+| `/director` | Live storyboard canvas — all five modes, the **agent** (x402) door, and `?thread=` / `?hackathon=` restore of a finished thread |
+| `/organizer` | Organizer dashboard — org threads grouped by hackathon, multi-select into a recap reel |
+| `/cut` | Shared-cut page (watch + remix), produced by the outcome panel's Share tab |
 | `/leads` | Legacy CopilotKit lead-triage starter |
 | MCP | Expose the agent to Claude / ChatGPT |
 
@@ -29,8 +33,10 @@ cp .env.example .env
 npm install && npm run dev
 ```
 
-Open <http://localhost:3000> → pick a door (or **Run HyperFrames demo**) → `/director`.
-After stitch: **Watch · HyperFrames · Share** — download the HF kit.zip for `hyperframes init`.
+Open <http://localhost:3010> → pick a door (or **Run HyperFrames demo**) → `/director`.
+After stitch the outcome panel offers **Watch cut · Vault · Variants · HyperFrames · Share** —
+download the HF kit.zip for `hyperframes init`, or re-stitch the finished cut into three
+platform renditions ($1, no new generation).
 
 ## Stack
 
@@ -84,7 +90,7 @@ API, so an agent and a human can work the same cut together.
 | Tool | Mode | What it does |
 | --- | --- | --- |
 | `get_storyboard_state` | read | Brief + every shot (status / error / prompt / urls), whether a run is active, final cut URL. Poll after starting work. |
-| `get_export` | read | MP4 URLs (final + durable B2), sha256, HyperFrames builder-kit availability. |
+| `get_export` | read | MP4 URLs (final + durable B2), sha256, HyperFrames builder-kit availability, and the `variants[]` platform renditions. |
 | `start_cutdown` | mutate | Commission a Challenge Cut from a text brief; starts generation, returns immediately. Fails if a run is already active. |
 | `regenerate_shot` | mutate | Re-generate one shot by id (after an error or to improve it). |
 | `cancel_run` | mutate | Cancel the in-flight run; completed shots stay visible. |
@@ -115,8 +121,20 @@ effect-registration time) so a stale closure can never report a finished run as
 ### Try it
 
 1. Enable the WebMCP flag in Chrome (`chrome://flags/#enable-webmcp-testing`)
-   or use an agent browser that surfaces `document.modelContext`.
+   and **fully restart the browser** — the in-page "Relaunch" button does not
+   apply the flag. Or use an agent browser that surfaces `document.modelContext`.
 2. Open <https://devcut.thisyearnofear.com/director>, sign in with GitHub.
 3. In the agent, ask it to commission a cut, inspect the storyboard, diagnose
    a failing shot, regenerate it, then export — all while you watch the canvas.
+
+**Verified 2026-10-03** on Chrome 154 (flag on, full restart) against the **local
+dev build** (`localhost:3010/director`): `document.modelContext` is present with
+`registerTool` / `getTools` / `executeTool` / `unregisterTool` / `ontoolchange`;
+all 5 tools enumerate and `get_storyboard_state` executes against live canvas
+state; no COOP/COEP headers required. `executeTool` takes the **registered
+descriptor plus a JSON string** — a tool name or an object arg throws.
+Prod runs the same code — its served bundle contains the registrations (verified by
+fetching the chunk) — but **no flagged browser has loaded prod `/director` yet**.
+**Still unverified:** ChatGPT's in-app browser (no flag) and GitHub OAuth inside
+that webview — neither has ever been run against this app.
 

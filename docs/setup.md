@@ -110,7 +110,7 @@ To use a different MCP server (Linear, Slack, GitHub, …), see [customization](
 
 If you can't or don't want to use `npx @copilotkit/cli@latest init`:
 
-1. Get a license token: `npx copilotkit license -n hackathon-kit` — paste into `.env` as `COPILOTKIT_LICENSE_TOKEN`.
+1. Get a license token: `npx copilotkit license create` — it signs in through your browser, asks which email the license is for, and prints `COPILOTKIT_LICENSE_TOKEN=…` (add `--write` to drop it straight into `./.env`). Paste it into `.env` as `COPILOTKIT_LICENSE_TOKEN`. The free Developer tier **expires after 30 days**; changing the token later needs `docker compose up -d`, not `restart` — see [`troubleshooting.md`](./troubleshooting.md).
 2. Bring up infra:
    ```bash
    docker compose up -d --wait

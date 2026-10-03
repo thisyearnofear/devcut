@@ -98,15 +98,22 @@ A single brief flows through five layers. Every Runway call returns a state muta
 
 | Tool                        | Side effect                                                                    |
 | --------------------------- | ------------------------------------------------------------------------------ |
-| `generate_storyboard_plan`  | Lays out N shots as `pending` (no media yet)                                   |
+| `generate_storyboard_plan`  | Lays out N shots as `pending` (no media yet); carries the sponsor `brand_kit`   |
 | `generate_shot_reference`   | Runway text→image; sets `ref_image_url`, status → `image`                      |
 | `generate_shot_video`       | Runway image→video; sets `video_url`, status → `ready`                         |
 | `regenerate_shot`           | Resets one shot, optionally rewrites its prompt                                |
 | `generate_all_references`   | Parallel text→image for all shots missing a ref (bounded to 4 concurrent)      |
 | `generate_all_videos`       | Parallel image→video for all shots with a ref but no video                     |
 | `stitch_final_cut`          | FFmpeg concat of all ready shots into one MP4; sets `final_video_url`          |
+| `cut_variant_pack`          | Re-stitches the finished shots into 3 platform renditions (ADR-0005); sets `variants[]`. **Zero Runway calls** |
+| `generate_recap`            | Cross-reads other threads' B2 snapshots and re-stitches a 60–90s recap. **Zero Runway calls** |
+| `emit_hyperframes_kit`      | Attaches the HyperFrames handoff (`BRIEF.md` + `assets/devcut/` manifest)       |
+
+Audio and restyle tools (`generate_shot_voiceover`, `generate_all_sfx`, `restyle_storyboard`, …) live in [`audio_tools.py`](../apps/agent/src/audio_tools.py) alongside these and follow the same `Command(update=)` contract.
 
 Each tool returns a `Command(update={...})`. LangGraph propagates the update; the AG-UI runtime emits `STATE_SNAPSHOT`; the React canvas re-renders. The agent never tells the UI what to draw — the UI reads the new state and draws itself.
+
+Two of those tools survive a wiped LangGraph checkpoint: `stitch_final_cut` and `cut_variant_pack` call `_state_or_snapshot()`, which tops the injected state up from the thread's own B2 snapshot, and flag the resulting publish `partial` so the writer inherits keys the run never saw (`final_video_url`, `export_status`, `builder_kit`). See `_finalize()` in [`runway_tools.py`](../apps/agent/src/runway_tools.py).
 
 ### Runway model selection
 
@@ -151,12 +158,14 @@ The BFF also exposes `POST /api/runway-call-used` which the Python agent calls a
 | `StoryboardTimeline` | Horizontal scroller of `ShotCard[]`                                  |
 | `ShotCard`           | Per-shot media well, status pill, download + regenerate actions      |
 | `ShotPreview`        | Inline mini-card the agent renders in chat                           |
-| `JobOutcomePanel`    | After stitch: **Watch · Vault · HyperFrames · Share** (+ kit.zip + B2 verify) |
+| `JobOutcomePanel`    | After stitch: **Watch cut · Vault · Variants · HyperFrames · Share** (+ kit.zip + B2 verify) |
 | Chat run ledger      | DevCut-shaped stages + human tool cards (`devcut-ledger.ts`)         |
 
-Landing / empty canvas: four doors (challenge / submit / product / agent) + **Run HyperFrames demo** CTA. See [`hyperframes.md`](./hyperframes.md).
+Landing (`/`) is three human doors — challenge / submit / product — plus the **Run HyperFrames demo** CTA; the fourth door, **agent**, lives on `/director` as the x402 panel rather than a landing tab. See [`hyperframes.md`](./hyperframes.md) and [`x402.md`](./x402.md).
 
-**WebMCP (ADR-0004):** `DirectorCanvas` publishes handlers + live `StoryboardState` to the `directorController` singleton and registers 5 tools on `document.modelContext` (`get_storyboard_state`/`get_export` read-only; `start_cutdown`/`regenerate_shot`/`cancel_run` auth-gated). Mutating tools start runs and return immediately — agents poll state. Same session ⇒ same BYOK vault, budget, and `ui_thread_id` billing.
+The canvas restores a finished thread from the URL: `/director?thread=<id>` reads `/api/thread-state` (LangGraph state first, B2 snapshot when the checkpoint is gone). `&hackathon=<challenge_thread_id>` additionally makes the client POST the graph edge once the run settles.
+
+**WebMCP (ADR-0004):** `DirectorCanvas` publishes handlers + live `StoryboardState` to the `directorController` singleton and registers 5 tools on `document.modelContext` (`get_storyboard_state`/`get_export` read-only; `start_cutdown`/`regenerate_shot`/`cancel_run` auth-gated). Mutating tools start runs and return immediately — agents poll state. Same session ⇒ same BYOK vault, budget, and `ui_thread_id` billing. `get_export` summarizes `variants[]` too, so an external agent can see the platform renditions. Runtime surface confirmed against Chrome 154 behind the WebMCP flag (2026-10-03, local dev build; prod is proven only to *serve* the registrations). — including that `executeTool` takes the registered descriptor plus a JSON string.
 
 ### Stitched export
 
@@ -166,6 +175,18 @@ Landing / empty canvas: four doors (challenge / submit / product / agent) + **Ru
 2. Fallback: `libx264 -preset veryfast -crf 20` if codecs mismatch
 
 Output is written to `apps/frontend/public/exports/` and served at `/exports/<slug>-<timestamp>.mp4`. Override with `EXPORT_DIR` + `EXPORT_BASE_URL` env vars for S3/R2/CDN in production.
+
+### Plan-driven re-stitch (variants + recap)
+
+The master cut above is concat-only. `variant_pack` / `recap_reel` go through `stitch_plan()` in the same [`stitcher.py`](../apps/agent/src/stitcher.py), driven by a data plan built in [`variant_plan.py`](../apps/agent/src/variant_plan.py) — no ffmpeg knowledge in the plan layer, so the plans are unit-testable on their own:
+
+1. **Per-clip normalize** — scale + center-crop (or pad) to the target aspect and re-encode `libx264 -preset veryfast -crf 20` / `aac 192k`, laying an `anullsrc` bed under any clip that has no audio track, so every segment shares the parameters concat needs.
+2. **Captions, with a degrade chain** — `libass subtitles=` → `drawtext` → SRT sidecar, picked by a cached `ffmpeg -filters` probe. **A missing filter never fails a paid job**; the rendition just ships with a sidecar. Burned-in line times are per-clip (subtract `clip.in`); sidecar times live on the concatenated timeline.
+3. **Concat** via the existing stream-copy path, then persist through media storage.
+
+The ASS event writer and its `Format:` declaration are one shared constant (`ASS_EVENT_FORMAT` + `ass_event()`) on purpose: libass puts everything after the last declared field into the rendered text, and a 5-field format against 10-field events once printed ",0,0,0,,Problem" on screen in a shipped rendition.
+
+Recap plans impose a 60–90s budget (≤2 clips per winner thread, ≤8s each), sponsor lockup first and last, CTA on the final clip, and default to `reuse_master`/`silent` audio — regenerating VO across 6+ threads would blow the 20-call Runway budget the SKU price assumes.
 
 ### Why `Command(update=)` instead of frontend tools for media
 
@@ -204,11 +225,25 @@ apps/
 ├── agent/        ← Director graph (Python, LangGraph)
 │   ├── director.py
 │   ├── src/runway_client.py   ← model selection, BYOK, budget guard
-│   ├── src/runway_tools.py    ← all 7 director tools
-│   ├── src/stitcher.py        ← FFmpeg concat
+│   ├── src/runway_tools.py    ← the 10 director tools (+ audio_tools.py)
+│   ├── src/stitcher.py        ← FFmpeg concat + plan-driven stitch_plan()
+│   ├── src/variant_plan.py    ← pure data: variant/recap plans, ASS + SRT writers
+│   ├── src/recap_sources.py   ← cross-thread B2 snapshot reads
+│   ├── src/state_snapshots.py ← post-tool B2 snapshots (cross-restart restore)
 │   └── src/storyboard_*.py
 ├── frontend/     ← /director canvas (Next.js, React)
-│   └── src/app/director, components/storyboard, lib/storyboard
+│   └── src/app/director, app/organizer, components/storyboard,
+│       lib/storyboard, lib/webmcp
 ├── bff/          ← CopilotKit runtime + BYOK injection (Hono)
+│   └── src/x402/, organizer.ts, thread-links.ts, vault.ts, health.ts
 └── mcp/          ← MCP server for Claude / ChatGPT (mcp-use)
 ```
+
+## Organizer surface
+
+`/organizer` lists an org's threads (`apps/bff/src/organizer.ts`), each enriched from its B2 snapshot so the dashboard still shows finished cuts when the LangGraph checkpoint is gone, and multi-selects ready ones into a `$4` recap commission.
+
+- `POST /api/organizer/recap` — **auth-gated**, unlike the open x402 demo endpoints. Refuses: no session (401), fewer than 2 selected threads (400), threads outside the caller's org (403), threads with no finished cut (400). Then pulls the challenge thread's brand-kit logo from its snapshot and fulfills the paid `recap_reel` job with a brief that instructs the agent to call `generate_recap` once, re-stitch only.
+- `devcut_thread_links` (Postgres, `apps/bff/src/thread-links.ts`) — the hackathon graph: submission thread → `hackathon_thread_id`. Written by `POST /api/thread-links` when a `&hackathon=` run settles on the canvas; `GET /api/organizer/thread-links?hackathon=` lists an event's entries. The table self-creates on first write, so it does not exist on a fresh database until something posts to it.
+
+Event-wide tenancy (who may see an event's threads at all) is deliberately *not* here yet — that's [ADR-0006](./adr/0006-event-tenancy.md), proposed.

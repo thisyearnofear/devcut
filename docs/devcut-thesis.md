@@ -20,15 +20,21 @@ One page. Everything else is implementation detail.
 | --- | --- | --- |
 | Organizer | Turn prize brief + criteria into a visual spec builders can’t misread | Invite email / Discord pin includes a 30–60s **challenge film** + a forkable builder kit |
 | Builder | Turn repo / product URL / HyperFrames project into a submission-grade launch cut | Devpost (or equivalent) has an MP4 that shows problem → product → proof, with durable link |
+| Builder | Share one finished cut across the platforms it will actually appear on | Judge / customer / teaser renditions exist at their own aspect ratios, captions burned where the platform plays muted — without a second generation run |
+| Organizer | Make the hackathon visible *after* it ends — sponsor proof + next-edition recruiting | A 60–90s **recap reel** cut from the winners’ own submissions, carrying the sponsor lockup and CTA |
 | Agent | Buy generative footage + packaging mid-hack without holding vendor keys | `402` → pay → assets land in the HyperFrames `assets/` (or export folder) |
 
 ## 3. The product (what DevCut *is*)
 
-Four modes, one pipeline:
+Five modes, one pipeline:
 
-1. **Challenge Cut (organizer)** — brief / Devpost URL / judging criteria → storyboard → generative hero shots → stitched reference film → **builder kit** (shot list, `BRIEF.md` seed, HyperFrames starter pointers, “what good looks like” stills).
+1. **Challenge Cut (organizer)** — brief / Devpost URL / judging criteria → storyboard → generative hero shots → stitched reference film → **builder kit** (shot list, `BRIEF.md` seed, HyperFrames starter pointers, “what good looks like” stills). A **sponsor brand kit** (logos, lockup rules, palette, mandatory mentions) is a required input — variants and recap reels inherit it.
 2. **Submit Ready (builder)** — HyperFrames project, deployed app, or product URL → generative heroes + packaging → Devpost-ready MP4 on durable storage (B2) with optional provenance.
 3. **Product Launch Cut (founder/PM)** — product URL / feature list → polished ~30s demo cut with logo reveal, feature highlights, social proof, and CTA — no hackathon framing.
+4. **Variant Pack (builder)** — a finished cut re-stitched into three platform renditions (judge 16:9 · customer 1:1 with captions · teaser 9:16 ≤15s). **No new generation** — re-frames, burns captions and overlays from footage that already exists.
+5. **Recap Reel (organizer)** — 60–90s post-hackathon film assembled from selected winner threads, with sponsor lockup and next-edition CTA. Also re-stitch only, read across threads via their B2 snapshots.
+
+Modes 4 and 5 are the post-submission half of the wedge: the organizer gets a reason to come back after the winners are announced, and the builder gets the cut each platform actually wants. They cost no generation, so they are margin-positive at $1 and $4 where a fresh film is not.
 
 HyperFrames remains the **code-native composition OS**. DevCut is the **generative footage + packaging layer** that feeds it — not a competing authoring tool.
 
@@ -44,16 +50,16 @@ HyperFrames remains the **code-native composition OS**. DevCut is the **generati
 
 ## 5. x402 SKUs
 
-| SKU | Who | What they buy |
-| --- | --- | --- |
-| `challenge_film` | Organizer | Reference film + builder kit |
-| `submission_polish` | Builder / agent | HyperFrames/repo/URL → submission MP4 |
-| `hero_shot_pack` | Builder / agent | N consistent generative stills/clips for an existing HF composition |
-| `product_launch` | Founder / PM | Polished product demo cut (~30s) |
-| `variant_pack` | Builder / agent | 3 platform cuts (judge 16:9 · customer 1:1 captions · teaser 9:16 ≤15s) re-stitched from a finished thread — no new generation |
-| `recap_reel` | Organizer | 60–90s post-hackathon recap from selected winner threads + sponsor logo overlay + CTA |
+| SKU | Price | Who | What they buy |
+| --- | --- | --- | --- |
+| `challenge_film` | $2.00 | Organizer | Reference film + builder kit |
+| `submission_polish` | $1.00 | Builder / agent | HyperFrames/repo/URL → submission MP4 |
+| `hero_shot_pack` | $0.50 | Builder / agent | N consistent generative stills/clips for an existing HF composition |
+| `product_launch` | $1.50 | Founder / PM | Polished product demo cut (~30s) |
+| `variant_pack` | $1.00 | Builder / agent | 3 platform cuts (judge 16:9 · customer 1:1 captions · teaser 9:16 ≤15s) re-stitched from a finished thread — no new generation |
+| `recap_reel` | $4.00 | Organizer | 60–90s post-hackathon recap from selected winner threads + sponsor logo overlay + CTA |
 
-Price in stable units per job; meter generation + stitch + durable host.
+Prices are the `skus.ts` catalog; live metering in [`x402.md`](./x402.md). Production currently settles in **demo mode** (`X402_MODE=demo`, Base testnet) — the live facilitator path is built but unexercised.
 
 ## 6. Empty-state IA (the doors)
 
@@ -64,6 +70,8 @@ DevCut
 ├── I have a product to launch  → Product Launch Cut
 └── I’m an agent                → OpenAPI + x402 (skill / docs)
 ```
+
+Three human doors render as landing tabs; the **agent** door is the x402 panel on `/director` + `docs/x402.md`, not a landing tab. `variant_pack` and `recap_reel` are deliberately **not** doors — they are follow-on jobs commissioned against a thread that already exists (the CTA on a finished cut, or the organizer dashboard), because they have nothing to brief.
 
 ## 7. Success metrics (north-star, not vanity)
 
@@ -96,13 +104,14 @@ Keep the pipeline; change the product.
 - **Spine:** LangGraph + CopilotKit / AG-UI — shared storyboard state, tool-driven canvas, visible run ledger.
 - **Planner inference:** NVIDIA → Venice → Gemini (see [`providers.md`](./providers.md)). No AISA. No end-user model marketplace.
 - **Media:** Runway (+ optional Genblaze/B2). HyperFrames remains the composition OS.
+- **Generation budget:** the two post-submission modes re-stitch existing footage and spend **zero** new Runway calls by default (ADR-0005). That constraint is what makes $1 and $4 viable prices — relaxing it silently kills the margin, so treat `regenerate_vo` as the opt-in exception, not a convenience.
 
 ## 11. Near-term build order
 
 1. Lock this thesis in UI copy + empty state (rename surface to **DevCut**).  
 2. Ship one golden **Challenge Cut** for a live hackathon (start with one we enter or host adjacent to).  
 3. Ship **Submit Ready** for HyperFrames project zip / repo URL.  
-4. Expose the three SKUs behind x402. → **shipped** (see `docs/x402.md`; demo settle default, live facilitator optional)
+4. Expose the SKUs behind x402 — six today, across four doors. → **shipped** (see `docs/x402.md`; demo settle default, live facilitator optional)
 5. Harden B2/Genblaze as durable + provenance for those jobs — infrastructure in service of the wedge, not the identity.
 6. Run-ledger UX (human tool cards + DevCut stage labels) on the AG-UI surface. → **shipped** (`devcut-ledger.ts`)
 7. HyperFrames handoff (BRIEF.md + `assets/devcut/` drop). → **shipped** (`docs/hyperframes.md`)
