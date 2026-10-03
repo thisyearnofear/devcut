@@ -156,7 +156,53 @@ The server reads all secrets from `/opt/gen-ui/.env`. Key variables:
 | `INTELLIGENCE_SECRET_KEY_BASE` | `openssl rand -base64 64` |
 | `PUBLIC_INTELLIGENCE_WS_URL` | Must end in `/ws/client` — Phoenix appends `/websocket` to whatever base it gets (WS topology in `AGENTS.md`) |
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` / `AUTH_SECRET` / `AUTH_TRUST_HOST` / `AUTH_URL` | Auth.js v5 (ADR-0002). Needs `FORCE_BUILD=1` — `NEXT_PUBLIC_AUTH_ENABLED` is baked at build time |
-| `DATABASE_URI` | `postgresql://…@localhost:5433/langgraph_app` — Postgres checkpointer + BFF tables (`devcut_credentials`, `devcut_thread_links`) |
+| `DATABASE_URI` | `postgresql://…@localhost:5433/langgraph_app` — **read by nothing in `apps/`** (measured 2026-10-03: `langgraph_app` has 0 tables; the agent runs on the in-memory checkpointer per ADR-0001). Kept in `.env` only so old scripts don't break |
+| `POSTGRES_PASSWORD` | **Required** — `docker-compose.infra.yml` interpolates it with no default, so `up -d` fails or ships an empty password if it is missing. This is the one authority on the DB credential; it is not in this repository (rotated out of the repo 2026-10-03) |
+| `INTELLIGENCE_PG_URL` | The DSN the **BFF** uses for the BYOK vault, organizer thread list, hackathon thread links and lazy user seeding (`apps/bff/src/pg-url.ts`, one constant shared by four modules). Prod MUST set it — the code fallback is a local-dev DSN on `localhost:5433` |
+| `RUNWAY_JOBS_DSN` | The DSN the **agent** uses for `public.runway_jobs`. Currently inert on prod: `psycopg2` is not in the agent venv, so `_connect()` returns None and the table has 0 rows |
+
+## Database credentials
+
+Single login role (`intelligence`), two live databases: `intelligence_app` holds CopilotKit
+Intelligence's `cpki.*` schema plus `public.runway_jobs`, and that is also where the BFF's
+`devcut_credentials` / `devcut_thread_links` tables self-create. `postgres` and
+`langgraph_app` are effectively unused.
+
+Auth is `scram-sha-256` for anything arriving over the network, but `pg_hba.conf` inside the
+container grants **`trust` to `127.0.0.1/32`** (the postgres image default). So:
+
+```bash
+# MEANINGLESS — loopback inside the container is trust, the password is never checked
+docker exec directors-canvas-prod-postgres-1 psql "postgresql://intelligence:anything@127.0.0.1:5432/intelligence_app" -c "select 1"
+
+# MEANINGFUL — the path the BFF/agent actually take (published port → bridge IP → scram)
+PGPASSWORD="$(grep -m1 '^POSTGRES_PASSWORD=' /opt/gen-ui/.env | cut -d= -f2-)" \
+  psql -h 127.0.0.1 -p 5433 -U intelligence -d intelligence_app -Atc "select current_user"
+```
+
+A credential probe that "passes" via the first form passes whether or not the password is
+correct — that false positive rolled back a healthy rotation on 2026-10-03 before the real
+test was written.
+
+**Rotating** (what was done 2026-10-03; ~15 s of new-connection failures, run at
+`inflight:0`): set `POSTGRES_PASSWORD` + `INTELLIGENCE_PG_URL` + `RUNWAY_JOBS_DSN` +
+`DATABASE_URI` in `/opt/gen-ui/.env` (0600), `ALTER USER intelligence WITH PASSWORD …` via
+`docker exec` (the only path that still works if you lock yourself out — socket auth is
+`trust`), `docker compose -f docker-compose.infra.yml up -d`, then
+`pm2 startOrReload ecosystem.config.js --only director-bff` and the same for
+`director-agent`. `POSTGRES_PASSWORD` in the compose is only read at `initdb`; on an
+already-initialised volume `ALTER USER` is the authority. Keep the `.env` + compose backups
+the run produced (`/opt/gen-ui/.env.bak-rot-*`).
+
+Two things the rotation surfaced, both still open:
+
+- **`devcut_credentials` does not exist on the prod database** — no builder has stored a Runway
+  key there yet (it self-creates on first write), so the vault path is untested against prod.
+  Same for `devcut_thread_links` (ADR-0005 graph edges).
+- **The agent's job ledger has never written**: `public.runway_jobs` is empty and the agent venv
+  cannot `import psycopg2`, so `_connect()` returns `None` and every ledger write is silently
+  skipped. Fixing it means adding `psycopg2` to the prod venv — a dependency change, not done here.
+
 | `X402_MODE` / `X402_PAY_TO` / `X402_NETWORK` / `X402_UNLOCK_SECRET` / `FACILITATOR_URL` | x402 job meter. Prod runs `demo` on Base testnet (`eip155:84532`) — see [`x402.md`](./x402.md) |
 | `STITCH_MODE` | `mock` returns the Big Buck Bunny placeholder; live stitching requires ffmpeg |
 | `LANGGRAPH_JOBS_PER_WORKER` | `4` on prod (concurrent runs per worker) |
@@ -261,10 +307,19 @@ full-Docker stack (apps in containers, Caddy on 80/443). **Nothing runs them** �
 is PM2 + `docker-compose.infra.yml` at the **repo root**, and Caddy was removed. They are kept
 for the hackathon submission history; read them as archaeology, not as deploy
 instructions. They are also unsafe to revive as-is: `docker-compose.prod.yml` publishes Postgres
-and Redis unbound (and Caddy on 80/443), and the **local** `deployment/docker-compose.yml` binds
-its infra ports with no address prefix too — on a laptop behind NAT that's a much smaller
-problem than it was on nuncio-vultr, but on any machine with a public interface, `up -d`ing it
-exposes Postgres/Redis the same way.
+and Redis unbound (and Caddy on 80/443), and it hardcodes `intelligence:intelligence`, which has
+not been the prod password since the 2026-10-03 rotation. A `DEAD FILE` header now says all of
+that at the top of the file itself, so a reader who opens the compose instead of this doc is
+still warned.
+
+The **local** `deployment/docker-compose.yml` (what `npm run dev:infra` runs) used to bind its
+infra ports with no address prefix — same shape as the prod exposure, and it still carries the
+dev-only `intelligence:intelligence` credential. On 2026-10-03 all four mappings got
+`127.0.0.1:` prefixes. That change is **syntax-checked (YAML parse) but never booted**: this
+laptop has no Docker CLI installed, so nobody has confirmed the dev stack still comes up with
+the narrowed binds. Run `npm run dev:infra` on a machine that has Docker before trusting it.
+On a laptop behind NAT the unbound bind was a much smaller problem than it was on nuncio-vultr,
+but on any machine with a public interface, `up -d`ing it exposed Postgres/Redis the same way.
 
 ## Recommended server size
 

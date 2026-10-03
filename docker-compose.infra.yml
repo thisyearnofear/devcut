@@ -19,6 +19,17 @@
 # Recreating these containers wipes Redis, which is the ONLY store for the Runway budget
 # counters (runway:budget:<user>:<thread>) and the /cut brief records (devcut:brief:*).
 # Drain first: GET :4010/readyz must report "inflight":0.
+#
+# CREDENTIALS: POSTGRES_PASSWORD comes from /opt/gen-ui/.env — it is REQUIRED, compose does not
+# default it. The DB password was rotated out of this repository on 2026-10-03, so nothing here
+# authenticates prod. On a fresh server, set POSTGRES_PASSWORD in .env BEFORE `up -d` (initdb
+# only reads it once, when the postgres-data volume is empty — afterwards ALTER USER is the
+# authority and the env value just keeps the file honest). App-side readers:
+#   INTELLIGENCE_PG_URL  → BFF vault / organizer / thread-links / user seeding
+#   RUNWAY_JOBS_DSN      → agent job ledger
+# pg_hba grants `trust` on 127.0.0.1 INSIDE the container and scram-sha-256 everywhere else,
+# so a credential test run via `docker exec psql -h 127.0.0.1` proves nothing. Test from the
+# host against the published port.
 
 name: directors-canvas-prod
 
@@ -27,7 +38,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: intelligence
-      POSTGRES_PASSWORD: intelligence
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
       POSTGRES_DB: postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -61,7 +72,7 @@ services:
   intelligence:
     image: ghcr.io/copilotkit/intelligence/composite:0.2.0
     environment:
-      DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
+      DATABASE_URL: postgresql://intelligence:${POSTGRES_PASSWORD}@postgres:5432/intelligence_app
       REDIS_URL: redis://redis:6379
       AUTH_SECRET: "${INTELLIGENCE_AUTH_SECRET}"
       RUNNER_AUTH_SECRET: "${INTELLIGENCE_RUNNER_AUTH_SECRET}"
@@ -89,7 +100,7 @@ services:
   seed:
     image: postgres:16-alpine
     environment:
-      PGPASSWORD: intelligence
+      PGPASSWORD: "${POSTGRES_PASSWORD}"
     entrypoint: >
       sh -c "
         until pg_isready -h postgres -U intelligence -d intelligence_app; do sleep 2; done;

@@ -26,14 +26,17 @@ logger = logging.getLogger(__name__)
 
 
 def _dsn() -> str:
-    """Return the Postgres DSN for the intelligence_app database."""
-    return os.getenv(
-        "RUNWAY_JOBS_DSN",
-        os.getenv(
-            "INTELLIGENCE_DATABASE_URL",
-            "postgresql://intelligence:intelligence@localhost:5433/intelligence_app",
-        ),
-    )
+    """Return the Postgres DSN for the intelligence_app database.
+
+    Prod sets RUNWAY_JOBS_DSN; the fallback composes the local-dev defaults the
+    same way intelligence_cleanup does, so no production credential lives in here.
+    """
+    dsn = os.getenv("RUNWAY_JOBS_DSN") or os.getenv("INTELLIGENCE_DATABASE_URL")
+    if dsn:
+        return dsn
+    pwd = os.getenv("POSTGRES_PASSWORD", "intelligence")
+    port = os.getenv("POSTGRES_HOST_PORT", "5433")
+    return f"postgresql://intelligence:{pwd}@localhost:{port}/intelligence_app"
 
 
 def _connect():

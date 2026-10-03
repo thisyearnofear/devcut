@@ -1,5 +1,11 @@
 # Production docker-compose for Hetzner (or any Linux VPS).
 #
+# >>> DEAD FILE — kept as history of the pre-Coolify all-container stack. Nothing deploys it.
+# >>> Prod is `docker-compose.infra.yml` at the repo root (postgres/redis/intelligence only)
+# >>> plus PM2 for the four app services. Do NOT `up` this against nuncio-vultr: it publishes
+# >>> Postgres/Redis unbound and hardcodes the DB credentials (docs/deployment.md, "Legacy
+# >>> compose files in deployment/").
+#
 # Runs all services in containers:
 #   - postgres, redis, intelligence  (same as docker-compose.yml)
 #   - agent    (Python / LangGraph)

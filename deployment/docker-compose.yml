@@ -4,6 +4,10 @@
 # container (runs app-api, realtime-gateway, thread-culler, and the
 # db-migrations oneshot internally under s6-overlay).
 #
+# Every mapping is 127.0.0.1-prefixed on purpose. A bare "5432:5432" binds 0.0.0.0 and
+# nothing gates it (UFW/iptables INPUT is not consulted for docker-proxy's published ports),
+# which is exactly how prod came to answer Postgres/Redis from the internet on 2026-10-03.
+#
 # Usage:
 #   docker compose up -d --wait
 #
@@ -20,7 +24,7 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: intelligence
       POSTGRES_PASSWORD: intelligence
@@ -40,7 +44,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "${REDIS_HOST_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -65,8 +69,8 @@ services:
   intelligence:
     image: ghcr.io/copilotkit/intelligence/composite:0.1.0
     ports:
-      - "${APP_API_HOST_PORT:-4201}:4201"
-      - "${REALTIME_GATEWAY_HOST_PORT:-4401}:4401"
+      - "127.0.0.1:${APP_API_HOST_PORT:-4201}:4201"
+      - "127.0.0.1:${REALTIME_GATEWAY_HOST_PORT:-4401}:4401"
     environment:
       DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
       REDIS_URL: redis://redis:6379

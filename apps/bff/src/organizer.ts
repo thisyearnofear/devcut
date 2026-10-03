@@ -8,10 +8,9 @@
 import { identityFromCookie, authEnabled } from "./auth.js";
 import { ensureUser } from "./auth.js";
 import { listLinksForThreadIds } from "./thread-links.js";
+import { intelligencePgUrl } from "./pg-url.js";
 
-const PG_URL =
-  process.env.INTELLIGENCE_PG_URL ??
-  "postgres://intelligence:intelligence@localhost:5433/intelligence_app";
+const PG_URL = intelligencePgUrl;
 const SNAP_URL_BASE = (process.env.B2_PUBLIC_URL_BASE ?? "").replace(/\/$/, "");
 
 let _pg: typeof import("pg") | null = null;

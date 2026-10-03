@@ -13,6 +13,7 @@
 import { hkdfSync } from "node:crypto";
 import { jwtDecrypt } from "jose";
 import Redis from "ioredis";
+import { intelligencePgUrl } from "./pg-url.js";
 
 const AUTH_SECRET = process.env.AUTH_SECRET ?? "";
 const COOKIE_NAMES = ["__Secure-authjs.session-token", "authjs.session-token"] as const;
@@ -79,8 +80,7 @@ export async function identityFromCookie(cookieHeader: string | null): Promise<A
 // ---- ensure-user ----
 // Intelligence does NOT auto-create users (cpki.threads FK violation — we hit
 // this with '1_default'). Seed new identities lazily on first sight.
-const INTELLIGENCE_PG_URL =
-  process.env.INTELLIGENCE_PG_URL ?? "postgres://intelligence:intelligence@localhost:5433/intelligence_app";
+const INTELLIGENCE_PG_URL = intelligencePgUrl;
 // Per-user org: each gh:<id> user gets their own org (user:<ghId>) for
 // privacy. Override with INTELLIGENCE_ORG_ID to group all users into one
 // org (e.g., for a collaborative test cohort or a sponsored event).

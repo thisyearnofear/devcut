@@ -10,6 +10,7 @@
 
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 import Redis from "ioredis";
+import { intelligencePgUrl } from "./pg-url.js";
 
 const VAULT_KEY_INFO = "DevCut BYOK vault key";
 const VAULT_KEY_LEN = 32; // AES-256
@@ -48,9 +49,7 @@ export function decrypt(blob: string): string | null {
 }
 
 // ---- Postgres (same connection as ensureUser in auth.ts) ----
-const PG_URL =
-  process.env.INTELLIGENCE_PG_URL ??
-  "postgres://intelligence:intelligence@localhost:5433/intelligence_app";
+const PG_URL = intelligencePgUrl;
 
 let _pg: typeof import("pg") | null = null;
 async function pg() {

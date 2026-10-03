@@ -6,9 +6,9 @@
 //
 // Table: devcut_thread_links (thread_id PK, hackathon_thread_id, kind, org_id)
 
-const PG_URL =
-  process.env.INTELLIGENCE_PG_URL ??
-  "postgres://intelligence:intelligence@localhost:5433/intelligence_app";
+import { intelligencePgUrl } from "./pg-url.js";
+
+const PG_URL = intelligencePgUrl;
 
 let _pg: typeof import("pg") | null = null;
 async function pg() {
