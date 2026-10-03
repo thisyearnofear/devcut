@@ -1,0 +1,115 @@
+# Infrastructure-only compose — PRODUCTION (nuncio-vultr)
+#
+# Canonical copy of /opt/gen-ui/docker-compose.infra.yml. This file and that one must
+# stay in sync: nothing deploys it, so editing the server copy creates an instant
+# divergence (that was true of this file for its whole life until 2026-10-03).
+#
+# Runs postgres, redis, intelligence + a one-shot seed ONLY — the app services run via
+# PM2 (ecosystem.config.js). `deployment/docker-compose.yml` is the LOCAL dev stack with
+# different host ports; `deployment/docker-compose.prod.yml` is dead (pre-Coolify).
+#
+# PORT BINDINGS ARE SECURITY-RELEVANT. A mapping written as "5433:5432" binds 0.0.0.0 and
+# is reachable from the internet — UFW does not gate it, and a DOCKER-USER rule cannot
+# block it either, because docker-proxy answers published ports in the INPUT path.
+# Prefix every mapping with an address. The one non-loopback bind below is load-bearing:
+# Coolify's Traefik reaches the Intelligence WS gateway as host.docker.internal, which
+# resolves to 10.0.0.1 (the bridge gateway), NOT 127.0.0.1 — loopback-binding 4403 alone
+# breaks every websocket. Full write-up: docs/deployment.md ("Fixed 2026-10-03").
+#
+# Recreating these containers wipes Redis, which is the ONLY store for the Runway budget
+# counters (runway:budget:<user>:<thread>) and the /cut brief records (devcut:brief:*).
+# Drain first: GET :4010/readyz must report "inflight":0.
+
+name: directors-canvas-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: intelligence
+      POSTGRES_PASSWORD: intelligence
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelligence -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    ports:
+      - "127.0.0.1:6381:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+
+  intelligence:
+    image: ghcr.io/copilotkit/intelligence/composite:0.2.0
+    environment:
+      DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
+      REDIS_URL: redis://redis:6379
+      AUTH_SECRET: "${INTELLIGENCE_AUTH_SECRET}"
+      RUNNER_AUTH_SECRET: "${INTELLIGENCE_RUNNER_AUTH_SECRET}"
+      SECRET_KEY_BASE: "${INTELLIGENCE_SECRET_KEY_BASE}"
+      DEFAULT_ORGANIZATION_ID: hackathon
+      COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN}"
+      BAKED_LICENSE_KEYS_JSON: "{\"kid-2026-03\":\"MCowBQYDK2VwAyEAEApX4iacGTrtqKX+5GGN6l0NuPkmrfDvJjRWVPGhIM0=\"}"
+      THREAD_STALE_HOURS: "${THREAD_STALE_HOURS:-72}"
+      THREAD_CULL_BATCH_SIZE: "${THREAD_CULL_BATCH_SIZE:-1000}"
+      PHX_HOST: "${DOMAIN}"
+      CHECK_ORIGIN: "https://${DOMAIN}"
+    ports:
+      - "127.0.0.1:4203:4201"
+      - "127.0.0.1:4403:4401"
+      - "10.0.0.1:4403:4401"  # Coolify Traefik reaches the WS gateway via host.docker.internal = 10.0.0.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+
+  seed:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: intelligence
+    entrypoint: >
+      sh -c "
+        until pg_isready -h postgres -U intelligence -d intelligence_app; do sleep 2; done;
+        psql -h postgres -U intelligence -d intelligence_app -v ON_ERROR_STOP=1 -c \"
+          INSERT INTO cpki.users (id, organization_id, created_at)
+          VALUES ('default', 'hackathon', NOW()), ('1_default', 'hackathon', NOW())
+          ON CONFLICT (id) DO NOTHING;
+        \"
+      "
+    depends_on:
+      intelligence:
+        condition: service_started
+    restart: "no"
+    networks:
+      - internal
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  internal:
+    driver: bridge

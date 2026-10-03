@@ -175,6 +175,10 @@ Internal service ports (3100, 4010, 8123, 3011) are not for the public internet;
 Traefik reaches the frontend via `host.docker.internal:3100`. UFW allows the Docker
 subnet `10.0.0.0/8` to those four ports so containers can reach the PM2 services.
 
+Infra ports (postgres 5433, redis 6381, intelligence 4203/4403) are bound to `127.0.0.1` in
+`docker-compose.infra.yml` — **as of 2026-10-03**; before that the sentence in this paragraph was
+a claim, not a fact (see below), and 4403 additionally answers on `10.0.0.1` for Traefik.
+
 ### Fixed 2026-10-03: UFW does not gate Docker-published ports
 
 `docker-compose.infra.yml` published the infra ports as `"5433:5432"` etc. (no
@@ -228,11 +232,23 @@ the container, so a thread that had spent 18 of its 20 Runway calls is back at 0
 The recreate also produced ~2 min of `ECONNREFUSED 127.0.0.1:6381` in `logs/bff-error.log`
 while Redis was down — transient, gone after the BFF came back.
 
-**This hardening is not in git.** `/opt/gen-ui/docker-compose.infra.yml` is the only copy of
-the prod infra definition — it has never been committed (`git ls-files` shows just
-`deployment/docker-compose.yml` and `deployment/docker-compose.prod.yml`). So a fresh clone
-cannot reproduce prod, and provisioning from either tracked file reintroduces the wide
-bindings. Commit it (or have the deploy script write it) before the next server rebuild.
+**This hardening is now in git — it wasn't when it happened.** The prod infra definition is
+tracked as [`docker-compose.infra.yml`](../docker-compose.infra.yml) (repo root, mirroring its
+server path `/opt/gen-ui/docker-compose.infra.yml`). Until 2026-10-03 that file existed **only**
+on the server, so no clone could reproduce prod and provisioning from either tracked compose file
+reintroduced the wide bindings. Nothing deploys the repo copy — **you must push it and `up -d`
+it yourself**:
+
+```bash
+scp docker-compose.infra.yml nuncio-vultr:/opt/gen-ui/docker-compose.infra.yml
+ssh nuncio-vultr 'curl -s localhost:4010/readyz'          # require "inflight":0 first
+ssh nuncio-vultr 'cd /opt/gen-ui && sudo docker compose -f docker-compose.infra.yml up -d'
+```
+
+The repo copy and the server copy must stay in sync; if you hot-edit the server's, re-copy it
+back into the repo in the same sitting. `./init-db` resolves to `/opt/gen-ui/init-db/` on the
+server — the repo source for that is `deployment/init-db/` (verified byte-identical, md5
+`446896df…`, 2026-10-03).
 
 Also note: `ufw status numbered` on this host carries public rules for **other**
 projects (3000, 4000, 18080, 18766, 31777, 31778) — the table above is DevCut's
@@ -242,9 +258,13 @@ intent, not the machine's actual ruleset.
 
 `deployment/docker-compose.prod.yml` + `deployment/Caddyfile` are the pre-Coolify
 full-Docker stack (apps in containers, Caddy on 80/443). **Nothing runs them** — prod
-is PM2 + `docker-compose.infra.yml` on the server, and Caddy was removed. They are kept
+is PM2 + `docker-compose.infra.yml` at the **repo root**, and Caddy was removed. They are kept
 for the hackathon submission history; read them as archaeology, not as deploy
-instructions.
+instructions. They are also unsafe to revive as-is: `docker-compose.prod.yml` publishes Postgres
+and Redis unbound (and Caddy on 80/443), and the **local** `deployment/docker-compose.yml` binds
+its infra ports with no address prefix too — on a laptop behind NAT that's a much smaller
+problem than it was on nuncio-vultr, but on any machine with a public interface, `up -d`ing it
+exposes Postgres/Redis the same way.
 
 ## Recommended server size
 
