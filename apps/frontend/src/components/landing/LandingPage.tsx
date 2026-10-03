@@ -6,11 +6,13 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import {
   DEVCUT,
+  DEVCUT_PRODUCTS,
   DEVCUT_CHALLENGE_EXAMPLES,
   DEVCUT_DOORS,
   DEVCUT_GOLDEN_CHALLENGE,
   DEVCUT_PRODUCT_EXAMPLES,
   DEVCUT_SUBMIT_EXAMPLES,
+  productName,
   type DevCutDoor,
   type DevCutDoorId,
 } from "@/lib/devcut";
@@ -35,25 +37,18 @@ const CUT_DOORS = DEVCUT_DOORS.filter(
   (d): d is DevCutDoor & { id: CutDoorId } => d.id !== "agent",
 );
 
-const DOOR_META: Record<CutDoorId, { tab: string; cta: string; placeholder: string; hint: string }> = {
-  submit: {
-    tab: "Submit my project",
-    cta: "Get my demo video",
-    placeholder: "Paste a product URL, repo, or one-line pitch…",
-    hint: "For builders — turn your project into a Devpost-ready demo cut",
-  },
-  challenge: {
-    tab: "Challenge cut",
-    cta: "Start challenge cut",
-    placeholder: "What should builders understand, build, or avoid?",
-    hint: "For organizers — a reference film + forkable builder kit",
-  },
-  product: {
-    tab: "Product launch",
-    cta: "Start launch cut",
-    placeholder: "Paste a product URL, brand guidelines, or feature list…",
-    hint: "For founders & PMs — a polished demo video for a shipped product",
-  },
+/** Landing-only: what the empty brief box asks for. */
+const DOOR_PLACEHOLDERS: Record<CutDoorId, string> = {
+  submit: "Paste a product URL, repo, or one-line pitch…",
+  challenge: "What should builders understand, build, or avoid?",
+  product: "Paste a product URL, brand guidelines, or feature list…",
+};
+
+/** Names and prices come from DEVCUT_PRODUCTS so every surface agrees. */
+const DOOR_HINTS: Record<CutDoorId, string> = {
+  submit: "Judge-ready demo cut — then the Variant Pack puts it in front of every audience ($1)",
+  challenge: "A reference film + forkable builder kit — then a post-event Recap Reel ($4)",
+  product: "A polished demo video for a shipped product",
 };
 
 const STEPS = [
@@ -73,6 +68,23 @@ const STEPS = [
     body: "Stitched MP4 plus a HyperFrames kit, ready to drop into Devpost.",
   },
 ];
+
+/**
+ * The two products that make a hackathon cut worth more than one video
+ * (ADR-0005). Names and prices are read from DEVCUT_PRODUCTS, never retyped here.
+ */
+const WEDGE = [
+  {
+    sku: "variant_pack",
+    note: "Appears on the canvas the moment your cut finishes — one click, three platform films.",
+  },
+  {
+    sku: "recap_reel",
+    note: "Tick the finished entries on your organizer desk; they re-stitch into one sponsor-ready film.",
+    cta: "Organizer desk →",
+    href: "/organizer",
+  },
+] as const;
 
 /**
  * DevCut landing — the hero IS the desk. Pain-first headline, one brief input,
@@ -100,7 +112,12 @@ export function LandingPage() {
     [door],
   );
 
-  const meta = DOOR_META[door];
+  const doorName = productName(door);
+  const meta = {
+    cta: `Start ${doorName}`,
+    placeholder: DOOR_PLACEHOLDERS[door],
+    hint: DOOR_HINTS[door],
+  };
 
   const directorHref = useMemo(
     () => `/director?mode=${door}&brief=${encodeURIComponent(brief.trim())}`,
@@ -205,7 +222,7 @@ export function LandingPage() {
         </div>
       )}
 
-      <section className="relative flex min-h-svh flex-col">
+      <section id="desk" className="relative flex min-h-svh scroll-mt-16 flex-col">
         {/* Backdrop: hero still + gradient + wave grid (grain/sprockets removed). */}
         <div className="absolute inset-0 overflow-hidden" aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -240,6 +257,12 @@ export function LandingPage() {
             >
               Sample cut
             </button>
+            <Link
+              href="/organizer"
+              className="transition-colors duration-200 hover:text-[var(--dc-paper)]"
+            >
+              Organizers
+            </Link>
             <Link
               href="/about"
               className="transition-colors duration-200 hover:text-[var(--dc-paper)]"
@@ -325,7 +348,7 @@ export function LandingPage() {
                         : "border-[var(--dc-line)] text-[var(--dc-dim)] hover:border-[var(--dc-mute)] hover:text-[var(--dc-mute)]"
                     }`}
                   >
-                    {DOOR_META[d.id].tab}
+                    {productName(d.id)}
                   </button>
                 );
               })}
@@ -431,9 +454,66 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* The wedge: one cut is worth more when it is cut for each audience. */}
+      <section id="audiences" className="border-t border-[var(--dc-line)] bg-[var(--dc-ink)]">
+        <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-10%" }}
+            transition={{ duration: 0.35, ease: EASE_OUT }}
+          >
+            <p className="dc-mono text-[11px] uppercase tracking-[0.18em] text-[var(--dc-cyan)]">
+              One cut. Three audiences.
+            </p>
+            <h2 className="dc-display mt-2 max-w-2xl text-2xl font-semibold tracking-tight text-[var(--dc-paper)] sm:text-3xl">
+              The hackathon isn’t the finish line — the sharing is.
+            </h2>
+          </motion.div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:gap-6">
+            {WEDGE.map((card, i) => {
+              const p = DEVCUT_PRODUCTS[card.sku];
+              return (
+                <motion.div
+                  key={card.sku}
+                  initial={{ opacity: 0, y: 14 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-10%" }}
+                  transition={{ duration: 0.35, delay: i * 0.05, ease: EASE_OUT }}
+                  className="flex flex-col border border-[var(--dc-line)] bg-[var(--dc-panel)] p-5"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="dc-display text-lg font-semibold text-[var(--dc-paper)]">
+                      {p.name}
+                    </p>
+                    <p className="dc-mono text-sm text-[var(--dc-signal)]">{p.price}</p>
+                  </div>
+                  <p className="dc-mono mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--dc-cyan)]">
+                    For {p.audience}
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-[var(--dc-mute)]">{p.blurb}</p>
+                  <p className="mt-2 text-xs leading-5 text-[var(--dc-dim)]">{card.note}</p>
+                  {"href" in card && (
+                    <Link
+                      href={card.href}
+                      className="dc-btn mt-5 self-start bg-[var(--dc-signal)] px-4 py-2 dc-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)]"
+                    >
+                      {card.cta}
+                    </Link>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--dc-line)] px-5 py-6 sm:px-8">
         <span className="dc-display text-sm font-semibold tracking-tight">{DEVCUT.name}</span>
         <nav className="dc-mono flex flex-wrap items-center gap-4 text-[11px] uppercase tracking-[0.12em] text-[var(--dc-dim)]">
+          <Link href="/organizer" className="hover:text-[var(--dc-mute)]">
+            Organizer desk
+          </Link>
           <Link href="/about" className="hover:text-[var(--dc-mute)]">
             About
           </Link>

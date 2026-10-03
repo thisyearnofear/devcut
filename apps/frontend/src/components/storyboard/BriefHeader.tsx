@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Storyboard } from "@/lib/storyboard/types";
-import { DEVCUT } from "@/lib/devcut";
+import { DEVCUT, productName } from "@/lib/devcut";
 
 interface BriefHeaderProps {
   title: string;
@@ -14,7 +14,7 @@ interface BriefHeaderProps {
   hasPersonalKey?: boolean;
   /** Paid x402 SKU id when canvas was unlocked via job receipt */
   paidSku?: string | null;
-  /** Challenge Cut vs Submit Ready */
+  /** Door / sku id — renders the product's display name. */
   jobMode?: "challenge" | "submit" | "agent" | string | null;
 }
 
@@ -31,21 +31,17 @@ export function BriefHeader({
 }: BriefHeaderProps) {
   const isLive = storyboard.runway_mode === "LIVE";
   const modeLabel =
-    jobMode === "challenge"
-      ? "Challenge Cut"
-      : jobMode === "submit"
-        ? "Submit Ready"
-        : jobMode === "agent"
-          ? "Agent job"
-          : null;
+    jobMode === "agent" ? "Agent job" : jobMode ? productName(jobMode) : null;
   const modeHint =
     jobMode === "challenge"
       ? "Problem → Constraint → Winning → Anti-pattern → CTA"
       : jobMode === "submit"
         ? "Problem → Product → Proof → HF handoff"
-        : jobMode === "agent"
-          ? "Pay-per-job · Start once unlocked"
-          : null;
+        : jobMode === "product"
+          ? "Logo → Features → Proof → CTA"
+          : jobMode === "agent"
+            ? "Pay-per-job · Start once unlocked"
+            : null;
   const modeBadgeClass =
     jobMode === "submit"
       ? "border-[var(--dc-cyan)]/40 bg-[var(--dc-cyan-soft)] text-[var(--dc-cyan)]"

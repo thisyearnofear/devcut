@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BuilderKit } from "@/lib/storyboard/types";
 import { downloadBuilderKitZip } from "@/lib/builder-kit-download";
+import { productName } from "@/lib/devcut";
 
 interface HyperFramesHandoffPanelProps {
   kit: BuilderKit;
@@ -49,7 +50,7 @@ export function HyperFramesHandoffPanel({
             <p className="text-sm font-medium text-white/90">
               {kit.mode === "challenge"
                 ? "Builder kit from Challenge Cut"
-                : "Submit Ready → HF assets"}
+                : `${productName(kit.mode)} → HF assets`}
             </p>
             <p className="text-xs leading-5 text-white/55">
               {kit.summary} HyperFrames keeps HTML composition; DevCut supplied the heroes.

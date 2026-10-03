@@ -35,6 +35,7 @@ interface OrgThread {
   final_video_size?: number;
   // Hackathon graph edge (devcut_thread_links):
   hackathon_thread_id?: string;
+  hackathon_title?: string | null;
   link_kind?: string;
 }
 
@@ -123,6 +124,19 @@ export async function listOrgThreads(cookieHeader: string | null): Promise<{
     /* links table unavailable → dashboard still lists threads ungrouped */
   }
 
+  // Event titles for the grouped dashboard — each challenge thread's own
+  // storyboard title, best-effort from its B2 snapshot.
+  const eventIds = [...new Set(Object.values(links).map((l) => l.hackathon_thread_id))];
+  const eventTitles = new Map(
+    await Promise.all(
+      eventIds.map(async (id) => {
+        const snap = await fetchSnapshotJson(id);
+        const sb = snap?.storyboard as Record<string, unknown> | undefined;
+        return [id, (sb?.title as string) ?? null] as const;
+      }),
+    ),
+  );
+
   return {
     threads: enriched.map((e, i) => {
       const base = e.status === "fulfilled" ? e.value : {
@@ -134,7 +148,14 @@ export async function listOrgThreads(cookieHeader: string | null): Promise<{
         agent_id: rows[i].agent_id,
       };
       const link = links[base.thread_id];
-      return link ? { ...base, hackathon_thread_id: link.hackathon_thread_id, link_kind: link.kind } : base;
+      return link
+        ? {
+            ...base,
+            hackathon_thread_id: link.hackathon_thread_id,
+            hackathon_title: eventTitles.get(link.hackathon_thread_id) ?? null,
+            link_kind: link.kind,
+          }
+        : base;
     }),
     org,
   };

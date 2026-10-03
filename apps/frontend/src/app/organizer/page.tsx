@@ -13,11 +13,12 @@ export default async function OrganizerPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#2de2c5]">
-              DevCut Organizer
+              DevCut Organizer Desk
             </p>
-            <h1 className="text-lg font-bold">Cuts in your org</h1>
-            <p className="mt-0.5 font-mono text-[11px] text-white/35">
-              Live progress and export status for every commissioned cut
+            <h1 className="text-lg font-bold">Your event, entry by entry</h1>
+            <p className="mt-0.5 max-w-md font-mono text-[11px] leading-5 text-white/35">
+              Every cut commissioned in your workspace, grouped by event. Tick the finished ones and
+              re-stitch them into a sponsor-ready Recap Reel ($4). Refreshes every 20s.
             </p>
           </div>
           <a

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { BuilderKit, ExportStatus } from "@/lib/storyboard/types";
 import type { VariantRecord } from "@/lib/storyboard/types";
+import { productName } from "@/lib/devcut";
 import { downloadBuilderKitZip } from "@/lib/builder-kit-download";
 import { HyperFramesHandoffPanel } from "@/components/devcut/HyperFramesHandoffPanel";
 import { ProvenanceVaultPanel } from "@/components/devcut/ProvenanceVaultPanel";
@@ -22,7 +23,7 @@ interface JobOutcomePanelProps {
   manifestUri: string | null;
   storyboardTitle: string;
   builderKit: BuilderKit | null;
-  /** Challenge Cut vs Submit Ready — drives share copy. */
+  /** Mode / sku id — drives which product's copy this panel speaks. */
   jobMode?: "challenge" | "submit" | string | null;
   /** Brief seed for remix / last-job loop */
   jobBrief?: string | null;
@@ -76,10 +77,15 @@ export function JobOutcomePanel({
   const [tab, setTab] = useState<OutcomeTab>("watch");
   const [watchUrl, setWatchUrl] = useState<string | null>(null);
   const [remixHref, setRemixHref] = useState("/director");
+  const landedForRef = useRef<string | null>(null);
+  const chosenTabRef = useRef(false);
 
-  // Land on Watch — viral share is one click from the film.
+  // Land on Watch once per finished video — an envelope that arrives later
+  // (durable URL, variants) must not yank a reader off the tab they chose.
   useEffect(() => {
     if (exportStatus !== "ready" || !finalVideoUrl) return;
+    if (chosenTabRef.current || landedForRef.current === finalVideoUrl) return;
+    landedForRef.current = finalVideoUrl;
     setTab("watch");
   }, [exportStatus, finalVideoUrl]);
 
@@ -122,6 +128,11 @@ export function JobOutcomePanel({
   const filename = `${slugify(storyboardTitle || "final-cut")}.mp4`;
   const shareUrl = watchUrl || durableUrl || finalVideoUrl;
 
+  function selectTab(id: OutcomeTab) {
+    chosenTabRef.current = true;
+    setTab(id);
+  }
+
   if (exportStatus === "idle") return null;
 
   if (exportStatus === "stitching") {
@@ -160,6 +171,7 @@ export function JobOutcomePanel({
 
   if (!finalVideoUrl) return null;
 
+  const readyVariants = variants?.filter((v) => v.status === "ready").length ?? 0;
   const tabs: { id: OutcomeTab; label: string; hint: string }[] = [
     {
       id: "watch",
@@ -167,16 +179,16 @@ export function JobOutcomePanel({
       hint: mode === "challenge" ? "Visual spec for builders" : "Launch-ready cut",
     },
     {
+      id: "variants",
+      label: variants?.length ? "Variants" : "Platform cuts",
+      hint: variants?.length
+        ? `${readyVariants}/${variants.length} platform cuts`
+        : "Judge · customer · teaser — $1",
+    },
+    {
       id: "vault",
       label: "Vault",
       hint: durableUrl ? "B2 + Genblaze provenance" : "Durable after B2 upload",
-    },
-    {
-      id: "variants",
-      label: "Variants",
-      hint: variants?.length
-        ? `${variants.filter((v) => v.status === "ready").length}/${variants.length} platform cuts`
-        : "Judge / customer / teaser",
     },
     {
       id: "handoff",
@@ -190,6 +202,15 @@ export function JobOutcomePanel({
     },
   ];
 
+  const headline =
+    mode === "challenge"
+      ? "Challenge Cut ready — share the film, hand builders the kit"
+      : mode === "submit"
+        ? "Demo Cut ready — now put it in front of judges, customers, and builders"
+        : mode === "product"
+          ? "Product Launch Cut ready — clean proof for your launch channel"
+          : `${productName(mode)} ready — share the cut`;
+
   return (
     <div className="flex flex-col gap-0 overflow-hidden rounded-xl border border-[var(--dc-signal,#ff9f1c)]/35 bg-[var(--dc-ink,#050607)]">
       <div className="border-b border-white/10 px-4 pt-4">
@@ -198,11 +219,7 @@ export function JobOutcomePanel({
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--dc-cyan,#2de2c5)]">
               Job complete
             </p>
-            <p className="mt-1 text-sm font-medium text-white/90">
-              {mode === "challenge"
-                ? "Challenge Cut ready — share the film, hand builders the kit"
-                : "Submit Ready ready — finish composition in HyperFrames"}
-            </p>
+            <p className="mt-1 text-sm font-medium text-white/90">{headline}</p>
             <p className="mt-1 text-xs leading-5 text-white/50">
               DevCut owned generative footage. HyperFrames still owns HTML → render.
             </p>
@@ -239,9 +256,7 @@ export function JobOutcomePanel({
         <div className="mt-4 flex gap-1" role="tablist" aria-label="Job outcome">
           {tabs.map((t) => {
             const active = tab === t.id;
-            const disabled =
-              (t.id === "handoff" && !builderKit) ||
-              (t.id === "variants" && !variants?.length);
+            const disabled = t.id === "handoff" && !builderKit;
             return (
               <button
                 key={t.id}
@@ -249,7 +264,7 @@ export function JobOutcomePanel({
                 role="tab"
                 aria-selected={active}
                 disabled={disabled}
-                onClick={() => setTab(t.id)}
+                onClick={() => selectTab(t.id)}
                 className={`min-w-0 flex-1 rounded-t-lg border border-b-0 px-3 py-2.5 text-left transition-colors disabled:opacity-35 ${
                   active
                     ? "border-[var(--dc-signal,#ff9f1c)]/40 bg-[var(--dc-signal,#ff9f1c)]/10"
@@ -293,7 +308,7 @@ export function JobOutcomePanel({
               {builderKit && (
                 <button
                   type="button"
-                  onClick={() => setTab("handoff")}
+                  onClick={() => selectTab("handoff")}
                   className="rounded-full border border-[var(--dc-signal,#ff9f1c)]/45 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-signal,#ff9f1c)] hover:bg-[var(--dc-signal,#ff9f1c)]/15"
                 >
                   Open HyperFrames kit
@@ -301,19 +316,12 @@ export function JobOutcomePanel({
               )}
               <button
                 type="button"
-                onClick={() => setTab("share")}
+                onClick={() => selectTab("share")}
                 className="rounded-full border border-white/15 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white/60 hover:border-white/30"
               >
                 Share pack
               </button>
             </div>
-            {threadId && !variants?.length && (
-              <VariantBuyButton
-                threadId={threadId}
-                brief={jobBrief || storyboardTitle}
-                title={storyboardTitle}
-              />
-            )}
             {durableUrl && (
               <DurableRow label="Durable" url={durableUrl} tone="amber" />
             )}
@@ -341,13 +349,35 @@ export function JobOutcomePanel({
           />
         )}
 
-        {tab === "variants" && variants?.length ? (
-          <VariantsPanel
-            variants={variants}
-            title={storyboardTitle}
-            onDownload={onDownload}
-          />
-        ) : null}
+        {tab === "variants" && (
+          <div className="space-y-4">
+            {variants?.length ? (
+              <VariantsPanel
+                variants={variants}
+                title={storyboardTitle}
+                onDownload={onDownload}
+              />
+            ) : (
+              <p className="text-xs leading-5 text-white/55">
+                One finished film, three audiences: judges want 16:9, customers want a square cut
+                with captions, builders want a 15-second teaser.
+              </p>
+            )}
+            {threadId ? (
+              <VariantBuyButton
+                threadId={threadId}
+                brief={jobBrief || storyboardTitle}
+                title={storyboardTitle}
+                haveVariants={Boolean(variants?.length)}
+              />
+            ) : !variants?.length ? (
+              <p className="text-xs text-white/45">
+                Platform cuts are commissioned on the canvas — open the director for this thread to
+                buy the pack.
+              </p>
+            ) : null}
+          </div>
+        )}
 
         {tab === "handoff" && builderKit && (
           <div className="space-y-4">
@@ -394,6 +424,12 @@ const VARIANT_ASPECT_CLASS: Record<string, string> = {
   "9:16": "aspect-[9/16]",
 };
 
+const VARIANT_STATUS_LABEL: Record<string, string> = {
+  ready: "Ready",
+  error: "Retry needed",
+  queued: "Queued…",
+};
+
 function VariantsPanel({
   variants,
   title,
@@ -406,8 +442,7 @@ function VariantsPanel({
   return (
     <div className="space-y-3">
       <p className="text-xs leading-5 text-white/55">
-        Platform renditions re-stitched from the same clips — no extra
-        generation. Judge · customer · builder teaser.
+        Re-cut from the clips you already own — judge, customer, builder teaser.
       </p>
       {variants.map((v) => {
         const base = `${slugify(title || "cut")}-${v.id}`;
@@ -430,7 +465,7 @@ function VariantsPanel({
                       : "text-white/40"
                 }`}
               >
-                {v.status}
+                {VARIANT_STATUS_LABEL[v.status] ?? v.status}
               </span>
             </div>
             {v.status === "ready" && v.video_url ? (
@@ -478,17 +513,21 @@ function VariantBuyButton({
   threadId,
   brief,
   title,
+  haveVariants,
 }: {
   threadId: string;
   brief?: string | null;
   title: string;
+  haveVariants?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
 
   async function buy() {
     setBusy(true);
     setHint(null);
+    setDetail(null);
     try {
       const res = await fetch("/api/x402/jobs/variant_pack", {
         method: "POST",
@@ -504,40 +543,53 @@ function VariantBuyButton({
         }),
       });
       const text = await res.text();
+      setDetail(`${res.status} ${text.slice(0, 140)}`);
       if (res.status === 402) {
         setHint(
-          "Live payment mode — commission variant_pack via POST /api/x402/jobs/variant_pack with a signed PAYMENT-SIGNATURE.",
+          "Pricing is live — this pack is bought by an x402 agent today, and it lands right on this canvas.",
         );
         return;
       }
       if (!res.ok) {
-        setHint(`Settle failed (${res.status}): ${text.slice(0, 140)}`);
+        setHint("That didn't go through. Try again — if it keeps failing, tell us and we'll look.");
         return;
       }
       const receipt = JSON.parse(text) as { canvas_path?: string };
       if (receipt.canvas_path) window.location.assign(receipt.canvas_path);
+      else setHint("Paid, but the desk didn't hand back a canvas. Reload and check the Variants tab.");
     } catch (e) {
-      setHint(e instanceof Error ? e.message : String(e));
+      setHint("That didn't go through. Try again — if it keeps failing, tell us and we'll look.");
+      setDetail(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="space-y-1.5 rounded-lg border border-[var(--dc-cyan,#2de2c5)]/30 bg-[var(--dc-cyan,#2de2c5)]/[0.06] p-3">
+    <div className="space-y-2 rounded-lg border border-[var(--dc-cyan,#2de2c5)]/30 bg-[var(--dc-cyan,#2de2c5)]/[0.06] p-3">
       <button
         type="button"
         onClick={buy}
         disabled={busy}
         className="rounded-full bg-[var(--dc-cyan,#2de2c5)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white disabled:opacity-50"
       >
-        {busy ? "Settling…" : "Make 3 platform cuts ($1)"}
+        {busy ? "Working…" : haveVariants ? "Re-stitch platform cuts ($1)" : "Get Variant Pack ($1)"}
       </button>
-      <p className="text-[11px] text-white/45">
-        Judge 16:9 · customer 1:1 with captions · teaser 9:16 ≤15s — re-stitch
-        only, no new Runway spend.
+      <p className="text-[11px] leading-5 text-white/50">
+        Judge 16:9 · customer 1:1 with captions · builder teaser 9:16 under 15s — cut from footage
+        you already own, so no new credits.
       </p>
       {hint && <p className="break-words text-[11px] text-amber-300/80">{hint}</p>}
+      {hint && detail && (
+        <details className="text-[10px] text-white/35">
+          <summary className="cursor-pointer font-mono uppercase tracking-[0.12em]">
+            Integrator details
+          </summary>
+          <p className="mt-1 break-words font-mono">
+            POST /api/x402/jobs/variant_pack · PAYMENT-SIGNATURE · {detail}
+          </p>
+        </details>
+      )}
     </div>
   );
 }
@@ -606,10 +658,14 @@ function SharePack({
         .filter(Boolean)
         .join("\n");
     }
+    const lead =
+      mode === "submit"
+        ? `Judge-ready demo cut: ${title || "DevCut"}`
+        : `${mode === "product" ? "Product Launch Cut" : productName(mode)}: ${title || "DevCut"}`;
     return [
-      `Submit Ready cut: ${title || "DevCut"}`,
+      lead,
       "",
-      "Generative heroes + packaging from DevCut. Finish / render in HyperFrames.",
+      "Cut in DevCut, composed in HyperFrames.",
       "",
       `Watch + remix: ${watch}`,
       hasKit ? "Handoff: download the HyperFrames kit ZIP from the canvas." : "",
@@ -718,10 +774,7 @@ function NativeShareButton({
   mode: string;
 }) {
   const [label, setLabel] = useState("Share…");
-  const text =
-    mode === "challenge"
-      ? `Challenge Cut “${title}” — watch + remix on DevCut.`
-      : `Submit Ready “${title}” via DevCut + Runway → HyperFrames.`;
+  const text = shareText(mode, title);
   return (
     <button
       type="button"
@@ -754,10 +807,7 @@ function TweetButton({
   url: string;
   mode: string;
 }) {
-  const text =
-    mode === "challenge"
-      ? `Challenge Cut “${title}” — watch + remix on DevCut (Runway desk for developers). ${url}`
-      : `Submit Ready “${title}” via DevCut + Runway → HyperFrames. Watch + remix: ${url}`;
+  const text = `${shareText(mode, title)}. Watch + remix: ${url}`;
   return (
     <a
       href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`}
@@ -768,6 +818,13 @@ function TweetButton({
       Share on X
     </a>
   );
+}
+
+function shareText(mode: string, title: string): string {
+  if (mode === "challenge") return `Challenge Cut “${title}” — watch + remix on DevCut`;
+  if (mode === "submit")
+    return `Judge-ready demo cut “${title}” — cut in DevCut, finished in HyperFrames`;
+  return `${productName(mode)} “${title}” — cut in DevCut`;
 }
 
 function slugify(s: string): string {

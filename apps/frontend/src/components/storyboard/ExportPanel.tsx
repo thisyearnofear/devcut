@@ -194,7 +194,7 @@ function ShareButton({ title, shareUrl }: { title: string; shareUrl: string | nu
 
   const shareText = title
     ? `I just shipped "${title}" with DevCut — Runway stills → clips → stitch for developers. Try it:`
-    : "I just shipped a cut with DevCut — Challenge Cut / Submit Ready on Runway for HyperFrames builders. Try it:";
+    : "I just shipped a cut with DevCut — Challenge Cut / Demo Cut on Runway for HyperFrames builders. Try it:";
 
   const handleShare = async () => {
     if (typeof navigator !== "undefined" && navigator.share) {

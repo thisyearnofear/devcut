@@ -1,10 +1,11 @@
 /** Client-side HyperFrames builder kit files + minimal ZIP (store). */
 
 import type { BuilderKit } from "@/lib/storyboard/types";
+import { productName } from "@/lib/devcut";
 
 export function kitReadme(kit: BuilderKit): string {
   const modeLabel =
-    kit.mode === "challenge" ? "Challenge Cut builder kit" : "Submit Ready handoff";
+    kit.mode === "challenge" ? "Challenge Cut builder kit" : `${productName(kit.mode)} handoff`;
   return `# DevCut → HyperFrames kit
 
 ${modeLabel}: **${kit.title}**

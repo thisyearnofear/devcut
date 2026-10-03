@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { decodeCutShare, remixDirectorHref } from "@/lib/cut-share";
+import { productName } from "@/lib/devcut";
 import "@/components/landing/landing.css";
 
 /**
@@ -73,7 +74,7 @@ export function CutPageClient({ initialC }: { initialC?: string }) {
 
   const remixHref = remixDirectorHref(card);
   const modeLabel =
-    card.m === "submit" ? "Submit Ready" : card.m === "agent" ? "Agent job" : "Challenge Cut";
+    card.m === "agent" ? "Agent job" : productName(card.m);
 
   return (
     <div data-devcut-landing className="min-h-svh bg-[var(--dc-ink)] text-[var(--dc-paper)]">

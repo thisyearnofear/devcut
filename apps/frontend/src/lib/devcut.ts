@@ -9,6 +9,110 @@ export const DEVCUT = {
 
 export type DevCutDoorId = "challenge" | "submit" | "product" | "agent";
 
+/** x402 SKU ids — the paid catalogue. Ids are a contract; display names are not. */
+export type DevCutSkuId =
+  | "challenge_film"
+  | "submission_polish"
+  | "hero_shot_pack"
+  | "product_launch"
+  | "variant_pack"
+  | "recap_reel";
+
+export interface DevCutProduct {
+  name: string;
+  /** Short display price. Mirrors `price` in apps/bff/src/x402/skus.ts, which is payment-authoritative. */
+  price: string;
+  audience: string;
+  blurb: string;
+}
+
+/**
+ * One vocabulary for every user-facing surface. Display-only mirror of the BFF's
+ * DEVCUT_SKUS — never used for payment, routing, or agent prompts, so the ids and
+ * "Mode: …" strings the agent reads stay untouched.
+ */
+export const DEVCUT_PRODUCTS: Record<DevCutSkuId, DevCutProduct> = {
+  challenge_film: {
+    name: "Challenge Cut",
+    price: "$2",
+    audience: "Organizers",
+    blurb: "A visual spec of what winning looks like, plus a forkable builder kit.",
+  },
+  submission_polish: {
+    name: "Demo Cut",
+    price: "$1",
+    audience: "Builders",
+    blurb: "A judge-ready demo film from your repo, product URL, or one-line brief.",
+  },
+  hero_shot_pack: {
+    name: "Hero Shot Pack",
+    price: "$0.50",
+    audience: "Builders & agents",
+    blurb: "Consistent generative heroes for a composition you already built.",
+  },
+  product_launch: {
+    name: "Product Launch Cut",
+    price: "$1.50",
+    audience: "Founders & PMs",
+    blurb: "Logo reveal, core features, proof, CTA — no hackathon framing.",
+  },
+  variant_pack: {
+    name: "Variant Pack",
+    price: "$1",
+    audience: "Builders",
+    blurb:
+      "Judge 16:9, customer 1:1 with captions, builder teaser 9:16 ≤15s — re-stitched from footage you already paid for.",
+  },
+  recap_reel: {
+    name: "Recap Reel",
+    price: "$4",
+    audience: "Organizers",
+    blurb:
+      "A 60–90s winners film carrying your sponsor's logo and call to action, cut from the event's finished entries.",
+  },
+};
+
+/** Door → the SKU a human buys at that door. The agent door has no single SKU. */
+const DOOR_SKU: Record<DevCutDoorId, DevCutSkuId | null> = {
+  challenge: "challenge_film",
+  submit: "submission_polish",
+  product: "product_launch",
+  agent: null,
+};
+
+/** Accepts a door id, a SKU id, or a legacy display string found in older B2 snapshots. */
+const SKU_ALIASES: Record<string, DevCutSkuId> = {
+  challenge: "challenge_film",
+  submit: "submission_polish",
+  product: "product_launch",
+  "submit ready": "submission_polish",
+  "demo cut": "submission_polish",
+  "challenge cut": "challenge_film",
+  "product launch cut": "product_launch",
+  "variant pack": "variant_pack",
+  "recap reel": "recap_reel",
+};
+
+export function skuFor(mode: string | null | undefined): DevCutSkuId | null {
+  if (!mode) return null;
+  const key = mode.trim().toLowerCase();
+  if (key in SKU_ALIASES) return SKU_ALIASES[key];
+  if (key in DEVCUT_PRODUCTS) return key as DevCutSkuId;
+  return null;
+}
+
+export function productForDoor(door: DevCutDoorId): DevCutProduct | null {
+  const sku = DOOR_SKU[door];
+  return sku ? DEVCUT_PRODUCTS[sku] : null;
+}
+
+/** The one name to render for a door id, SKU id, or legacy snapshot string. */
+export function productName(mode: string | null | undefined): string {
+  const sku = skuFor(mode);
+  return sku ? DEVCUT_PRODUCTS[sku].name : "cut";
+}
+
+
 export interface DevCutDoor {
   id: DevCutDoorId;
   label: string;
@@ -44,7 +148,9 @@ export const DEVCUT_DOORS: DevCutDoor[] = [
   {
     id: "submit",
     label: "For builders",
-    title: "Submit Ready",
+    // Display name only — the prompt below still says "Mode: Submit Ready", which is the
+    // vocabulary storyboard_prompts.py detects. Ids and prompts are the agent contract.
+    title: "Demo Cut",
     body: "Turn a repo, product URL, or HyperFrames project into a launch-ready demo cut.",
     prompt: [
       "Mode: Submit Ready (developer demo cut).",

@@ -54,6 +54,7 @@ import {
   DEVCUT_HF_DEMO,
   DEVCUT_PRODUCT_EXAMPLES,
   DEVCUT_SUBMIT_EXAMPLES,
+  productName,
   type DevCutDoorId,
 } from "@/lib/devcut";
 import { AgentPaymentsPanel } from "@/components/devcut/AgentPaymentsPanel";
@@ -341,9 +342,9 @@ const SUGGESTIONS = [
 ];
 
 const SUGGESTION_LABELS = [
-  ...DEVCUT_CHALLENGE_EXAMPLES.map((ex) => `Challenge · ${ex.label}`),
-  ...DEVCUT_SUBMIT_EXAMPLES.map((ex) => `Submit · ${ex.label}`),
-  ...DEVCUT_PRODUCT_EXAMPLES.map((ex) => `Product · ${ex.label}`),
+  ...DEVCUT_CHALLENGE_EXAMPLES.map((ex) => `${DEVCUT_DOORS[0].title} · ${ex.label}`),
+  ...DEVCUT_SUBMIT_EXAMPLES.map((ex) => `${DEVCUT_DOORS[1].title} · ${ex.label}`),
+  ...DEVCUT_PRODUCT_EXAMPLES.map((ex) => `${DEVCUT_DOORS[2].title} · ${ex.label}`),
 ];
 
 // ---------------------------------------------------------------------------
@@ -624,10 +625,13 @@ function DirectorChat({
           canvasIsEmpty ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 pt-8 text-center">
               <p className="dc-mono text-[11px] uppercase tracking-[0.14em] text-white/40">
-                Pick a door on the left
+                Pick a door on the canvas
               </p>
-              <p className="max-w-[16rem] text-xs leading-5 text-white/50">
-                Start a cut from the canvas. The chat shows live progress once a run begins.
+              <p className="max-w-[16rem] hidden text-xs leading-5 text-white/50 sm:block">
+                Choose a door, drop your brief, hit Start — this thread fills in as the run goes.
+              </p>
+              <p className="max-w-[16rem] text-xs leading-5 text-white/50 sm:hidden">
+                On a small screen, use the Canvas tab to pick a door and start the cut.
               </p>
             </div>
           ) : (
@@ -968,11 +972,20 @@ function DirectorChat({
             type="button"
             onClick={() => setShowSettings((v) => !v)}
             disabled={isRunning}
-            className={`font-mono text-[11px] uppercase tracking-[0.12em] transition-colors disabled:opacity-30 ${
+            title={
+              showSettings
+                ? "Close production settings"
+                : "How this cut will be built — tap to change"
+            }
+            className={`shrink-0 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.12em] transition-colors disabled:opacity-30 ${
               showSettings ? "text-white/70" : "text-white/35 hover:text-white/55"
             }`}
           >
-            {showSettings ? "✕ settings" : "⚙ settings"}
+            {showSettings
+              ? "✕ settings"
+              : `⚙ ${settings.shotCount}×${settings.shotDuration}s · ${
+                  settings.orientation === "portrait" ? "9:16" : "16:9"
+                }`}
           </button>
         </div>
       </div>
@@ -2054,16 +2067,16 @@ function DevCutEmptyState({
     typeof window !== "undefined"
       ? (new URLSearchParams(window.location.search).get("mode") as DevCutDoorId | null)
       : null;
-  const [door, setDoor] = useState<DevCutDoorId>(
+  const initialDoor: DevCutDoorId =
     initialMode === "submit" || initialMode === "product" || initialMode === "agent" || initialMode === "challenge"
       ? initialMode
-      : "challenge",
-  );
+      : "submit";
+  const [door, setDoor] = useState<DevCutDoorId>(initialDoor);
   const [draft, setDraft] = useState(
-    initialMode === "submit"
-      ? DEVCUT_SUBMIT_EXAMPLES[0].brief
-      : initialMode === "product"
-        ? DEVCUT_PRODUCT_EXAMPLES[0].brief
+    initialDoor === "product"
+      ? DEVCUT_PRODUCT_EXAMPLES[0].brief
+      : initialDoor === "submit"
+        ? DEVCUT_SUBMIT_EXAMPLES[0].brief
         : DEVCUT_GOLDEN_CHALLENGE.brief,
   );
 
@@ -2088,7 +2101,8 @@ function DevCutEmptyState({
         </p>
         <h2 className="dc-display text-2xl font-semibold tracking-tight text-[var(--dc-paper)] md:text-3xl">
           What are you making?
-        </h2>          <p className="mx-auto max-w-lg text-sm leading-6 text-[var(--dc-mute)]">
+        </h2>
+        <p className="mx-auto max-w-lg text-sm leading-6 text-[var(--dc-mute)]">
           Pick a brief and start a cut. DevCut generates Runway media, lands it on B2, and hands you a shareable MP4 + HyperFrames kit.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
@@ -2194,11 +2208,7 @@ function DevCutEmptyState({
                 onClick={() => onStart(`${active.prompt} ${draft.trim()}`)}
                 className="shrink-0 self-stretch bg-[var(--dc-signal)] px-5 py-3 dc-mono text-xs font-medium uppercase tracking-[0.12em] text-[var(--dc-ink)] hover:bg-[var(--dc-paper)] disabled:opacity-40 sm:min-w-[10rem]"
               >
-                {door === "challenge"
-                  ? "Start Challenge Cut"
-                  : door === "product"
-                    ? "Start Product Launch"
-                    : "Start Submit Ready cut"}
+                {`Start ${productName(door)}`}
               </button>
             </div>
           </div>

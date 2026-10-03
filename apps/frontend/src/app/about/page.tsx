@@ -77,7 +77,7 @@ export default function AboutPage() {
               {DEVCUT.name}
             </h1>
             <p className="mt-3 max-w-xl text-base leading-7 text-[var(--dc-mute)]">
-              {DEVCUT.tagline}. Spec a Challenge Cut, run Submit Ready into HyperFrames, or meter
+              {DEVCUT.tagline}. Spec a Challenge Cut, run a Demo Cut into HyperFrames, or meter
               agent jobs via x402 — same Runway storyboard, developer-shaped doors.
             </p>
             <ul className="mt-6 grid gap-3 sm:grid-cols-3">

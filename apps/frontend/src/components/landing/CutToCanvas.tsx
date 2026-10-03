@@ -3,12 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import gsap from "gsap";
-import type { DevCutDoorId } from "@/lib/devcut";
+import { productName, type DevCutDoorId } from "@/lib/devcut";
 
 const LABELS: Record<string, string> = {
-  challenge: "Challenge Cut",
-  submit: "Submit Ready",
-  product: "Product Launch",
+  challenge: productName("challenge"),
+  submit: productName("submit"),
+  product: productName("product"),
   agent: "x402 Agent",
   golden: "Golden cut",
   hf: "HyperFrames demo",
