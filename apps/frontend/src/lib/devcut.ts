@@ -35,6 +35,7 @@ export const DEVCUT_DOORS: DevCutDoor[] = [
       "3) Winning artifact — what reviewers should open.",
       "4) Anti-pattern — what not to build.",
       "5) CTA — fork the kit / start building.",
+      "SPONSOR BRAND KIT (required): pass brand_kit to generate_storyboard_plan — { logo_url, sponsors:[{name, logo_url}], palette?, lockup_rules?, mandatory_mentions? }. Ask the organizer for it once if the brief omits it; variants and recap films overlay this logo.",
       "Call generate_storyboard_plan, then generate_all_references, generate_all_videos, and stitch_final_cut.",
       "After export, the canvas attaches a HyperFrames handoff (BRIEF.md + assets/devcut/). Remind the builder: HF owns composition HTML.",
       "Brief follows:",

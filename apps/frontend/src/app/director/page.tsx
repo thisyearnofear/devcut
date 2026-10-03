@@ -115,6 +115,8 @@ function mergeStoryboardState(raw: unknown): StoryboardState {
     canonical_hash: partial.canonical_hash ?? null,
     agent_loop: partial.agent_loop ?? null,
     builder_kit: partial.builder_kit ?? null,
+    variants: partial.variants ?? null,
+    brand_kit: partial.brand_kit ?? null,
   };
 }
 
@@ -1065,6 +1067,9 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
   // landing CTAs can offer "view previous cut (free)" next time.
   const pendingHashRef = useRef<string>("");
   const lastStagedRef = useRef<{ hash: string; title: string } | null>(null);
+  // ADR-0005 hackathon graph edge: ?hackathon= (from x402 canvas_path) is
+  // POSTed once to /api/thread-links when this run settles.
+  const hackathonRef = useRef<string>("");
 
   // Auto-inject ?brief= / paid x402 unlock from landing or agent settle
   const briefInjectedRef = useRef(false);
@@ -1074,6 +1079,9 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
     const brief = params.get("brief");
     const unlock = params.get("unlock");
     const sku = params.get("sku");
+    if (params.get("hackathon") && !hackathonRef.current) {
+      hackathonRef.current = params.get("hackathon") as string;
+    }
 
     const cleanUrl = () => {
       const url = new URL(window.location.href);
@@ -1269,6 +1277,21 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
             }),
           }).catch(() => {});
           lastStagedRef.current = null;
+        }
+        // Hackathon graph edge: link this run's thread to the challenge
+        // thread the commission came from (ADR-0005, fire-once).
+        const hackathonTid = hackathonRef.current;
+        if (hackathonTid && settledThreadId && hackathonTid !== settledThreadId) {
+          hackathonRef.current = "";
+          void fetch("/api/thread-links", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              thread_id: settledThreadId,
+              hackathon_thread_id: hackathonTid,
+              kind: "submission",
+            }),
+          }).catch(() => {});
         }
         // Skip the completion toast when the user cancelled — handleCancel
         // already acknowledged it.
@@ -1801,6 +1824,8 @@ function DirectorCanvas({ onStoryboardChange, threadId }: { onStoryboardChange?:
                     state.storyboard.title
                   }
                   stillUrls={stillUrls}
+                  variants={state.variants}
+                  threadId={agentThreadId ?? null}
                   vaultState={{
                     storyboard: state.storyboard,
                     shots: state.shots,

@@ -70,6 +70,15 @@ export const readOnlyTools: ToolDef[] = [
         final_video_url: s.final_video_url,
         durable_url: s.durable_url,
         sha256: s.final_sha256,
+        variants: (s.variants ?? [])
+          .filter((v) => v.status === "ready")
+          .map((v) => ({
+            id: v.id,
+            aspect: v.aspect,
+            video_url: v.video_url,
+            srt_url: v.srt_url ?? null,
+            duration: v.duration ?? null,
+          })),
         hyperframes_kit: s.builder_kit
           ? { summary: s.builder_kit.summary, asset_count: s.builder_kit.assets.length }
           : null,

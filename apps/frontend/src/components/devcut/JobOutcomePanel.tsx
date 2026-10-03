@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { BuilderKit, ExportStatus } from "@/lib/storyboard/types";
+import type { VariantRecord } from "@/lib/storyboard/types";
 import { downloadBuilderKitZip } from "@/lib/builder-kit-download";
 import { HyperFramesHandoffPanel } from "@/components/devcut/HyperFramesHandoffPanel";
 import { ProvenanceVaultPanel } from "@/components/devcut/ProvenanceVaultPanel";
@@ -11,7 +12,7 @@ import { cutWatchUrl, type CutShareCard } from "@/lib/cut-share";
 import { lastJobRemixHref, saveLastJob } from "@/lib/last-job";
 import { publicAppOrigin } from "@/lib/public-url";
 
-type OutcomeTab = "watch" | "handoff" | "vault" | "share";
+type OutcomeTab = "watch" | "handoff" | "vault" | "variants" | "share";
 
 interface JobOutcomePanelProps {
   exportStatus: ExportStatus;
@@ -26,6 +27,10 @@ interface JobOutcomePanelProps {
   /** Brief seed for remix / last-job loop */
   jobBrief?: string | null;
   stillUrls?: string[];
+  /** Platform renditions from cut_variant_pack (ADR-0005). */
+  variants?: VariantRecord[] | null;
+  /** Current thread id — enables the variant_pack purchase CTA. */
+  threadId?: string | null;
   /** Full canvas slice for the Provenance Vault tab. */
   vaultState?: Pick<
     StoryboardState,
@@ -60,6 +65,8 @@ export function JobOutcomePanel({
   jobMode,
   jobBrief,
   stillUrls = [],
+  variants = null,
+  threadId = null,
   vaultState,
   onExport,
   onDownload,
@@ -165,6 +172,13 @@ export function JobOutcomePanel({
       hint: durableUrl ? "B2 + Genblaze provenance" : "Durable after B2 upload",
     },
     {
+      id: "variants",
+      label: "Variants",
+      hint: variants?.length
+        ? `${variants.filter((v) => v.status === "ready").length}/${variants.length} platform cuts`
+        : "Judge / customer / teaser",
+    },
+    {
       id: "handoff",
       label: "HyperFrames",
       hint: builderKit ? "BRIEF + assets kit" : "Kit after stitch",
@@ -225,7 +239,9 @@ export function JobOutcomePanel({
         <div className="mt-4 flex gap-1" role="tablist" aria-label="Job outcome">
           {tabs.map((t) => {
             const active = tab === t.id;
-            const disabled = t.id === "handoff" && !builderKit;
+            const disabled =
+              (t.id === "handoff" && !builderKit) ||
+              (t.id === "variants" && !variants?.length);
             return (
               <button
                 key={t.id}
@@ -291,6 +307,13 @@ export function JobOutcomePanel({
                 Share pack
               </button>
             </div>
+            {threadId && !variants?.length && (
+              <VariantBuyButton
+                threadId={threadId}
+                brief={jobBrief || storyboardTitle}
+                title={storyboardTitle}
+              />
+            )}
             {durableUrl && (
               <DurableRow label="Durable" url={durableUrl} tone="amber" />
             )}
@@ -317,6 +340,14 @@ export function JobOutcomePanel({
             }
           />
         )}
+
+        {tab === "variants" && variants?.length ? (
+          <VariantsPanel
+            variants={variants}
+            title={storyboardTitle}
+            onDownload={onDownload}
+          />
+        ) : null}
 
         {tab === "handoff" && builderKit && (
           <div className="space-y-4">
@@ -352,6 +383,161 @@ export function JobOutcomePanel({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+const VARIANT_ASPECT_CLASS: Record<string, string> = {
+  "16:9": "aspect-video",
+  "1:1": "aspect-square",
+  "4:5": "aspect-[4/5]",
+  "9:16": "aspect-[9/16]",
+};
+
+function VariantsPanel({
+  variants,
+  title,
+  onDownload,
+}: {
+  variants: VariantRecord[];
+  title: string;
+  onDownload: (url: string, filename: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs leading-5 text-white/55">
+        Platform renditions re-stitched from the same clips — no extra
+        generation. Judge · customer · builder teaser.
+      </p>
+      {variants.map((v) => {
+        const base = `${slugify(title || "cut")}-${v.id}`;
+        return (
+          <div
+            key={v.id}
+            className="rounded-lg border border-white/10 bg-white/[0.04] p-3"
+          >
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-cyan,#2de2c5)]">
+                {v.aspect}
+              </span>
+              <span className="text-xs font-medium text-white/85">{v.label}</span>
+              <span
+                className={`ml-auto font-mono text-[10px] uppercase ${
+                  v.status === "ready"
+                    ? "text-emerald-400"
+                    : v.status === "error"
+                      ? "text-rose-400"
+                      : "text-white/40"
+                }`}
+              >
+                {v.status}
+              </span>
+            </div>
+            {v.status === "ready" && v.video_url ? (
+              <>
+                <video
+                  src={v.video_url}
+                  controls
+                  playsInline
+                  className={`w-full rounded-md bg-black ${VARIANT_ASPECT_CLASS[v.aspect] || "aspect-video"} mx-auto max-h-[40vh]`}
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onDownload(v.video_url!, `${base}.mp4`)}
+                    className="rounded-full border border-[var(--dc-signal,#ff9f1c)]/45 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--dc-signal,#ff9f1c)] hover:bg-[var(--dc-signal,#ff9f1c)]/15"
+                  >
+                    Download MP4
+                  </button>
+                  {v.srt_url && (
+                    <a
+                      href={v.srt_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/60 hover:border-white/30"
+                    >
+                      Captions .srt
+                    </a>
+                  )}
+                </div>
+              </>
+            ) : v.status === "error" ? (
+              <p className="break-words text-xs text-rose-200/80">{v.error}</p>
+            ) : (
+              <p className="text-xs text-white/40">Queued…</p>
+            )}
+            {v.note && <p className="mt-2 text-[11px] text-white/45">{v.note}</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function VariantBuyButton({
+  threadId,
+  brief,
+  title,
+}: {
+  threadId: string;
+  brief?: string | null;
+  title: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
+
+  async function buy() {
+    setBusy(true);
+    setHint(null);
+    try {
+      const res = await fetch("/api/x402/jobs/variant_pack", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "PAYMENT-SIGNATURE": "demo",
+        },
+        body: JSON.stringify({
+          brief:
+            brief?.trim() ||
+            `Variant pack for “${title || "DevCut cut"}” — re-stitch the finished cut, no new generation.`,
+          thread_id: threadId,
+        }),
+      });
+      const text = await res.text();
+      if (res.status === 402) {
+        setHint(
+          "Live payment mode — commission variant_pack via POST /api/x402/jobs/variant_pack with a signed PAYMENT-SIGNATURE.",
+        );
+        return;
+      }
+      if (!res.ok) {
+        setHint(`Settle failed (${res.status}): ${text.slice(0, 140)}`);
+        return;
+      }
+      const receipt = JSON.parse(text) as { canvas_path?: string };
+      if (receipt.canvas_path) window.location.assign(receipt.canvas_path);
+    } catch (e) {
+      setHint(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-[var(--dc-cyan,#2de2c5)]/30 bg-[var(--dc-cyan,#2de2c5)]/[0.06] p-3">
+      <button
+        type="button"
+        onClick={buy}
+        disabled={busy}
+        className="rounded-full bg-[var(--dc-cyan,#2de2c5)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--dc-ink,#050607)] hover:bg-white disabled:opacity-50"
+      >
+        {busy ? "Settling…" : "Make 3 platform cuts ($1)"}
+      </button>
+      <p className="text-[11px] text-white/45">
+        Judge 16:9 · customer 1:1 with captions · teaser 9:16 ≤15s — re-stitch
+        only, no new Runway spend.
+      </p>
+      {hint && <p className="break-words text-[11px] text-amber-300/80">{hint}</p>}
     </div>
   );
 }

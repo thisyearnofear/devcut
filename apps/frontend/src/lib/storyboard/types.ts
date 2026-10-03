@@ -63,6 +63,34 @@ export interface AgentLoopSummary {
   total_cost_usd?: number | null;
 }
 
+export type VariantStatus = "queued" | "ready" | "error";
+
+/** One platform rendition produced by the agent's `cut_variant_pack` tool
+ *  (ADR-0005: judge 16:9 / customer square-captioned / teaser 9:16). */
+export interface VariantRecord {
+  id: string;
+  label: string;
+  aspect: string;
+  status: VariantStatus;
+  video_url: string | null;
+  durable_url: string | null;
+  srt_url: string | null;
+  final_sha256: string | null;
+  duration: number | null;
+  note: string | null;
+  error: string | null;
+  plan: Record<string, unknown>;
+}
+
+/** Sponsor brand kit captured at Challenge Cut plan time (ADR-0005). */
+export interface BrandKit {
+  logo_url?: string | null;
+  sponsors?: { name?: string; logo_url?: string }[];
+  palette?: string | null;
+  lockup_rules?: string | null;
+  mandatory_mentions?: string | null;
+}
+
 export interface StoryboardState {
   storyboard: Storyboard;
   shots: Shot[];
@@ -85,6 +113,10 @@ export interface StoryboardState {
   export_error: string | null;
   /** BRIEF.md seed + asset drop map for HyperFrames. */
   builder_kit: BuilderKit | null;
+  /** Platform renditions of this thread's clips (cut_variant_pack). */
+  variants: VariantRecord[] | null;
+  /** Sponsor brand kit inherited by variants + recaps. */
+  brand_kit: BrandKit | null;
 }
 
 export const initialStoryboardState: StoryboardState = {
@@ -116,6 +148,8 @@ export const initialStoryboardState: StoryboardState = {
   export_status: "idle",
   export_error: null,
   builder_kit: null,
+  variants: null,
+  brand_kit: null,
 };
 
 export const STATUS_LABEL: Record<ShotStatus, string> = {
