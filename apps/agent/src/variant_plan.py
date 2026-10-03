@@ -499,23 +499,31 @@ def _ass_time(t: float) -> str:
     return f"{h}:{m:02d}:{s:05.2f}"
 
 
+# libass puts everything past the last field named here into Text, so a short
+# line prints the margin/effect commas on screen (",0,0,0,,Problem"). Every
+# writer of `Dialogue: 0,<start>,<end>,Default,,0,0,0,,<text>` must pair with
+# this exact declaration — hence the shared constant.
+ASS_EVENT_FORMAT = (
+    "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, "
+    "Effect, Text\n"
+)
+
+
+def ass_event(text: str, t0: float, t1: float) -> str:
+    """One burned-in line, braces neutralized (they open ASS override blocks)."""
+    safe = text.replace("{", "(").replace("}", ")").replace("\n", " ")
+    return f"Dialogue: 0,{_ass_time(t0)},{_ass_time(t1)},Default,,0,0,0,,{safe}"
+
+
 def write_ass(plan: dict) -> str:
     """ASS subtitles for the plan's caption lines, sized to its target."""
     w, h = plan["target"]
     pct = float(plan["captions"].get("font_size_pct", 8) or 8)
     margin = int(h * float(plan["captions"].get("safe_margin_pct", 6) or 6) / 100)
-    events = []
-    for ln in plan["captions"]["lines"]:
-        text = (
-            ln["text"]
-            .replace("{", "(")
-            .replace("}", ")")
-            .replace("\n", " ")
-        )
-        events.append(
-            f"Dialogue: 0,{_ass_time(ln['start'])},{_ass_time(ln['end'])},"
-            f"Default,,0,0,0,,{text}"
-        )
+    events = [
+        ass_event(ln["text"], ln["start"], ln["end"])
+        for ln in plan["captions"]["lines"]
+    ]
     return (
         "[Script Info]\n"
         "ScriptType: v4.00+\n"
@@ -530,11 +538,7 @@ def write_ass(plan: dict) -> str:
         f"{int(h * pct / 100)},&H00FFFFFF,&H00101010,1,3,1,2,"
         f"{margin},{margin},{margin}\n\n"
         "[Events]\n"
-        # Must list all ten fields the Dialogue lines below emit — libass
-        # stops parsing text at the last declared field, so a short Format
-        # line prints the trailing commas on screen (",0,0,0,,Problem").
-        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, "
-        "MarginV, Effect, Text\n"
+        + ASS_EVENT_FORMAT
         + "\n".join(events)
         + "\n"
     )

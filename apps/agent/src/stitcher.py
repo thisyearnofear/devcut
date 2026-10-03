@@ -500,11 +500,19 @@ def _drawtext_for(text: str, plan: dict, t0: Optional[float], t1: Optional[float
     )
 
 
-def _ass_cta_event(text: str, t0: float, t1: float) -> str:
-    safe = text.replace("{", "(").replace("}", ")").replace("\n", " ")
-    from .variant_plan import _ass_time
+def _clip_ass(header: str, lines: list[dict]) -> str:
+    """One clip's ASS: the plan's style header plus locally-timed events.
 
-    return f"Dialogue: 0,{_ass_time(t0)},{_ass_time(t1)},Default,,0,0,0,,{safe}"
+    The Format line must be the one ``ass_event``'s Dialogues are written for —
+    libass dumps everything past the last declared field into the rendered
+    text, which is how a paid rendition once captioned itself ",0,0,0,,Problem".
+    """
+    from .variant_plan import ASS_EVENT_FORMAT, ass_event
+
+    events = "".join(
+        ass_event(ln["text"], ln["start"], ln["end"]) + "\n" for ln in lines
+    )
+    return f"{header}[Events]\n{ASS_EVENT_FORMAT}{events}"
 
 
 def _clip_audio_plan(clip: dict, asset: dict, plan: dict) -> dict:
@@ -668,16 +676,9 @@ def stitch_plan(plan: dict, assets: dict[str, dict], title: str) -> StitchResult
                     local_ctas.append({"text": ov_cta["text"], "start": l0, "end": l1})
 
             if caption_method == "ass" and (local_lines or local_ctas):
-                ass_text = write_ass(plan)
-                # Rewrite only this clip's events with local timing.
-                header = ass_text.split("[Events]\n")[0]
-                fmt = "Format: Layer, Start, End, Style, Text\n"
-                evs = "".join(
-                    _ass_cta_event(ln["text"], ln["start"], ln["end"]) + "\n"
-                    for ln in (local_lines + local_ctas)
-                )
+                header = write_ass(plan).split("[Events]\n")[0]
                 ass_path = tmp_dir / f"caps_{ci:03d}.ass"
-                ass_path.write_text(f"{header}[Events]\n{fmt}{evs}")
+                ass_path.write_text(_clip_ass(header, local_lines + local_ctas))
                 chain += f",subtitles=caps_{ci:03d}.ass"
             elif caption_method == "drawtext":
                 for ln in local_lines + local_ctas:

@@ -5,8 +5,10 @@ from __future__ import annotations
 import unittest
 
 from src.variant_plan import (
+    ASS_EVENT_FORMAT,
     ASPECT_TARGETS,
     TEASER_TOTAL_CAP,
+    ass_event,
     build_default_pack,
     build_recap_plan,
     caption_windows,
@@ -191,19 +193,18 @@ class WriterTests(unittest.TestCase):
         A short Format line printed ",0,0,0,,Problem" on screen — the
         caption identity check for a paid rendition.
         """
-        ass = write_ass(build_default_pack(_shots())[1])
-        fmt = next(
-            line for line in ass.splitlines()
-            if line.startswith("Format:") and "Text" in line
-        )
-        fields = [f.strip() for f in fmt[len("Format:"):].split(",")]
+        fields = [
+            f.strip()
+            for f in ASS_EVENT_FORMAT[len("Format:"):].strip().split(",")
+        ]
         self.assertEqual(fields, ["Layer", "Start", "End", "Style", "Name",
                                  "MarginL", "MarginR", "MarginV", "Effect", "Text"])
-        dialogue = next(
-            line for line in ass.splitlines() if line.startswith("Dialogue:")
-        )
-        # Text is the greedy last field: at least one comma-split per field.
-        self.assertGreaterEqual(len(dialogue[len("Dialogue:"):].split(",")), 10)
+        parts = ass_event("Sixty hours, one video.", 0, 9)[
+            len("Dialogue:"):
+        ].split(",", len(fields) - 1)
+        self.assertEqual(len(parts), len(fields))
+        self.assertEqual(parts[-1], "Sixty hours, one video.")
+        self.assertIn(ASS_EVENT_FORMAT, write_ass(build_default_pack(_shots())[1]))
 
     def test_ass_braces_neutralized(self) -> None:
         plan = normalize_plan({

@@ -168,6 +168,27 @@ class StitchPlanLiveTests(unittest.TestCase):
             self.assertIn(method, ("ass", "drawtext"))
 
 
+class ClipAssTests(unittest.TestCase):
+    """The per-clip ASS the burn-in path writes must declare every field."""
+
+    def test_format_line_matches_emitted_dialogue(self) -> None:
+        out = stitcher._clip_ass(
+            "[Script Info]\nScriptType: v4.00+\n",
+            [{"text": "Sixty hours, one video.", "start": 0.5, "end": 4.0}],
+        )
+        fmt = [ln for ln in out.splitlines() if ln.startswith("Format:")][-1]
+        fields = [f.strip() for f in fmt[len("Format:"):].split(",")]
+        self.assertEqual(fields[-1], "Text")
+        dialogue = [ln for ln in out.splitlines() if ln.startswith("Dialogue:")][0]
+        parts = dialogue[len("Dialogue:"):].split(",", len(fields) - 1)
+        self.assertEqual(len(parts), len(fields))
+        self.assertEqual(
+            parts[-1], "Sixty hours, one video.",
+            "Text must start at its own field — leading commas mean the "
+            "Format line drifted from the event writer",
+        )
+
+
 class SrtGlobalTests(unittest.TestCase):
     """Pure-python: sidecar times must live on the concatenated timeline."""
 
