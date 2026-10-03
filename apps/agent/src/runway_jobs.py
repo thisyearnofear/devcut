@@ -6,8 +6,8 @@ restarts mid-run the task can be resumed rather than lost.
 Usage (in runway_client.py):
     from src.runway_jobs import upsert_job, mark_done, mark_failed, resume_pending
 
-The module is intentionally dependency-light: uses psycopg2 (already present
-via Intelligence's Postgres) with a simple connection-per-call pattern.
+The module is intentionally dependency-light: uses psycopg (v3, the declared
+dependency; psycopg2 as a fallback) with a simple connection-per-call pattern.
 If Postgres is unavailable the functions degrade gracefully — a warning is
 logged and the caller continues without persistence.
 """
@@ -23,6 +23,25 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------ connection
+
+_DRIVER: Optional[str] = None
+
+
+def _load_driver() -> Optional[str]:
+    """Resolve the Postgres driver once: prefer psycopg v3, fall back to psycopg2."""
+    global _DRIVER
+    if _DRIVER is not None:
+        return _DRIVER
+    try:
+        import psycopg  # noqa: F401  (psycopg v3 — the declared dependency)
+        _DRIVER = "psycopg"
+    except ImportError:
+        try:
+            import psycopg2  # noqa: F401
+            _DRIVER = "psycopg2"
+        except ImportError:
+            _DRIVER = ""
+    return _DRIVER
 
 
 def _dsn() -> str:
@@ -40,12 +59,19 @@ def _dsn() -> str:
 
 
 def _connect():
-    """Return a new psycopg2 connection, or None if unavailable."""
+    """Return a new connection via the resolved driver, or None if unavailable."""
+    driver = _load_driver()
+    if not driver:
+        logger.warning("runway_jobs: neither psycopg nor psycopg2 is importable; job ledger disabled")
+        return None
     try:
-        import psycopg2  # type: ignore
+        if driver == "psycopg":
+            import psycopg
+            return psycopg.connect(_dsn())
+        import psycopg2
         return psycopg2.connect(_dsn())
     except Exception as exc:  # noqa: BLE001
-        logger.warning("runway_jobs: cannot connect to Postgres: %s", exc)
+        logger.warning("runway_jobs: cannot connect to Postgres (%s): %s", driver, exc)
         return None
 
 

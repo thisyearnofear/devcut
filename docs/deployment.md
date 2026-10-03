@@ -159,7 +159,10 @@ The server reads all secrets from `/opt/gen-ui/.env`. Key variables:
 | `DATABASE_URI` | `postgresql://…@localhost:5433/langgraph_app` — **read by nothing in `apps/`** (measured 2026-10-03: `langgraph_app` has 0 tables; the agent runs on the in-memory checkpointer per ADR-0001). Kept in `.env` only so old scripts don't break |
 | `POSTGRES_PASSWORD` | **Required** — `docker-compose.infra.yml` interpolates it with no default, so `up -d` fails or ships an empty password if it is missing. This is the one authority on the DB credential; it is not in this repository (rotated out of the repo 2026-10-03) |
 | `INTELLIGENCE_PG_URL` | The DSN the **BFF** uses for the BYOK vault, organizer thread list, hackathon thread links and lazy user seeding (`apps/bff/src/pg-url.ts`, one constant shared by four modules). Prod MUST set it — the code fallback is a local-dev DSN on `localhost:5433` |
-| `RUNWAY_JOBS_DSN` | The DSN the **agent** uses for `public.runway_jobs`. Currently inert on prod: `psycopg2` is not in the agent venv, so `_connect()` returns None and the table has 0 rows |
+| `RUNWAY_JOBS_DSN` | The DSN the **agent** uses for `public.runway_jobs` (job ledger / resume-after-restart) |
+| `X402_MODE` / `X402_PAY_TO` / `X402_NETWORK` / `X402_UNLOCK_SECRET` / `FACILITATOR_URL` | x402 job meter. Prod runs `demo` on Base testnet (`eip155:84532`) — see [`x402.md`](./x402.md) |
+| `STITCH_MODE` | `mock` returns the Big Buck Bunny placeholder; live stitching requires ffmpeg |
+| `LANGGRAPH_JOBS_PER_WORKER` | `4` on prod (concurrent runs per worker) |
 
 ## Database credentials
 
@@ -194,18 +197,24 @@ test was written.
 already-initialised volume `ALTER USER` is the authority. Keep the `.env` + compose backups
 the run produced (`/opt/gen-ui/.env.bak-rot-*`).
 
-Two things the rotation surfaced, both still open:
+### Open since the rotation (measured 2026-10-03)
 
-- **`devcut_credentials` does not exist on the prod database** — no builder has stored a Runway
-  key there yet (it self-creates on first write), so the vault path is untested against prod.
-  Same for `devcut_thread_links` (ADR-0005 graph edges).
-- **The agent's job ledger has never written**: `public.runway_jobs` is empty and the agent venv
-  cannot `import psycopg2`, so `_connect()` returns `None` and every ledger write is silently
-  skipped. Fixing it means adding `psycopg2` to the prod venv — a dependency change, not done here.
+- **`devcut_credentials` and `devcut_thread_links` do not exist on the prod database.** Both
+  self-create on first write, so the BYOK vault and the ADR-0005 hackathon graph have never
+  actually run against prod. Not a bug — an untested path.
+- **The agent's `public.runway_jobs` ledger has never written (0 rows).** Root cause was
+  `runway_jobs.py` importing **psycopg2** while `pyproject.toml` declares **psycopg v3**
+  (`psycopg[binary]>=3.2.0`, and 3.3.4 confirmed importable in the prod agent venv). The
+  ImportError was swallowed by the module's own try/except, so every write was silently skipped
+  rather than raising. Fixed in `runway_jobs.py:_load_driver()` (prefer psycopg v3, psycopg2 as
+  fallback). Verify on prod with:
 
-| `X402_MODE` / `X402_PAY_TO` / `X402_NETWORK` / `X402_UNLOCK_SECRET` / `FACILITATOR_URL` | x402 job meter. Prod runs `demo` on Base testnet (`eip155:84532`) — see [`x402.md`](./x402.md) |
-| `STITCH_MODE` | `mock` returns the Big Buck Bunny placeholder; live stitching requires ffmpeg |
-| `LANGGRAPH_JOBS_PER_WORKER` | `4` on prod (concurrent runs per worker) |
+  ```bash
+  sudo docker exec directors-canvas-prod-postgres-1 psql -U intelligence -d intelligence_app \
+    -Atc "select count(*) from public.runway_jobs"   # >0 after the next real run
+  ```
+
+  No dependency change and no venv touch was needed — the driver was installed all along.
 
 ## Firewall rules
 
