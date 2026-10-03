@@ -7,6 +7,7 @@
 
 import { identityFromCookie, authEnabled } from "./auth.js";
 import { ensureUser } from "./auth.js";
+import { listLinksForThreadIds } from "./thread-links.js";
 
 const PG_URL =
   process.env.INTELLIGENCE_PG_URL ??
@@ -33,6 +34,9 @@ interface OrgThread {
   export_status?: string;
   final_video_url?: string;
   final_video_size?: number;
+  // Hackathon graph edge (devcut_thread_links):
+  hackathon_thread_id?: string;
+  link_kind?: string;
 }
 
 export async function listOrgThreads(cookieHeader: string | null): Promise<{
@@ -112,15 +116,135 @@ export async function listOrgThreads(cookieHeader: string | null): Promise<{
     }),
   );
 
+  // Attach hackathon graph edges (devcut_thread_links) when present.
+  let links: Record<string, { hackathon_thread_id: string; kind: string }> = {};
+  try {
+    links = await listLinksForThreadIds(rows.map((r) => r.thread_id));
+  } catch {
+    /* links table unavailable → dashboard still lists threads ungrouped */
+  }
+
   return {
-    threads: enriched.map((e, i) => (e.status === "fulfilled" ? e.value : {
-      thread_id: rows[i].thread_id,
-      name: rows[i].name,
-      user_id: rows[i].user_id,
-      created_at: rows[i].created_at,
-      archived: rows[i].archived,
-      agent_id: rows[i].agent_id,
-    })),
+    threads: enriched.map((e, i) => {
+      const base = e.status === "fulfilled" ? e.value : {
+        thread_id: rows[i].thread_id,
+        name: rows[i].name,
+        user_id: rows[i].user_id,
+        created_at: rows[i].created_at,
+        archived: rows[i].archived,
+        agent_id: rows[i].agent_id,
+      };
+      const link = links[base.thread_id];
+      return link ? { ...base, hackathon_thread_id: link.hackathon_thread_id, link_kind: link.kind } : base;
+    }),
     org,
   };
+}
+
+// ---- Recap commission (ADR-0005) — auth-gated paid job --------------------
+
+export interface RecapRequest {
+  thread_ids: string[];
+  hackathon_thread_id?: string | null;
+  title?: string;
+  cta_text?: string | null;
+}
+
+export interface RecapValidation {
+  ok: boolean;
+  status: number;
+  error?: string;
+  brief?: string;
+  logo_url?: string | null;
+  resolved?: number;
+}
+
+async function fetchSnapshotJson(threadId: string): Promise<Record<string, unknown> | null> {
+  if (!SNAP_URL_BASE) return null;
+  try {
+    const res = await fetch(
+      `${SNAP_URL_BASE}/snapshots/${encodeURIComponent(threadId)}.json`,
+      { signal: AbortSignal.timeout(4000) },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function brandLogoFrom(brandKit: unknown): string | null {
+  if (!brandKit || typeof brandKit !== "object") return null;
+  const kit = brandKit as Record<string, unknown>;
+  for (const key of ["logo_url", "sponsor_logo_url"]) {
+    const v = kit[key];
+    if (typeof v === "string" && v.startsWith("http")) return v;
+  }
+  const sponsors = kit.sponsors;
+  if (Array.isArray(sponsors)) {
+    for (const sp of sponsors) {
+      if (sp && typeof sp === "object") {
+        const o = sp as Record<string, unknown>;
+        for (const key of ["logo_url", "logo"]) {
+          const v = o[key];
+          if (typeof v === "string" && v.startsWith("http")) return v;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Validate an organizer's recap selection: same-org threads, finished cuts
+ * only, plus the challenge thread's brand-kit logo. Returns the brief seed
+ * for the recap_reel x402 commission.
+ */
+export async function validateRecapRequest(
+  cookieHeader: string | null,
+  req: RecapRequest,
+): Promise<RecapValidation> {
+  const data = await listOrgThreads(cookieHeader);
+  if (!data) return { ok: false, status: 401, error: "auth_required" };
+
+  const ids = (req.thread_ids || []).map((t) => t.trim()).filter(Boolean);
+  if (ids.length < 2) {
+    return { ok: false, status: 400, error: "select at least 2 winner threads" };
+  }
+  const byId = new Map(data.threads.map((t) => [t.thread_id, t]));
+  const notMine = ids.filter((t) => !byId.has(t));
+  if (notMine.length > 0) {
+    return { ok: false, status: 403, error: `threads not in your org: ${notMine.join(",")}` };
+  }
+  const notReady = ids.filter((t) => (byId.get(t)!.export_status ?? "") !== "ready");
+  if (notReady.length > 0) {
+    return { ok: false, status: 400, error: `threads without a finished cut: ${notReady.join(",")}` };
+  }
+
+  let logo: string | null = null;
+  let hackathonTitle = "";
+  if (req.hackathon_thread_id) {
+    if (!byId.has(req.hackathon_thread_id)) {
+      return { ok: false, status: 403, error: "hackathon thread not in your org" };
+    }
+    const snap = await fetchSnapshotJson(req.hackathon_thread_id);
+    logo = brandLogoFrom(snap?.brand_kit);
+    const sb = snap?.storyboard as Record<string, unknown> | undefined;
+    hackathonTitle = (sb?.title as string) ?? "";
+  }
+
+  const title = req.title?.trim() ||
+    `${hackathonTitle || "Hackathon"} — Winners Recap`;
+  const brief = [
+    `Mode: Recap Reel (organizer — post-hackathon). Paid via x402 SKU recap_reel.`,
+    `Recap title: ${title}`,
+    `Recap source threads: ${ids.join(",")}`,
+    req.cta_text ? `CTA text: ${req.cta_text}` : "",
+    logo ? `Sponsor logo URL: ${logo}` : "",
+    "Call generate_recap ONCE with these thread ids. Re-stitch only — no new Runway generation, silent audio.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return { ok: true, status: 200, brief, logo_url: logo, resolved: ids.length };
 }

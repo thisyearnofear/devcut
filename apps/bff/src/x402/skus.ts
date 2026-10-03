@@ -1,5 +1,5 @@
 /**
- * DevCut x402 SKUs — four jobs (thesis).
+ * DevCut x402 SKUs — six jobs across four doors (thesis §5, ADR-0005).
  * Prices are USD strings; USDC on Base (mainnet or Sepolia via env).
  */
 
@@ -7,7 +7,9 @@ export type DevCutSkuId =
   | "challenge_film"
   | "submission_polish"
   | "hero_shot_pack"
-  | "product_launch";
+  | "product_launch"
+  | "variant_pack"
+  | "recap_reel";
 
 export interface DevCutSku {
   id: DevCutSkuId;
@@ -71,6 +73,28 @@ export const DEVCUT_SKUS: Record<DevCutSkuId, DevCutSku> = {
     door: "product",
     modePrompt:
       "Mode: Product Launch Cut (founder / PM demo). Paid via x402 SKU product_launch. Create a ~30s polished product demo cut. Shot grammar: 1) Logo reveal — brand mark animates in clean, 2) Feature A — screen recording or hero shot of core workflow, 3) Feature B — second capability, 4) Feature C — third capability, 5) Proof — metric, testimonial, or social proof visual, 6) CTA — website URL or tagline. Constraint rules: all on-screen text must be spelled verbatim with exact case; no accidental characters or symbols beyond what is specified; lock color palette to the accent color from the brief plus neutral pair; maintain 3 depth layers (background / mid / foreground) moving at different speeds until the final hold. Prefer landscape 1280:720 unless the brief says vertical / TikTok / Reels. Call generate_storyboard_plan, then generate_all_references, generate_all_videos, and stitch_final_cut. After export, point at the HyperFrames handoff panel — paste BRIEF.md, stage heroes under assets/devcut/, finish in HF.",
+  },
+  variant_pack: {
+    id: "variant_pack",
+    title: "Variant Pack",
+    description:
+      "Re-stitch an existing finished cut into 3 platform variants — judge 16:9, customer 1:1 with captions, teaser 9:16 ≤15s. No new generative footage, so it stays cheap.",
+    price: "$1.00",
+    amountAtomic: usdc(1),
+    door: "submit",
+    modePrompt:
+      "Mode: Variant Pack (builder — platform variants). Paid via x402 SKU variant_pack. The canvas already holds a finished cut: do NOT call generate_storyboard_plan, generate_all_references, generate_all_videos, or stitch_final_cut. Re-scope caption lines for share copy if needed, then call cut_variant_pack ONCE to produce judge/customer/teaser. Zero new Runway generation unless the user explicitly accepts VO regen cost.",
+  },
+  recap_reel: {
+    id: "recap_reel",
+    title: "Recap Reel",
+    description:
+      "Organizer post-event film: a 60–90s recap cut from selected winner threads with sponsor logo overlay + CTA. Re-stitch only.",
+    price: "$4.00",
+    amountAtomic: usdc(4),
+    door: "challenge",
+    modePrompt:
+      "Mode: Recap Reel (organizer — post-hackathon). Paid via x402 SKU recap_reel. Source thread ids are listed in the brief line 'Recap source threads: …'. Do NOT generate new Runway media and do NOT stitch per-thread; call generate_recap ONCE with the thread ids, title, CTA text, and sponsor logo URL from the challenge brand kit. 60–90s budget, reuse master audio or silent — never regenerate VO across threads.",
   },
 };
 

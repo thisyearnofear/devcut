@@ -249,10 +249,18 @@ async function facilitatorVerifySettle(
   }
 }
 
+export interface FulfillOptions {
+  /** Source thread — variant runs must land in the thread that holds the master cut. */
+  thread_id?: string;
+  /** Challenge thread this job belongs to (hackathon graph edge, ADR-0005). */
+  hackathon?: string;
+}
+
 export async function fulfillPaidJob(
   skuId: DevCutSkuId,
   paymentSignatureHeader: string | null,
   brief?: string,
+  opts?: FulfillOptions,
 ): Promise<Response> {
   const sku = DEVCUT_SKUS[skuId];
   const resourcePath = `/api/x402/jobs/${skuId}`;
@@ -301,7 +309,9 @@ export async function fulfillPaidJob(
   });
 
   const briefQ = brief ? `&brief=${encodeURIComponent(brief)}` : "";
-  const canvas_path = `/director?mode=${sku.door === "agent" ? "submit" : sku.door}&sku=${skuId}&job=${job_id}&unlock=${encodeURIComponent(unlock_token)}${briefQ}`;
+  const threadQ = opts?.thread_id ? `&thread=${encodeURIComponent(opts.thread_id)}` : "";
+  const hackathonQ = opts?.hackathon ? `&hackathon=${encodeURIComponent(opts.hackathon)}` : "";
+  const canvas_path = `/director?mode=${sku.door === "agent" ? "submit" : sku.door}&sku=${skuId}&job=${job_id}&unlock=${encodeURIComponent(unlock_token)}${briefQ}${threadQ}${hackathonQ}`;
 
   const receipt: JobReceipt = {
     job_id,

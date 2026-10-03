@@ -9,7 +9,9 @@ import { randomUUID } from "node:crypto";
 import Redis from "ioredis";
 import { identifyUser, identityFromCookie, authEnabled } from "./auth.js";
 import { getCredential, putCredential, deleteCredential, maskKey } from "./vault.js";
-import { listOrgThreads } from "./organizer.js";
+import { listOrgThreads, validateRecapRequest } from "./organizer.js";
+import { upsertLink, listLinksForHackathon } from "./thread-links.js";
+import { fulfillPaidJob } from "./x402/protocol.js";
 
 import {
   breakerCheck,
@@ -465,6 +467,91 @@ async function handleRequest(req: Request): Promise<Response> {
     return new Response(JSON.stringify(data), {
       headers: { "content-type": "application/json" },
     });
+  }
+
+  // ---- Hackathon graph edges (ADR-0005) ----
+  if (url.pathname === "/api/thread-links" && req.method === "POST") {
+    const ident = await identityFromCookie(req.headers.get("cookie"));
+    if (!ident) {
+      return new Response(JSON.stringify({ error: "auth_required" }), {
+        status: 401, headers: { "content-type": "application/json" },
+      });
+    }
+    let body: Record<string, unknown> = {};
+    try { body = await req.json() as Record<string, unknown>; } catch { /* ignore */ }
+    const threadId = String(body.thread_id ?? "").trim();
+    const hackathonId = String(body.hackathon_thread_id ?? "").trim();
+    if (!threadId || !hackathonId || threadId === hackathonId) {
+      return new Response(JSON.stringify({ error: "thread_id and hackathon_thread_id required" }), {
+        status: 400, headers: { "content-type": "application/json" },
+      });
+    }
+    const orgData = await listOrgThreads(req.headers.get("cookie"));
+    try {
+      await upsertLink({
+        thread_id: threadId,
+        hackathon_thread_id: hackathonId,
+        kind: String(body.kind ?? "submission") || "submission",
+        org_id: orgData?.org ?? null,
+      });
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { "content-type": "application/json" },
+      });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String(e).slice(0, 200) }), {
+        status: 500, headers: { "content-type": "application/json" },
+      });
+    }
+  }
+
+  if (url.pathname === "/api/organizer/thread-links" && req.method === "GET") {
+    const data = await listOrgThreads(req.headers.get("cookie"));
+    if (!data) {
+      return new Response(JSON.stringify({ error: "auth_required" }), {
+        status: 401, headers: { "content-type": "application/json" },
+      });
+    }
+    const hackathonId = url.searchParams.get("hackathon");
+    if (!hackathonId) {
+      return new Response(JSON.stringify({ error: "hackathon param required" }), {
+        status: 400, headers: { "content-type": "application/json" },
+      });
+    }
+    if (!data.threads.some((t) => t.thread_id === hackathonId)) {
+      return new Response(JSON.stringify({ error: "hackathon thread not in your org" }), {
+        status: 403, headers: { "content-type": "application/json" },
+      });
+    }
+    const links = await listLinksForHackathon(hackathonId).catch(() => []);
+    return new Response(JSON.stringify({ links, org: data.org }), {
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  // ---- Recap commission (auth-gated x402 paid job, ADR-0005) ----
+  if (url.pathname === "/api/organizer/recap" && req.method === "POST") {
+    let body: Record<string, unknown> = {};
+    try { body = await req.json() as Record<string, unknown>; } catch { /* ignore */ }
+    const hackathonId = body.hackathon_thread_id ? String(body.hackathon_thread_id) : null;
+    const v = await validateRecapRequest(req.headers.get("cookie"), {
+      thread_ids: Array.isArray(body.thread_ids)
+        ? (body.thread_ids as unknown[]).map(String)
+        : [],
+      hackathon_thread_id: hackathonId,
+      title: body.title ? String(body.title) : undefined,
+      cta_text: body.cta_text ? String(body.cta_text) : null,
+    });
+    if (!v.ok) {
+      return new Response(JSON.stringify({ error: v.error }), {
+        status: v.status, headers: { "content-type": "application/json" },
+      });
+    }
+    return fulfillPaidJob(
+      "recap_reel",
+      req.headers.get("PAYMENT-SIGNATURE") ?? req.headers.get("payment-signature"),
+      v.brief,
+      { hackathon: hackathonId ?? undefined },
+    );
   }
 
   // ---- BYOK credential vault (per-user encrypted Runway key) ----

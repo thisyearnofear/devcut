@@ -62,9 +62,17 @@ export async function handleX402(req: Request): Promise<Response | null> {
       );
     }
     let brief: string | undefined;
+    let opts: { thread_id?: string; hackathon?: string } | undefined;
     try {
-      const body = (await req.json()) as { brief?: string };
+      const body = (await req.json()) as {
+        brief?: string;
+        thread_id?: string;
+        hackathon?: string;
+      };
       brief = body.brief;
+      if (body.thread_id || body.hackathon) {
+        opts = { thread_id: body.thread_id, hackathon: body.hackathon };
+      }
     } catch {
       /* no body */
     }
@@ -72,7 +80,7 @@ export async function handleX402(req: Request): Promise<Response | null> {
       req.headers.get("PAYMENT-SIGNATURE") ||
       req.headers.get("payment-signature") ||
       req.headers.get("X-PAYMENT");
-    const res = await fulfillPaidJob(skuId as DevCutSkuId, sig, brief);
+    const res = await fulfillPaidJob(skuId as DevCutSkuId, sig, brief, opts);
     // Attach CORS for agent tooling
     const headers = new Headers(res.headers);
     for (const [k, v] of Object.entries(corsHeaders())) headers.set(k, v);
@@ -149,7 +157,19 @@ function openApiDoc() {
                   "application/json": {
                     schema: {
                       type: "object",
-                      properties: { brief: { type: "string" } },
+                      properties: {
+                        brief: { type: "string" },
+                        thread_id: {
+                          type: "string",
+                          description:
+                            "Source thread — variant_pack runs land in this thread's canvas",
+                        },
+                        hackathon: {
+                          type: "string",
+                          description:
+                            "Challenge thread id — creates the hackathon graph edge (ADR-0005)",
+                        },
+                      },
                     },
                   },
                 },
