@@ -1,6 +1,6 @@
 # ADR 0005 — Organizer GTM surface: variant packs + post-hackathon SKUs
 
-**Status:** Implemented (not yet deployed) — engine + SKUs + graph + recap landed 2026-10-03; 44 agent tests, MOCK smoke, LIVE lavfi-fixture stitch checks (dims/caps/sidecar) pass locally; prod ffmpeg confirmed libass+drawtext (deploy gate cleared) · **Date:** 2026-10-03
+**Status:** Implemented + verified on prod — engine, SKUs, hackathon graph and recap commission landed 2026-10-03. Prod proof (zero-Runway path, thread `146a8f07…`): `cut_variant_pack` healed the wiped checkpoint from its own B2 snapshot, re-stitched 3/3 renditions, ffprobe 1280×720 / 1080×1080 / 1080×1920 (teaser 15s), libass burn-in verified frame-by-frame, SRT sidecar times shifted onto the concatenated timeline, Runway call counter delta 0, `/director?thread=` Variants tab shows "3/3 platform cuts". Catalog serves 6 SKUs, demo settle carries `&thread=`/`&hackathon=`, `/api/organizer/recap` refuses unauthenticated callers. Three defects found and fixed by this verification: missing `/api/thread-links` rewrite, snapshot publish erasing a restored thread, and a 5-field ASS `Format:` line against 10-field events (captions rendered ",0,0,0,,Problem"). Prod ffmpeg (6.1.1) has libass + drawtext — deploy gate cleared. · **Date:** 2026-10-03
 
 ## Context
 
