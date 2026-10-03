@@ -2,6 +2,11 @@ import { redirect } from "next/navigation";
 import { auth, authEnabled } from "@/auth";
 import { OrganizerDashboard } from "./OrganizerDashboard";
 
+// The auth gate below must be decided per request, not at build. `deploy-local.sh`
+// builds with only NEXT_PUBLIC_* vars, so a prerender bakes whatever authEnabled
+// was on the build machine and serves it for a year.
+export const dynamic = "force-dynamic";
+
 export default async function OrganizerPage() {
   if (!authEnabled) redirect("/");
   const session = await auth().catch(() => null);
