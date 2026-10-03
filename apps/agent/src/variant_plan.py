@@ -530,7 +530,11 @@ def write_ass(plan: dict) -> str:
         f"{int(h * pct / 100)},&H00FFFFFF,&H00101010,1,3,1,2,"
         f"{margin},{margin},{margin}\n\n"
         "[Events]\n"
-        "Format: Layer, Start, End, Style, Text\n"
+        # Must list all ten fields the Dialogue lines below emit — libass
+        # stops parsing text at the last declared field, so a short Format
+        # line prints the trailing commas on screen (",0,0,0,,Problem").
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, "
+        "MarginV, Effect, Text\n"
         + "\n".join(events)
         + "\n"
     )
