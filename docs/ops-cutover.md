@@ -57,3 +57,5 @@ Do **not** put secrets in this file — only status and pointers.
 | 2026-08-01 | Deployed release `20260801_143804` with Genblaze/Vault; `devcut` HTTPS 200. |
 | 2026-08-01 | Fixed `ERR_CERT_AUTHORITY_INVALID`: issued Let's Encrypt cert for `devcut.thisyearnofear.com`; dropped director Traefik host (DNS NXDOMAIN). |
 | 2026-10-03 | Re-verified: `devcut…/director` → 200, `director…` → NXDOMAIN. Removed the "legacy during cutover" wording from the other docs. |
+| 2026-10-03 | **Closed an exposure**: infra ports 5433/6381/4203/4403 were answering from the public internet (unauthenticated Redis `PING` → `+PONG`). Loopback-bound in `docker-compose.infra.yml` + `up -d` behind a drain check; 4403 keeps a second `10.0.0.1` bind for Traefik. External probes now time out; WS gateway still connects. Side effect: Redis budget counters + `/cut` brief records were wiped with the container. |
+| 2026-10-03 | License banner was still up after the renewal because `director-bff` (PM2) held the pre-renewal token — `up -d` only reached the container. `pm2 startOrReload ecosystem.config.js --only director-bff` cleared it; banner gone on prod `/director`. |

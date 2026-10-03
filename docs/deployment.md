@@ -149,7 +149,7 @@ The server reads all secrets from `/opt/gen-ui/.env`. Key variables:
 | `B2_AUTO_LIFECYCLE` | `1` apply Genblaze lifecycle defaults |
 | `B2_MANIFEST_LOCK_DAYS` | Object Lock GOVERNANCE days on manifests (`0` = off) |
 | `DISCORD_WEBHOOK_URL` | Optional: B2 Event Notifications → `/api/b2-events` → Discord |
-| `COPILOTKIT_LICENSE_TOKEN` | `npm run license` locally, copy the token. **Expires every 30 days** — renew before the UI starts showing the license banner, and apply it with `up -d`, not `restart` |
+| `COPILOTKIT_LICENSE_TOKEN` | `npm run license` locally, copy the token. **Expires every 30 days** — renew before the UI starts showing the license banner, and apply it with `up -d`, not `restart`. `up -d` only reaches the intelligence container: the **BFF** is the process that answers the frontend's license check (`apps/bff/src/server.ts:237`), so also `pm2 startOrReload ecosystem.config.js --only director-bff` or the banner stays up on a valid container |
 | `BAKED_LICENSE_KEYS_JSON` | Infra-compose env only — the composite image ships without baked keys (value in `AGENTS.md`) |
 | `INTELLIGENCE_AUTH_SECRET` | `openssl rand -base64 32` |
 | `INTELLIGENCE_RUNNER_AUTH_SECRET` | `openssl rand -base64 32` |
@@ -175,32 +175,64 @@ Internal service ports (3100, 4010, 8123, 3011) are not for the public internet;
 Traefik reaches the frontend via `host.docker.internal:3100`. UFW allows the Docker
 subnet `10.0.0.0/8` to those four ports so containers can reach the PM2 services.
 
-### Known exposure: UFW does not gate Docker-published ports (found 2026-10-03)
+### Fixed 2026-10-03: UFW does not gate Docker-published ports
 
-`sudo ufw status` on nuncio-vultr has **no** rule for 5433 / 6381 / 4203 / 4403, yet
-all four answer from outside — verified from a laptop with a real protocol
-handshake (`redis-cli`-style `PING` → `+PONG` on 6381). Reason: `docker-compose.infra.yml`
-publishes them as `"5433:5432"` etc. (no `127.0.0.1:` prefix, so they bind `0.0.0.0`),
-and Docker's own `iptables` FORWARD/DOCKER rules are evaluated independently of UFW's
-INPUT chain — a published container port punches through the host firewall.
+`docker-compose.infra.yml` published the infra ports as `"5433:5432"` etc. (no
+`127.0.0.1:` prefix, so they bind `0.0.0.0`), and UFW has **no** rule for
+5433 / 6381 / 4203 / 4403. All four answered from outside — proved, not inferred:
+an unauthenticated `PING` from a laptop returned `+PONG` on 6381. That meant
+Postgres (holding `devcut_credentials`, the BYOK vault), Redis (budget counters and
+run state) and the Intelligence gateway were open to the internet with no auth at
+the transport layer. Any older doc saying "infra ports are bound to localhost only"
+was false.
 
-Two consequences for the docs here: (1) any statement like "infra ports are bound to
-localhost only" was **false** — they are reachable, and Postgres / Redis / the
-Intelligence gateway are unauthenticated at the transport layer; (2) the same trap
-applies to any service you add to that compose file.
+**Why the obvious mitigations don't work.** `docker-proxy` binds the published port
+on the host and completes the TCP handshake in the **INPUT** path, so a
+`DOCKER-USER`/FORWARD drop rule is simply never consulted — one was added, counted
+`0 packets`, and Redis kept replying `+PONG`. UFW's own `deny (incoming)` rule for
+the port failed to gate it for the same reason. Only narrowing the binding fixes it.
+The same trap applies to any service added to that compose file.
 
-Fix (not yet applied — it recreates the infra containers, so it must be scheduled
-around in-flight runs): bind each mapping to loopback in `/opt/gen-ui/docker-compose.infra.yml`,
+**One binding must stay reachable from the Docker bridge.** Coolify's Traefik reaches
+the Intelligence WS gateway via `/data/coolify/proxy/dynamic/director.yaml` →
+`http://host.docker.internal:4403`, and inside `coolify-proxy` that name resolves to
+**10.0.0.1** (the bridge gateway), not 127.0.0.1. A pure loopback bind on 4403 would
+have broken every websocket. Applied mapping (backup
+`docker-compose.infra.yml.bak-20261003_190630`):
 
 ```yaml
-ports:
-  - "127.0.0.1:5433:5432"
-  - "127.0.0.1:6381:6379"
+- "127.0.0.1:5433:5432"
+- "127.0.0.1:6381:6379"
+- "127.0.0.1:4203:4201"
+- "127.0.0.1:4403:4401"
+- "10.0.0.1:4403:4401"   # Traefik → WS gateway (host.docker.internal = 10.0.0.1)
 ```
 
-then `docker compose -f docker-compose.infra.yml up -d` and re-prove from outside
-(`nc -z -G 5 144.202.117.160 5433` should fail). PM2 services connect over
-`localhost`, so nothing on the host needs the wide binding.
+Applied behind a drain check (`GET :4010/readyz` → `inflight:0`) then
+`docker compose -f docker-compose.infra.yml up -d`, which recreates the containers.
+
+Verified after the change:
+- `ss -ltn` — the four ports appear only on `127.0.0.1` (plus `10.0.0.1:4403`).
+- External TCP probes to 5433 / 6381 / 4203 / 4403 from a laptop all time out.
+- Host → `127.0.0.1:6381` `PING` → `+PONG`; `/readyz` healthy (mcp/agent `ok`);
+  `/director` HTTP 200; intelligence logs `licenseValid":true` and a
+  `CONNECTED TO RealtimeGateway.Client.Socket … Transport: :websocket`.
+- `docker exec coolify-proxy wget http://host.docker.internal:4403/client/websocket`
+  → HTTP 403 (upstream reachable, same semantics as before).
+
+**Collateral damage to expect from a recreate.** Redis is the store for the per-user/thread
+Runway budget counters (`runway:budget:<user>:<thread>`, 7-day TTL), the 48h cost-alert
+counters, and the `/cut` brief records (`devcut:brief:<hash>`, 7-day TTL) — all wiped with
+the container, so a thread that had spent 18 of its 20 Runway calls is back at 0, and any
+`/cut/<hash>` short link only in Redis is gone. None of it is mirrored in Postgres.
+The recreate also produced ~2 min of `ECONNREFUSED 127.0.0.1:6381` in `logs/bff-error.log`
+while Redis was down — transient, gone after the BFF came back.
+
+**This hardening is not in git.** `/opt/gen-ui/docker-compose.infra.yml` is the only copy of
+the prod infra definition — it has never been committed (`git ls-files` shows just
+`deployment/docker-compose.yml` and `deployment/docker-compose.prod.yml`). So a fresh clone
+cannot reproduce prod, and provisioning from either tracked file reintroduces the wide
+bindings. Commit it (or have the deploy script write it) before the next server rebuild.
 
 Also note: `ufw status numbered` on this host carries public rules for **other**
 projects (3000, 4000, 18080, 18766, 31777, 31778) — the table above is DevCut's
