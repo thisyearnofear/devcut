@@ -72,9 +72,9 @@ def _inherit_prior(thread_id: str, values: dict) -> dict:
     A restart wipes the LangGraph checkpoint, so a run on a reopened thread
     sees shots=[] and holds nothing else either — publishing that verbatim
     would erase the record the canvas restore and the organizer dashboard
-    read, which is the snapshot's whole purpose. Read-modify-write against
-    the prior object instead. Only reached when the writer knows the live
-    state was partial, so healthy runs never pay for the extra GET.
+    read, which is the snapshot's whole purpose. Absent keys (not
+    explicitly-written-empty ones) come back from the prior object. Only
+    reached on healed publishes, so healthy runs never pay for the GET.
     """
     from .recap_sources import fetch_thread_snapshot
 
