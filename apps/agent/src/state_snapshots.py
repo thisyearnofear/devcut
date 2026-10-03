@@ -66,8 +66,27 @@ def _put_snapshot(thread_id: str, values: dict) -> str:
     return backend.get_durable_url(key)
 
 
+def _inherit_prior(thread_id: str, values: dict) -> dict:
+    """Fill restore keys the live state can't provide.
+
+    A restart wipes the LangGraph checkpoint, so state then carries
+    shots=[] — publishing that verbatim would erase the record the canvas
+    restore reads, which is the snapshot's whole purpose. Only reached when
+    a snapshot has nothing to restore, so healthy runs never pay for it.
+    """
+    from .recap_sources import fetch_thread_snapshot
+
+    prior = fetch_thread_snapshot(thread_id) or {}
+    for key in SNAPSHOT_KEYS:
+        if not values.get(key) and prior.get(key):
+            values[key] = prior[key]
+    return values
+
+
 def _safe_put(thread_id: str, values: dict) -> None:
     try:
+        if not values.get("shots"):
+            values = _inherit_prior(thread_id, values)
         url = _put_snapshot(thread_id, values)
         from .media_storage import _log
 
@@ -95,7 +114,10 @@ def save_snapshot_async(update: dict, state: Optional[dict] = None) -> None:
         for key in SNAPSHOT_KEYS:
             if key in update:
                 merged[key] = update[key]
-            elif base.get(key) is not None:
+            elif base.get(key):
+                # Truthy, not `is not None`: after a restart wipes the
+                # checkpoint, state carries shots=[] — writing that over a
+                # good snapshot would destroy the thread record.
                 merged[key] = base.get(key)
         if not merged:
             return

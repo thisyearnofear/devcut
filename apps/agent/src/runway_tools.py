@@ -99,6 +99,36 @@ def _finalize(update: dict, state: Optional[dict] = None) -> dict:
     return update
 
 
+def _state_or_snapshot(state: Optional[dict]) -> tuple[dict, dict]:
+    """Injected state, topped up from this thread's B2 snapshot.
+
+    ``?thread=`` restores the *canvas*; the agent's own checkpoint is gone
+    once a restart has culled it, so a re-stitch tool asked to work on a
+    reopened thread sees shots=[] and would refuse a paid job whose footage
+    is sitting right there in the bucket.
+
+    Returns ``(effective_state, restored)`` — ``restored`` is the subset that
+    came from the bucket. Callers merge it into their Command update so the
+    healed keys survive into state and into the next snapshot.
+    """
+    merged = dict(state) if isinstance(state, dict) else {}
+    if merged.get("shots"):
+        return merged, {}
+    from .recap_sources import fetch_thread_snapshot
+    from .state_snapshots import _snapshot_thread_id
+
+    tid = _snapshot_thread_id()
+    if not tid:
+        return merged, {}
+    prior = fetch_thread_snapshot(tid) or {}
+    restored: dict = {}
+    for key in ("shots", "storyboard", "brand_kit", "variants"):
+        if not merged.get(key) and prior.get(key):
+            merged[key] = prior[key]
+            restored[key] = prior[key]
+    return merged, restored
+
+
 @tool
 def generate_storyboard_plan(
     title: Annotated[str, "Working title for the piece. Short."],
@@ -728,8 +758,9 @@ def stitch_final_cut(
     exercised without ffmpeg or network. The pill in the canvas header
     shows which mode is active for stitching.
     """
-    shots: list[dict] = list((state or {}).get("shots") or [])
-    storyboard: dict = dict((state or {}).get("storyboard") or {})
+    state, restored = _state_or_snapshot(state)
+    shots: list[dict] = list(state.get("shots") or [])
+    storyboard: dict = dict(state.get("storyboard") or {})
     title = storyboard.get("title") or "storyboard"
 
     ready = [s for s in shots if s.get("video_url")]
@@ -845,7 +876,7 @@ def stitch_final_cut(
         update["canonical_hash"] = state["canonical_hash"]
     if (state or {}).get("agent_loop"):
         update["agent_loop"] = state["agent_loop"]
-    return Command(update=_finalize(update, state))
+    return Command(update=_finalize({**restored, **update}, state))
 
 
 @tool
@@ -887,8 +918,9 @@ def cut_variant_pack(
     generation unless regenerate_vo is explicitly true. Writes the whole
     `variants` list in one update.
     """
-    shots: list[dict] = list((state or {}).get("shots") or [])
-    storyboard: dict = dict((state or {}).get("storyboard") or {})
+    state, restored = _state_or_snapshot(state)
+    shots: list[dict] = list(state.get("shots") or [])
+    storyboard: dict = dict(state.get("storyboard") or {})
     title = storyboard.get("title") or "storyboard"
 
     ready = [s for s in shots if s.get("video_url")]
@@ -913,7 +945,7 @@ def cut_variant_pack(
     if not logo_url:
         from .recap_sources import brand_logo_url
 
-        logo_url = brand_logo_url((state or {}).get("brand_kit"))
+        logo_url = brand_logo_url(state.get("brand_kit"))
 
     try:
         plans = build_default_pack(
@@ -1000,7 +1032,7 @@ def cut_variant_pack(
         "variants": records,
         "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
     }
-    return Command(update=_finalize(update, state))
+    return Command(update=_finalize({**restored, **update}, state))
 
 
 @tool
