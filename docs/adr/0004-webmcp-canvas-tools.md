@@ -1,6 +1,6 @@
 # ADR 0004 — WebMCP: expose the director canvas to external browser agents
 
-**Status:** Implemented (merged 2026-08-27, PR #1; live on prod `release=20260827_160002` — 5 tools registered on `document.modelContext` at `/director`) · **Date:** 2026-08-27
+**Status:** Implemented + Phase-1 spike verified (merged 2026-08-27, PR #1; live on prod `release=20260827_160002`. Spike 2026-10-03: Chrome 154, `#enable-webmcp-testing` flag → all 5 tools enumerated via `document.modelContext.getTools()`, `get_storyboard_state` executed end-to-end returning live canvas state) · **Date:** 2026-08-27
 
 ## Context
 
@@ -72,9 +72,20 @@ Constraints that shaped the design:
   identity, vaulted Runway key, and metered budget.
 - Tool names/descriptions are user-visible surface: Phase-4 hardening
   against observed agent failures is expected (playbook).
-- `types.d.ts` ambient typings must be re-verified against the real
-  `document.modelContext` surface once the Phase-1 spike runs; tool payloads
-  are unaffected either way.
+- ~~`types.d.ts` ambient typings must be re-verified~~ **Verified
+  2026-10-03 (Phase-1 spike).** Findings on Chrome 154:
+  - `document.modelContext` exists only with `chrome://flags/#enable-webmcp-testing`
+    enabled **and a full browser restart** (the in-page "Relaunch" button does
+    not apply under `--headless=new`; killing and relaunching the process does).
+  - Prototype surface: `registerTool`, `getTools`, `executeTool`,
+    `ontoolchange` (+ `unregisterTool`). `types.d.ts` updated to match.
+  - `executeTool` takes the *registered descriptor* + a **JSON string**
+    (`executeTool(tool, "{}")`); a name or object arg throws.
+  - No COOP/COEP needed — decision 7 stands. Canvas media unaffected.
+  - `getTools()` returned all 5 DevCut tools with `annotations.readOnlyHint`
+    intact; executing `get_storyboard_state` returned the live snapshot.
+  - Also present with the flag: `WebMCPEvent`, `ModelContext`,
+    `LanguageModel` globals.
 
 ## Links
 

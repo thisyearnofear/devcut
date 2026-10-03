@@ -1,10 +1,12 @@
 // Ambient typing for the draft WebMCP `document.modelContext` API.
 //
-// The exact runtime surface is verified during the Phase-1 spike (see
-// docs/webmcp-playbook.md §Phase 1). Adjust these shapes to match observed
-// reality (e.g. sync vs async `registerTool`, available events) — never assume
-// an event name like `ontoolchange` exists without having seen it. The *tool*
-// shapes (name/description/inputSchema/execute) stay identical regardless.
+// Verified 2026-10-03 (Phase-1 spike) on Chrome 154 with
+// `chrome://flags/#enable-webmcp-testing` enabled + full browser restart.
+// Observed prototype surface: registerTool, getTools, executeTool, ontoolchange.
+// `executeTool(registeredTool, argsJsonString)` — passing a name or an object
+// for args throws; `registerTool` accepts our tool shape (name/description/
+// inputSchema/annotations/execute) and `getTools()` returns the registered
+// descriptors.
 
 export interface WebMcpTool {
   name: string;
@@ -16,7 +18,10 @@ export interface WebMcpTool {
 
 export interface ModelContext {
   registerTool(tool: WebMcpTool): Promise<void> | void;
-  /** Keep only what Phase 1 confirmed exists: */
+  /** Return the tools currently registered on this context (spike-confirmed). */
+  getTools?(): Promise<WebMcpTool[]>;
+  /** First arg must be a registered-tool descriptor, second a JSON string. */
+  executeTool?(tool: WebMcpTool, argumentsJson?: string): Promise<unknown>;
   unregisterTool?(name: string): Promise<void> | void;
   ontoolchange?: ((ev: Event) => void) | null;
 }
