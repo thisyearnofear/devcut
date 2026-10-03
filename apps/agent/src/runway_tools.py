@@ -87,15 +87,19 @@ def _new_shot_id() -> str:
     return f"shot_{uuid4().hex[:8]}"
 
 
-def _finalize(update: dict, state: Optional[dict] = None) -> dict:
+def _finalize(
+    update: dict, state: Optional[dict] = None, partial: bool = False
+) -> dict:
     """Persist a cross-restart snapshot of restore-relevant state to B2.
 
     Fire-and-forget: never raises, never blocks the tool's return path
-    meaningfully (upload happens on a daemon thread).
+    meaningfully (upload happens on a daemon thread). ``partial`` says the
+    update was built from a healed state, so the writer must inherit the
+    keys this run never saw from the prior snapshot.
     """
     from .state_snapshots import save_snapshot_async
 
-    save_snapshot_async(update, state)
+    save_snapshot_async(update, state, partial=partial)
     return update
 
 
@@ -876,7 +880,9 @@ def stitch_final_cut(
         update["canonical_hash"] = state["canonical_hash"]
     if (state or {}).get("agent_loop"):
         update["agent_loop"] = state["agent_loop"]
-    return Command(update=_finalize({**restored, **update}, state))
+    return Command(
+        update=_finalize({**restored, **update}, state, partial=bool(restored))
+    )
 
 
 @tool
@@ -1032,7 +1038,9 @@ def cut_variant_pack(
         "variants": records,
         "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
     }
-    return Command(update=_finalize({**restored, **update}, state))
+    return Command(
+        update=_finalize({**restored, **update}, state, partial=bool(restored))
+    )
 
 
 @tool

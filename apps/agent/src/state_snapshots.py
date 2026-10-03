@@ -69,10 +69,12 @@ def _put_snapshot(thread_id: str, values: dict) -> str:
 def _inherit_prior(thread_id: str, values: dict) -> dict:
     """Fill restore keys the live state can't provide.
 
-    A restart wipes the LangGraph checkpoint, so state then carries
-    shots=[] — publishing that verbatim would erase the record the canvas
-    restore reads, which is the snapshot's whole purpose. Only reached when
-    a snapshot has nothing to restore, so healthy runs never pay for it.
+    A restart wipes the LangGraph checkpoint, so a run on a reopened thread
+    sees shots=[] and holds nothing else either — publishing that verbatim
+    would erase the record the canvas restore and the organizer dashboard
+    read, which is the snapshot's whole purpose. Read-modify-write against
+    the prior object instead. Only reached when the writer knows the live
+    state was partial, so healthy runs never pay for the extra GET.
     """
     from .recap_sources import fetch_thread_snapshot
 
@@ -83,9 +85,9 @@ def _inherit_prior(thread_id: str, values: dict) -> dict:
     return values
 
 
-def _safe_put(thread_id: str, values: dict) -> None:
+def _safe_put(thread_id: str, values: dict, partial: bool = False) -> None:
     try:
-        if not values.get("shots"):
+        if partial or not values.get("shots"):
             values = _inherit_prior(thread_id, values)
         url = _put_snapshot(thread_id, values)
         from .media_storage import _log
@@ -100,11 +102,15 @@ def _safe_put(thread_id: str, values: dict) -> None:
             pass
 
 
-def save_snapshot_async(update: dict, state: Optional[dict] = None) -> None:
+def save_snapshot_async(
+    update: dict, state: Optional[dict] = None, partial: bool = False
+) -> None:
     """Fire-and-forget snapshot of the restore-relevant state subset.
 
     ``update`` is the tool's outgoing Command(update=…) payload; ``state``
     (when the tool injected it) provides keys the update didn't touch.
+    ``partial`` marks a run that started from a wiped checkpoint and healed
+    itself, so the keys it never saw must be inherited from the prior object.
     """
     try:
         if not b2_enabled():
@@ -124,6 +130,8 @@ def save_snapshot_async(update: dict, state: Optional[dict] = None) -> None:
         tid = _snapshot_thread_id()
         if not tid:
             return
-        threading.Thread(target=_safe_put, args=(tid, merged), daemon=True).start()
+        threading.Thread(
+            target=_safe_put, args=(tid, merged, partial), daemon=True
+        ).start()
     except Exception:  # noqa: BLE001
         pass

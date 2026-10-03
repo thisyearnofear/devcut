@@ -28,6 +28,8 @@ PRIOR = {
     "storyboard": {"title": "Recovered"},
     "brand_kit": {"logo_url": "http://x/logo.png"},
     "variants": [{"id": "judge_16x9", "status": "ready"}],
+    "final_video_url": "http://x/final.mp4",
+    "export_status": "ready",
 }
 
 
@@ -60,6 +62,17 @@ class SafePutTests(unittest.TestCase):
             state_snapshots._safe_put("t1", {"shots": []})
         self.assertEqual(put.call_args[0][1]["shots"], PRIOR["shots"])
 
+    def test_partial_update_inherits_even_with_shots(self) -> None:
+        """A healed run has shots but never saw the final cut — inherit it."""
+        put = mock.Mock(return_value="http://b/snapshots/t1.json")
+        fetch = mock.Mock(return_value=dict(PRIOR))
+        with mock.patch.object(state_snapshots, "_put_snapshot", put), mock.patch(
+            "src.recap_sources.fetch_thread_snapshot", fetch
+        ):
+            state_snapshots._safe_put("t1", {"shots": PRIOR["shots"]}, partial=True)
+        self.assertEqual(put.call_args[0][1]["final_video_url"], PRIOR["final_video_url"])
+        self.assertEqual(put.call_args[0][1]["export_status"], "ready")
+
     def test_healthy_run_does_not_fetch(self) -> None:
         put = mock.Mock(return_value="http://b/snapshots/t1.json")
         fetch = mock.Mock(return_value=dict(PRIOR))
@@ -73,11 +86,11 @@ class SafePutTests(unittest.TestCase):
 
 
 class SaveSnapshotTests(unittest.TestCase):
-    def _record(self, update, state):
+    def _publish(self, update, state, partial=False):
         captured: dict = {}
 
-        def fake_safe_put(tid, values):
-            captured.update({"tid": tid, "values": values})
+        def fake_safe_put(tid, values, p=False):
+            captured.update({"tid": tid, "values": values, "partial": p})
 
         with (
             mock.patch.object(state_snapshots, "b2_enabled", return_value=True),
@@ -85,19 +98,27 @@ class SaveSnapshotTests(unittest.TestCase):
             mock.patch.object(state_snapshots, "_safe_put", fake_safe_put),
             mock.patch.object(state_snapshots.threading, "Thread", _InlineThread),
         ):
-            state_snapshots.save_snapshot_async(update, state)
-        return captured.get("values")
+            state_snapshots.save_snapshot_async(update, state, partial=partial)
+        return captured
+
+    def test_heal_flags_the_publish_as_partial(self) -> None:
+        self.assertTrue(self._publish({"variants": [{}]}, PRIOR, partial=True)["partial"])
+
+    def test_healthy_publish_is_not_partial(self) -> None:
+        self.assertFalse(self._publish({"variants": [{}]}, PRIOR)["partial"])
 
     def test_wiped_shots_never_reach_the_writer(self) -> None:
-        values = self._record({"variants": [{"id": "judge_16x9"}]}, {"shots": []})
-        self.assertIsNotNone(values)
+        values = self._publish(
+            {"variants": [{"id": "judge_16x9"}]}, {"shots": []}
+        )["values"]
         self.assertNotIn("shots", values)
         self.assertEqual(values["variants"], [{"id": "judge_16x9"}])
 
     def test_real_shots_are_published(self) -> None:
         shots = [{"id": "s0", "video_url": "http://x/0.mp4"}]
-        values = self._record({"regenerate_vo": True}, {"shots": shots})
+        values = self._publish({"export_status": "ready"}, {"shots": shots})["values"]
         self.assertEqual(values["shots"], shots)
+        self.assertEqual(values["export_status"], "ready")
 
     def test_b2_disabled_writes_nothing(self) -> None:
         with mock.patch.object(state_snapshots, "b2_enabled", return_value=False):
