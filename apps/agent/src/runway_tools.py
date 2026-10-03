@@ -114,6 +114,15 @@ def generate_storyboard_plan(
     aspect_ratio: Annotated[
         str, "Ratio for all shots: '1280:720' (landscape) or '720:1280' (portrait)."
     ] = "1280:720",
+    brand_kit: Annotated[
+        Optional[dict],
+        (
+            "Challenge Cut only: sponsor brand kit from the brief. "
+            "{ logo_url?, sponsors?: [{name, logo_url}], palette?, "
+            "lockup_rules?, mandatory_mentions? }. Stored on the thread so "
+            "variant cuts and recap reels inherit the sponsor identity."
+        ),
+    ] = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
 ) -> Command:
     """Lay out a storyboard plan on the canvas WITHOUT generating media yet.
@@ -165,17 +174,19 @@ def generate_storyboard_plan(
     )
     _log("INFO", "tool_exit", tool="generate_storyboard_plan", title=title, n_shots=len(out_shots), logline=logline)
 
-    return Command(
-        update=_finalize({
-            "storyboard": storyboard,
-            "shots": out_shots,
-            "header": {
-                "title": title or "DevCut",
-                "subtitle": logline or f"Runway {runway_mode_label()}",
-            },
-            "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
-        })
-    )
+    update: dict = {
+        "storyboard": storyboard,
+        "shots": out_shots,
+        "header": {
+            "title": title or "DevCut",
+            "subtitle": logline or f"Runway {runway_mode_label()}",
+        },
+        "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
+    }
+    if brand_kit:
+        update["brand_kit"] = brand_kit
+
+    return Command(update=_finalize(update))
 
 
 def _find_shot(shots: list[dict], shot_id: str) -> Optional[dict]:
@@ -838,6 +849,281 @@ def stitch_final_cut(
 
 
 @tool
+def cut_variant_pack(
+    cuts: Annotated[
+        Optional[List[str]],
+        "Which renditions to produce: subset of ['judge','customer','teaser']. Default all three.",
+    ] = None,
+    customer_aspect: Annotated[
+        str, "Customer cut ratio: '1:1' or '4:5'."
+    ] = "1:1",
+    caption_lines: Annotated[
+        Optional[List[dict]],
+        (
+            "Optional re-scoped captions for the customer cut: "
+            "[{cut_id, clip_order, text, start?, end?}]. clip_order is the "
+            "index of the clip within that cut; start/end are seconds within "
+            "the clip. Omit to reuse each shot's voiceover_line."
+        ),
+    ] = None,
+    regenerate_vo: Annotated[
+        bool,
+        "Opt-in TTS upsell: re-voice the customer cut from its caption "
+        "lines. Each call consumes Runway budget; default False reuses "
+        "existing voiceovers.",
+    ] = False,
+    logo_url: Annotated[
+        Optional[str],
+        "Sponsor logo PNG URL to overlay. Defaults to the thread's brand_kit logo.",
+    ] = None,
+    state: Annotated[dict, InjectedState] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Re-stitch this thread's existing clips into platform variants (ADR-0005).
+
+    Produces up to three renditions of the SAME footage — judge cut (16:9
+    master grammar), customer cut (square/4:5, burned-in captions, sponsor
+    lockup), builder teaser (9:16, hook-first, <=15s, silent). Zero Runway
+    generation unless regenerate_vo is explicitly true. Writes the whole
+    `variants` list in one update.
+    """
+    shots: list[dict] = list((state or {}).get("shots") or [])
+    storyboard: dict = dict((state or {}).get("storyboard") or {})
+    title = storyboard.get("title") or "storyboard"
+
+    ready = [s for s in shots if s.get("video_url")]
+    if not ready:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        content=(
+                            "No shot clips to re-cut. Generate videos "
+                            "(generate_all_videos) before cut_variant_pack."
+                        ),
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    from .variant_plan import build_default_pack, new_variant_record
+    from .stitcher import stitch_plan as _stitch_plan, resolve_caption_method
+
+    if not logo_url:
+        from .recap_sources import brand_logo_url
+
+        logo_url = brand_logo_url((state or {}).get("brand_kit"))
+
+    try:
+        plans = build_default_pack(
+            ready,
+            cuts=cuts or ["judge", "customer", "teaser"],
+            customer_aspect=customer_aspect,
+            caption_lines=caption_lines,
+            logo_url=logo_url,
+        )
+    except ValueError as e:
+        return Command(
+            update={
+                "messages": [ToolMessage(content=f"Bad variant request: {e}", tool_call_id=tool_call_id)]
+            }
+        )
+
+    assets = {
+        (s.get("id") or f"shot_{i}"): {
+            "video_url": s.get("video_url"),
+            "voiceover_url": s.get("voiceover_url"),
+            "sfx_url": s.get("sfx_url"),
+            "duration": float(s.get("duration") or 5),
+            "beat": s.get("beat") or "",
+        }
+        for i, s in enumerate(ready)
+    }
+
+    vo_note = ""
+    if regenerate_vo:
+        from .audio_client import generate_voiceover
+
+        customer_plans = [p for p in plans if p["id"].startswith("customer_")]
+        for p in customer_plans:
+            text_by_ref: dict[str, str] = {}
+            for ln in p["captions"]["lines"]:
+                order = ln["clip_order"]
+                ref = p["clips"][order]["shot_ref"] if order < len(p["clips"]) else None
+                if ref:
+                    text_by_ref[ref] = (text_by_ref.get(ref, "") + " " + ln["text"]).strip()
+            for ref, text in text_by_ref.items():
+                if not text or ref not in assets:
+                    continue
+                try:
+                    res = generate_voiceover(text, storyboard.get("narrator_voice"))
+                    assets[ref] = {**assets[ref], "voiceover_url": res.url}
+                except Exception as exc:  # noqa: BLE001 — degrade to reuse
+                    vo_note = f" (VO regen skipped: {str(exc)[:80]})"
+
+    records = []
+    for plan in plans:
+        rec = new_variant_record(plan)
+        try:
+            res = _stitch_plan(plan, assets, f"{title}-{plan['id']}")
+            method = resolve_caption_method(plan) if plan["captions"]["lines"] else "none"
+            rec.update(
+                status="ready",
+                video_url=res.url,
+                durable_url=res.durable_url,
+                srt_url=res.srt_url,
+                final_sha256=res.final_sha256,
+                duration=res.duration,
+                note=(
+                    f"captions: {method}"
+                    + ("" if method != "sidecar" or not plan["captions"]["lines"]
+                       else " — this ffmpeg build has no caption filter; SRT sidecar attached")
+                    + vo_note
+                ),
+            )
+        except Exception as e:  # noqa: BLE001 — one bad rendition must not kill the pack
+            rec.update(status="error", error=str(e)[:300])
+        records.append(rec)
+
+    n_ok = sum(1 for r in records if r["status"] == "ready")
+    msg = (
+        f"Variant pack ready: {n_ok}/{len(records)} cuts "
+        f"({', '.join(r['id'] for r in records if r['status'] == 'ready')})"
+        + (". Re-stitch only — no Runway generation used." if not regenerate_vo else "")
+    )
+    failed = [r for r in records if r["status"] == "error"]
+    if failed:
+        msg += ". Failed: " + "; ".join(f"{r['id']}: {r['error']}" for r in failed)
+
+    update: dict = {
+        "variants": records,
+        "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
+    }
+    return Command(update=_finalize(update, state))
+
+
+@tool
+def generate_recap(
+    thread_ids: Annotated[
+        List[str],
+        "Winner thread ids to recap — each contributes ≤2 clips of its final cut.",
+    ],
+    title: Annotated[str, "Recap reel title, e.g. 'Shipathon 2026 — Winners'."],
+    cta_text: Annotated[
+        Optional[str],
+        "Call-to-action burned over the final seconds, e.g. 'Apply for the next edition'."
+    ] = None,
+    logo_url: Annotated[
+        Optional[str],
+        "Sponsor logo PNG URL for first/last overlays. Falls back to the canvas brand_kit logo.",
+    ] = None,
+    state: Annotated[dict, InjectedState] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Compose a 60-90s hackathon recap reel from OTHER threads' finished cuts.
+
+    Reads each source thread's B2 state snapshot (public GET) — no new Runway
+    generation, audio stays silent/reused, sponsor logo + CTA overlaid. Writes
+    the result as a `variants` entry so the canvas Variants tab shows it.
+    """
+    from .recap_sources import brand_logo_url, collect_assets
+    from .stitcher import stitch_plan as _stitch_plan
+    from .variant_plan import build_recap_plan, new_variant_record
+
+    ids = [t.strip() for t in (thread_ids or []) if t and t.strip()]
+    if len(ids) < 2:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        content=(
+                            "Recap needs at least 2 winner thread ids "
+                            "(from the organizer's selection)."
+                        ),
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    assets, meta = collect_assets(ids)
+    missing = [t for t in ids if t not in meta]
+    if len(meta) < 2:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        content=(
+                            f"Only {len(meta)}/{len(ids)} requested threads "
+                            "resolved from snapshots — recap refused."
+                        ),
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    if not logo_url:
+        for m in meta.values():
+            logo_url = brand_logo_url(m.get("brand_kit"))
+            if logo_url:
+                break
+        logo_url = logo_url or brand_logo_url((state or {}).get("brand_kit"))
+
+    metas = [
+        {
+            "thread_id": tid,
+            "label": m.get("title") or tid,
+            "duration": (assets.get(f"{tid}/final") or {}).get("duration") or 30,
+        }
+        for tid, m in meta.items()
+    ]
+    try:
+        plan = build_recap_plan(
+            metas, title=title or "Recap reel", cta_text=cta_text, logo_url=logo_url
+        )
+    except ValueError as e:
+        return Command(
+            update={
+                "messages": [ToolMessage(content=f"Bad recap request: {e}", tool_call_id=tool_call_id)]
+            }
+        )
+
+    rec = new_variant_record(plan)
+    rec["label"] = f"Recap reel — {title or 'Recap'}"
+    try:
+        res = _stitch_plan(plan, assets, title or "recap-reel")
+        rec.update(
+            status="ready",
+            video_url=res.url,
+            durable_url=res.durable_url,
+            srt_url=res.srt_url,
+            final_sha256=res.final_sha256,
+            duration=res.duration,
+            note=f"{len(metas)} winner threads · re-stitch only",
+        )
+    except Exception as e:  # noqa: BLE001
+        rec.update(status="error", error=str(e)[:300])
+
+    prev = list((state or {}).get("variants") or [])
+    records = [r for r in prev if r.get("id") != rec["id"]] + [rec]
+
+    msg = (
+        f"Recap reel {'ready' if rec['status'] == 'ready' else 'failed'}: "
+        f"{len(metas)}/{len(ids)} threads resolved"
+        + (f" ({', '.join(missing)} skipped)" if missing else "")
+        + f", {rec.get('duration') or '?'}s."
+        + ("" if rec["status"] == "ready" else f" Error: {rec['error']}")
+    )
+    update: dict = {
+        "variants": records,
+        "messages": [ToolMessage(content=msg, tool_call_id=tool_call_id)],
+    }
+    return Command(update=_finalize(update, state))
+
+
+@tool
 def emit_hyperframes_kit(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -882,6 +1168,8 @@ def load_runway_tools() -> list:
         generate_all_references,
         generate_all_videos,
         stitch_final_cut,
+        cut_variant_pack,
+        generate_recap,
         emit_hyperframes_kit,
         *load_audio_tools(),
     ]

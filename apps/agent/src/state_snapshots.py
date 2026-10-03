@@ -41,6 +41,8 @@ SNAPSHOT_KEYS = (
     "export_status",
     "export_error",
     "builder_kit",
+    "variants",
+    "brand_kit",
 )
 
 

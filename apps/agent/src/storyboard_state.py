@@ -85,6 +85,13 @@ class StoryboardCanvasState(AgentState):
     export_error: NotRequired[Annotated[Optional[str], _replace]]
     # HyperFrames handoff — BRIEF.md seed + asset drop map (see hyperframes_kit.py).
     builder_kit: NotRequired[Annotated[Optional[dict], _replace]]
+    # ADR-0005: platform variant renditions of this thread's clips
+    # (VariantRecord[] — see variant_plan.new_variant_record). Written
+    # whole-list by cut_variant_pack.
+    variants: NotRequired[Annotated[Optional[list[dict]], _replace]]
+    # ADR-0005: sponsor brand kit captured at plan time (Challenge Cut);
+    # inherited by variant cuts and recap reels.
+    brand_kit: NotRequired[Annotated[Optional[dict], _replace]]
 
 
 class StoryboardStateMiddleware(AgentMiddleware[StoryboardCanvasState, Any]):  # type: ignore[type-arg]
