@@ -13,11 +13,17 @@ const BFF_URL = process.env.BFF_URL ?? "http://localhost:4010";
 
 const nextConfig: NextConfig = {
   // Client-visible flag: auth UI renders only when GitHub OAuth is configured.
+  // An explicit value wins, because deploys build on a machine that holds no
+  // AUTH_* secrets (deploy-local.sh ships only the .env's NEXT_PUBLIC_ lines) —
+  // without this override the derived branch always lands on "" there.
   env: {
     NEXT_PUBLIC_AUTH_ENABLED:
-      process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET && process.env.AUTH_SECRET
+      process.env.NEXT_PUBLIC_AUTH_ENABLED ??
+      (process.env.AUTH_GITHUB_ID &&
+      process.env.AUTH_GITHUB_SECRET &&
+      process.env.AUTH_SECRET
         ? "1"
-        : "",
+        : ""),
   },
   // Produce a self-contained output directory for Docker.
   // The standalone build includes only the files needed to run the server —
