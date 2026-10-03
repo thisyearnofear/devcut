@@ -59,6 +59,11 @@ const nextConfig: NextConfig = {
         destination: `${BFF_URL}/api/cut-record`,
       },
       {
+        // Hackathon graph edge (ADR-0005) — posted once when a &hackathon= run settles
+        source: "/api/thread-links",
+        destination: `${BFF_URL}/api/thread-links`,
+      },
+      {
         source: "/api/runway-calls/:path*",
         destination: `${BFF_URL}/api/runway-calls/:path*`,
       },
