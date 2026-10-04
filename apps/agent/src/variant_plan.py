@@ -45,9 +45,19 @@ ASPECT_TARGETS: dict[str, tuple[int, int]] = {
 
 TEASER_TOTAL_CAP = 15.0
 TEASER_PER_CLIP_CAP = 4.0
+# Beat grid for teaser fitting (a0m0rajab/app launchTimeline pattern): every
+# cut lands on a whole quantum so the ≤15s teaser feels cut to music even
+# though DevCut ships no music bed. 0.4s @30fps = 12 frames.
+TEASER_QUANTUM = 0.4
+TEASER_MIN_CLIP = 1.0
 HOOK_BEAT_KEYWORDS = (
     "proof", "reveal", "winning", "hero", "demo", "product", "cta", "result",
 )
+
+# Source-referenced trim contract (ShoAdachi compile_timeline pattern):
+# original captures stay immutable; a plan may only window inside them.
+MIN_CLIP_DUR = 0.25
+TRIM_TOLERANCE = 0.02
 
 # Max characters per on-screen caption line (drawtext/ASS both wrap poorly
 # beyond this at small-target widths).
@@ -102,6 +112,114 @@ def caption_windows(
 def _hook_score(shot: dict) -> int:
     beat = (shot.get("beat") or "").lower()
     return sum(1 for kw in HOOK_BEAT_KEYWORDS if kw in beat)
+
+
+def fit_durations_to_cap(
+    durations: list[float],
+    cap: float,
+    *,
+    quantum: float = TEASER_QUANTUM,
+    min_dur: float = TEASER_MIN_CLIP,
+) -> list[float]:
+    """Largest-remainder fit of `durations` into `cap` on a `quantum` grid.
+
+    Beat-quantized teaser timing (cf. a0m0rajab/app launchTimeline): when the
+    natural total exceeds `cap`, scale down proportionally, floor each entry
+    to the grid (never below `min_dur`), then hand leftover quanta to the
+    entries rounded down the most. When already under `cap`, durations pass
+    through untouched — no grid, no stretching. Total is always ≤ cap and
+    no entry ever exceeds its source length.
+    """
+    if not durations or cap <= 0:
+        return []
+    if quantum <= 0:
+        return [round(min(d, cap), 2) for d in durations]
+    natural = sum(durations)
+    if natural <= 0:
+        return [0.0 for _ in durations]
+    if natural <= cap:
+        return [round(d, 2) for d in durations]
+    scale = cap / natural
+    ideal = [d * scale for d in durations]
+    # Floor to grid, respecting the per-clip floor — but never above the
+    # entry's own ideal (no stretching beyond the source capture).
+    floored = []
+    for v in ideal:
+        if v < min_dur:
+            floored.append(round(v, 3))
+            continue
+        f = (v // quantum) * quantum
+        floored.append(round(min(v, max(min_dur, f)), 3))
+    # If floors alone exceed the cap (many clips × min_dur), shrink the
+    # smallest entries first — still ≤ cap, still on grid.
+    total = sum(floored)
+    if total > cap:
+        order = sorted(range(len(floored)), key=lambda i: floored[i])
+        i = 0
+        while total > cap and i < len(floored) * 8:
+            idx = order[i % len(order)]
+            if floored[idx] - quantum >= quantum:
+                floored[idx] = round(floored[idx] - quantum, 3)
+                total = sum(floored)
+            i += 1
+        return [round(v, 2) for v in floored]
+    # Largest remainder: distribute whole quanta left under the cap.
+    # Ceiling per entry is its ideal (never stretch beyond the source).
+    left = int(round((cap - total) / quantum))
+    remainders = sorted(
+        range(len(ideal)), key=lambda i: (ideal[i] - floored[i]), reverse=True
+    )
+    out = list(floored)
+    k = 0
+    # Only fill back up toward the natural total — never invent runtime.
+    fill_budget = int(round((min(natural, cap) - total) / quantum))
+    guard = 0
+    while k < min(left, fill_budget) and remainders and guard < len(out) * 8:
+        idx = remainders[k % len(remainders)]
+        if out[idx] + quantum <= ideal[idx] + 1e-9:
+            out[idx] = round(out[idx] + quantum, 3)
+            k += 1
+        else:
+            # This entry is already at its source length — try the next.
+            remainders.remove(idx)
+        guard += 1
+    return [round(v, 2) for v in out]
+
+
+def validate_plan_trims(plan: dict, assets: dict[str, dict]) -> None:
+    """Fail fast when a plan windows outside its source captures.
+
+    Raises ValueError naming the offending clip. Called before any ffmpeg
+    download so a paid re-stitch never spends time on an unusable plan.
+    Rules: `in` ≥ 0, `out` > `in`, window ≥ MIN_CLIP_DUR, and `out` within
+    `source_duration + TRIM_TOLERANCE`. Open-ended `out` (None) resolves
+    against the asset duration.
+    """
+    for i, c in enumerate(plan.get("clips") or []):
+        ref = c.get("shot_ref") or c.get("source_ref") or f"clip_{i}"
+        asset = assets.get(ref) or {}
+        src_dur = float(asset.get("duration") or 0.0)
+        start = float(c.get("in") or 0.0)
+        end_raw = c.get("out")
+        end = float(end_raw) if end_raw is not None else (start + src_dur)
+        if start < 0:
+            raise ValueError(f"clip {i} ({ref}): negative in ({start})")
+        if end <= start:
+            raise ValueError(f"clip {i} ({ref}): bad in/out ({start}, {end_raw})")
+        if end - start < MIN_CLIP_DUR - 1e-9:
+            raise ValueError(
+                f"clip {i} ({ref}): keep at least {MIN_CLIP_DUR}s "
+                f"inside the original capture (got {end - start:.2f}s)"
+            )
+        if src_dur and end > start + src_dur + TRIM_TOLERANCE:
+            raise ValueError(
+                f"clip {i} ({ref}): trim {start:.2f}-{end:.2f}s outside "
+                f"source (0-{src_dur:.2f}s) — pick a captured range"
+            )
+        for axis in ("focus_x", "focus_y"):
+            v = float(c.get(axis, 0.5) or 0.5)
+            if not 0.0 <= v <= 1.0:
+                raise ValueError(f"clip {i} ({ref}): {axis}={v} outside 0..1")
 
 
 # ----------------------------------------------------------------- plans
@@ -254,6 +372,12 @@ def build_default_pack(
             ready, ordered=True,
             max_dur_per_clip=TEASER_PER_CLIP_CAP, total_cap=TEASER_TOTAL_CAP,
         )
+        # Beat-quantize the teaser so every cut lands on the grid and the
+        # total never drifts over the cap after rounding.
+        durs = [c["out"] - c["in"] for c in p["clips"]]
+        fitted = fit_durations_to_cap(durs, TEASER_TOTAL_CAP)
+        for c, d in zip(p["clips"], fitted):
+            c["out"] = round(c["in"] + d, 2)
         p["duration_cap"] = TEASER_TOTAL_CAP
         p["audio"] = {"mode": "silent", "voice": None, "sfx_volume": 0.35}
         p["captions"]["lines"] = _caption_lines_for(p["clips"], shots_by_ref)
@@ -392,6 +516,11 @@ def normalize_plan(plan: dict) -> dict:
         cout = float(cout) if cout is not None else None
         if cin < 0 or (cout is not None and cout <= cin):
             raise ValueError(f"clip {i}: bad in/out ({cin}, {cout})")
+        if cout is not None and cout - cin < MIN_CLIP_DUR - 1e-9:
+            raise ValueError(
+                f"clip {i}: keep at least {MIN_CLIP_DUR}s inside the "
+                f"original capture (got {cout - cin:.2f}s)"
+            )
         order = int(c.get("order", i))
         if order in seen_orders:
             raise ValueError(f"clip {i}: duplicate order {order}")
@@ -424,12 +553,20 @@ def normalize_plan(plan: dict) -> dict:
         text = str(ln.get("text") or "").strip()
         if not text:
             continue
+        # Caption truth + timing hygiene: typography windows must be
+        # positive-length; zero/negative windows are dropped (never fail a
+        # paid rendition on a caption). Text stays verbatim — no invented
+        # stats belong here; re-scope via caption_lines instead.
+        start = float(ln.get("start", 0.0))
+        end = float(ln.get("end", 0.0))
+        if end <= start:
+            continue
         lines.append(
             {
                 "clip_order": int(ln.get("clip_order", 0)),
                 "text": text[:CAPTION_MAX_CHARS],
-                "start": float(ln.get("start", 0.0)),
-                "end": float(ln.get("end", 0.0)),
+                "start": start,
+                "end": end,
             }
         )
     out["captions"] = {

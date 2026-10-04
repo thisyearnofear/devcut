@@ -50,15 +50,24 @@ def build_assets_lines(
     *,
     final_video_url: str | None = None,
     durable_url: str | None = None,
-) -> list[dict[str, str]]:
-    """Structured asset rows for UI + BRIEF Assets section."""
-    rows: list[dict[str, str]] = []
+) -> list[dict[str, Any]]:
+    """Structured asset rows for UI + BRIEF Assets section.
+
+    Per-clip credits ledger (KaushikSiva/cutroom publish pattern, wedge-scoped):
+    every row carries its generative origin, duration, and audio state so a
+    judge or builder can verify what the run produced — no YouTube/CC ledger
+    needed because DevCut only re-stitches its own captures.
+    """
+    rows: list[dict[str, Any]] = []
     for s in shots:
         idx = int(s.get("index") or 0) + 1
         beat = str(s.get("beat") or f"Shot {idx}")
         base = f"assets/devcut/{idx:02d}-{_slug(beat)}"
         still = s.get("ref_image_url")
         clip = s.get("video_url")
+        duration = s.get("duration")
+        origin = "generated:devcut/runway"
+        has_audio = bool(s.get("voiceover_url") or s.get("sfx_url"))
         if still:
             rows.append(
                 {
@@ -67,6 +76,9 @@ def build_assets_lines(
                     "path": f"{base}-still.png",
                     "url": str(still),
                     "note": "Hero still — drop into HyperFrames assets/, reference from a clip or sub-comp.",
+                    "origin": origin,
+                    "duration": None,
+                    "has_audio": False,
                 }
             )
         if clip:
@@ -77,6 +89,9 @@ def build_assets_lines(
                     "path": f"{base}-clip.mp4",
                     "url": str(clip),
                     "note": "Generative motion — use as <video> source or plate under HF HTML.",
+                    "origin": origin,
+                    "duration": duration,
+                    "has_audio": has_audio,
                 }
             )
     deliverable = durable_url or final_video_url
@@ -88,6 +103,9 @@ def build_assets_lines(
                 "path": "assets/devcut/final-cut.mp4",
                 "url": str(deliverable),
                 "note": "Stitched DevCut export — reference / Devpost upload; composition stays in HyperFrames.",
+                "origin": "stitched:devcut/ffmpeg",
+                "duration": None,
+                "has_audio": any(bool(s.get("voiceover_url") or s.get("sfx_url")) for s in shots),
             }
         )
     return rows
@@ -98,7 +116,7 @@ def build_brief_md(
     mode: DevCutMode,
     storyboard: dict[str, Any],
     shots: list[dict[str, Any]],
-    assets: list[dict[str, str]],
+    assets: list[dict[str, Any]],
 ) -> str:
     title = str(storyboard.get("title") or "DevCut handoff").strip()
     logline = str(storyboard.get("logline") or "").strip()

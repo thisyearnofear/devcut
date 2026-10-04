@@ -107,6 +107,32 @@ organizer-keyed.
 - Thesis SKU table (§5) and doors copy must be extended when this ships —
   this ADR deliberately doesn't edit the north-star doc until the SKUs exist.
 
+## Follow-up hardening (2026-10-04, verified locally: 72 agent tests OK)
+
+Wedge-scoped lessons from three sibling cutroom builds — only what sharpens
+Challenge Cut, Submit Ready, or x402 reliability; renderers, capture
+services, provider marketplaces, and Supabase/OTIO rewrites deliberately
+not taken (see chat record):
+
+- **Trim contract** (`variant_plan.validate_plan_trims`, enforced in
+  `stitcher.stitch_plan` before any download): plans may only window inside
+  existing captures (≥0.25s kept, in/out inside source +0.02 tolerance).
+  Zero-length caption windows drop instead of failing the paid job.
+- **Teaser beat-fit** (`variant_plan.fit_durations_to_cap`): over-cap teaser
+  durations scale down and quantize to a 0.4s grid via largest-remainder;
+  under-cap totals pass through untouched; no entry ever exceeds its source.
+- **Critic-lite** (`critic_lite.critique_plan`): advisory warnings only
+  (weak-open, narration-overrun @2.3w/s, caption-drift, over-cap, missing
+  sponsor lockup), appended to variant/recap record notes. Never blocks,
+  never spends generation budget.
+- **Caption truth prompts** (`storyboard_prompts`): typography cards silent,
+  re-scoped lines describe only visible benefits — no invented stats,
+  prices, or testimonials.
+- **Per-clip ledger** (`hyperframes_kit.build_assets_lines`,
+  `job_manifest.build_job_manifest`): every row carries `origin`
+  (`generated:devcut/runway` / `stitched:devcut/ffmpeg`), `duration`, and
+  `has_audio` for HF handoff verification.
+
 ## Links
 
 - Thesis: `docs/devcut-thesis.md` (§2 Jobs, §5 SKUs, §6 doors)

@@ -76,7 +76,8 @@ Built for the **Runway API Hackathon** lineage; now aimed at hackathon organizer
 - `apps/bff/src/vault.ts`: BYOK credential vault (AES-256-GCM, Postgres)
 - `apps/bff/src/organizer.ts`: Org-scoped thread list for organizer dashboard; recap-request validation
 - `apps/bff/src/thread-links.ts`: Hackathon graph edges (`devcut_thread_links` Postgres table, ADR-0005)
-- `apps/agent/src/variant_plan.py`: Variant/recap plan builders — reframe/caption/overlay plans + ASS/SRT writers
+- `apps/agent/src/variant_plan.py`: Variant/recap plan builders — reframe/caption/overlay plans + ASS/SRT writers + trim contract (`validate_plan_trims`: ≥0.25s inside source) + teaser beat-fit (`fit_durations_to_cap`, 0.4s grid, never stretches source)
+- `apps/agent/src/critic_lite.py`: Non-blocking plan warnings (weak-open, narration-overrun @2.3w/s, caption-drift, over-cap, missing lockup) — advisory on variant/recap notes, never spends or blocks
 - `apps/agent/src/recap_sources.py`: Cross-thread B2 snapshot reads for recap reels
 - `apps/bff/src/health.ts`: Liveness, readiness, WS URL rewrite, error rewriting
 - `apps/frontend/src/auth.ts`: Auth.js v5 config (GitHub OAuth, env-gated)

@@ -44,6 +44,8 @@ def build_job_manifest(
                 "still_url": s.get("ref_image_url"),
                 "clip_url": s.get("video_url"),
                 "duration": s.get("duration"),
+                "origin": "generated:devcut/runway" if s.get("video_url") else None,
+                "has_audio": bool(s.get("voiceover_url") or s.get("sfx_url")),
             }
         )
     return {

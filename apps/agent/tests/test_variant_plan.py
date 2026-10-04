@@ -12,9 +12,11 @@ from src.variant_plan import (
     build_default_pack,
     build_recap_plan,
     caption_windows,
+    fit_durations_to_cap,
     new_variant_record,
     normalize_plan,
     plan_total_duration,
+    validate_plan_trims,
     write_ass,
     write_srt,
 )
@@ -174,6 +176,55 @@ class TimingTests(unittest.TestCase):
         })
         assets = {"s0": {"duration": 5}}
         self.assertAlmostEqual(plan_total_duration(p, assets), 4.0)
+
+
+class BeatFitTests(unittest.TestCase):
+    def test_under_cap_passes_through(self) -> None:
+        self.assertEqual(fit_durations_to_cap([3.0, 3.0], 15.0), [3.0, 3.0])
+
+    def test_over_cap_quantized_and_capped(self) -> None:
+        out = fit_durations_to_cap([5.0, 5.0, 5.0, 5.0], 15.0)
+        self.assertLessEqual(sum(out), 15.0 + 1e-9)
+        for v, src in zip(out, [5.0] * 4):
+            self.assertLessEqual(v, src + 1e-9)
+            self.assertAlmostEqual(round(v / 0.4) * 0.4, v, places=6)
+
+    def test_never_stretches_beyond_source(self) -> None:
+        out = fit_durations_to_cap([3.0, 3.0], 15.0)
+        self.assertLessEqual(out[0], 3.0 + 1e-9)
+
+    def test_teaser_clips_fit_source(self) -> None:
+        shots = [
+            {"id": f"s{i}", "beat": "Proof", "video_url": f"http://x/{i}.mp4",
+             "duration": 3, "voiceover_line": "It ships."}
+            for i in range(4)
+        ]
+        teaser = build_default_pack(shots, cuts=["teaser"])[0]
+        for c in teaser["clips"]:
+            self.assertLessEqual(c["out"] - c["in"], 3.0 + 1e-9)
+
+
+class TrimValidationTests(unittest.TestCase):
+    def test_outside_source_raises(self) -> None:
+        plan = {"clips": [{"shot_ref": "s0", "in": 0.0, "out": 9.0, "order": 0}]}
+        with self.assertRaises(ValueError):
+            validate_plan_trims(plan, {"s0": {"duration": 5.0}})
+
+    def test_sub_minimum_raises(self) -> None:
+        plan = {"clips": [{"shot_ref": "s0", "in": 0.0, "out": 0.1, "order": 0}]}
+        with self.assertRaises(ValueError):
+            validate_plan_trims(plan, {"s0": {"duration": 5.0}})
+
+    def test_zero_length_caption_dropped(self) -> None:
+        p = normalize_plan({
+            "id": "c", "aspect": "1:1",
+            "clips": [{"shot_ref": "s0", "in": 0, "out": 3, "order": 0}],
+            "captions": {"lines": [
+                {"clip_order": 0, "text": "ok", "start": 0, "end": 1},
+                {"clip_order": 0, "text": "bad", "start": 2, "end": 2},
+            ]},
+        })
+        self.assertEqual(len(p["captions"]["lines"]), 1)
 
 
 class WriterTests(unittest.TestCase):

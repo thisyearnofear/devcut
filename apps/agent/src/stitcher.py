@@ -569,11 +569,15 @@ def _srt_global(plan: dict, assets: dict) -> str:
 def stitch_plan(plan: dict, assets: dict[str, dict], title: str) -> StitchResult:
     """Execute a variant plan: per-clip reframe/caption/overlay normalize,
     then concat. Re-stitch only — consumes zero generation budget."""
-    from .variant_plan import plan_total_duration, write_ass
+    from .variant_plan import plan_total_duration, validate_plan_trims, write_ass
 
     clips = plan.get("clips") or []
     if not clips:
         raise RuntimeError("variant plan has no clips")
+    try:
+        validate_plan_trims(plan, assets)
+    except ValueError as e:
+        raise RuntimeError(f"variant plan references outside its captures: {e}") from e
 
     if not stitcher_is_live():
         time.sleep(0.4)

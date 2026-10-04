@@ -1000,12 +1000,27 @@ def cut_variant_pack(
                 except Exception as exc:  # noqa: BLE001 — degrade to reuse
                     vo_note = f" (VO regen skipped: {str(exc)[:80]})"
 
+    from .critic_lite import critique_plan, warnings_note
+
     records = []
     for plan in plans:
         rec = new_variant_record(plan)
+        # Critic-lite: advisory only — never blocks the stitch, never spends.
+        try:
+            crit = warnings_note(critique_plan(plan, assets))
+        except Exception:  # noqa: BLE001 — critic must not break paid jobs
+            crit = ""
         try:
             res = _stitch_plan(plan, assets, f"{title}-{plan['id']}")
             method = resolve_caption_method(plan) if plan["captions"]["lines"] else "none"
+            note = (
+                f"captions: {method}"
+                + ("" if method != "sidecar" or not plan["captions"]["lines"]
+                   else " — this ffmpeg build has no caption filter; SRT sidecar attached")
+                + vo_note
+            )
+            if crit:
+                note = f"{note} · {crit}" if note else crit
             rec.update(
                 status="ready",
                 video_url=res.url,
@@ -1013,12 +1028,7 @@ def cut_variant_pack(
                 srt_url=res.srt_url,
                 final_sha256=res.final_sha256,
                 duration=res.duration,
-                note=(
-                    f"captions: {method}"
-                    + ("" if method != "sidecar" or not plan["captions"]["lines"]
-                       else " — this ffmpeg build has no caption filter; SRT sidecar attached")
-                    + vo_note
-                ),
+                note=note or None,
             )
         except Exception as e:  # noqa: BLE001 — one bad rendition must not kill the pack
             rec.update(status="error", error=str(e)[:300])
@@ -1133,7 +1143,16 @@ def generate_recap(
     rec = new_variant_record(plan)
     rec["label"] = f"Recap reel — {title or 'Recap'}"
     try:
+        from .critic_lite import critique_plan, warnings_note
+
+        recap_crit = warnings_note(critique_plan(plan, assets))
+    except Exception:  # noqa: BLE001 — critic must not break paid jobs
+        recap_crit = ""
+    try:
         res = _stitch_plan(plan, assets, title or "recap-reel")
+        note = f"{len(metas)} winner threads · re-stitch only"
+        if recap_crit:
+            note = f"{note} · {recap_crit}"
         rec.update(
             status="ready",
             video_url=res.url,
@@ -1141,7 +1160,7 @@ def generate_recap(
             srt_url=res.srt_url,
             final_sha256=res.final_sha256,
             duration=res.duration,
-            note=f"{len(metas)} winner threads · re-stitch only",
+            note=note,
         )
     except Exception as e:  # noqa: BLE001
         rec.update(status="error", error=str(e)[:300])
